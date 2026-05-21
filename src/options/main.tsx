@@ -1,6 +1,7 @@
 import { StrictMode, useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import { createRoot } from 'react-dom/client'
+import { t } from '../shared/i18n'
 import {
   createProfile,
   defaultSettings,
@@ -15,7 +16,7 @@ import './style.css'
 export function Options() {
   const [settings, setSettings] = useState<TranslationSettings>(defaultSettings)
   const [editingId, setEditingId] = useState(defaultSettings.activeProfileId)
-  const [status, setStatus] = useState('正在读取配置...')
+  const [status, setStatus] = useState(t('loadingSettings'))
 
   const editingProfile = useMemo(
     () =>
@@ -29,7 +30,7 @@ export function Options() {
       const nextSettings = normalizeSettings(stored)
       setSettings(nextSettings)
       setEditingId(nextSettings.activeProfileId)
-      setStatus('配置会自动同步到当前浏览器账号')
+      setStatus(t('settingsSynced'))
     })
   }, [])
 
@@ -43,7 +44,7 @@ export function Options() {
       sanitizedSettings = sanitizeSettings(nextSettings)
       await chrome.storage.sync.set(sanitizedSettings)
     } catch (error) {
-      const message = error instanceof Error ? error.message : '接口配置无效'
+      const message = error instanceof Error ? error.message : t('settingsInvalid')
       setStatus(message)
       return
     }
@@ -58,7 +59,7 @@ export function Options() {
         expected: sanitizedSettings,
         stored,
       })
-      setStatus('保存失败，请重试')
+      setStatus(t('saveFailed'))
       return
     }
 
@@ -73,7 +74,7 @@ export function Options() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    await saveSettings(settings, '已保存接口配置')
+    await saveSettings(settings, t('profileSaved'))
   }
 
   async function addProfile() {
@@ -84,7 +85,7 @@ export function Options() {
         activeProfileId: profile.id,
         displayMode: settings.displayMode,
       },
-      '已新增接口配置',
+      t('profileAdded'),
       profile.id,
     )
   }
@@ -93,7 +94,7 @@ export function Options() {
     const profile = {
       ...editingProfile,
       id: createProfile().id,
-      name: `${editingProfile.name} 副本`,
+      name: t('copySuffix', editingProfile.name),
     }
     await saveSettings(
       {
@@ -101,14 +102,14 @@ export function Options() {
         activeProfileId: profile.id,
         displayMode: settings.displayMode,
       },
-      '已复制接口配置',
+      t('profileDuplicated'),
       profile.id,
     )
   }
 
   async function removeProfile() {
     if (settings.profiles.length <= 1) {
-      setStatus('至少保留一个接口配置')
+      setStatus(t('keepOneProfile'))
       return
     }
 
@@ -120,13 +121,13 @@ export function Options() {
 
     await saveSettings(
       { profiles, activeProfileId, displayMode: settings.displayMode },
-      '已删除接口配置',
+      t('profileDeleted'),
       activeProfileId,
     )
   }
 
   async function activateProfile(profileId: string) {
-    await saveSettings({ ...settings, activeProfileId: profileId }, '已设为当前翻译接口', profileId)
+    await saveSettings({ ...settings, activeProfileId: profileId }, t('activeProfileSet'), profileId)
   }
 
   function updateProfile<Key extends keyof TranslationProfile>(
@@ -146,25 +147,25 @@ export function Options() {
       <header className="options-header">
         <div>
           <p className="eyebrow">Open Translate</p>
-          <h1>接口配置</h1>
+          <h1>{t('optionsTitle')}</h1>
         </div>
         <button type="button" onClick={addProfile}>
-          新增配置
+          {t('addProfile')}
         </button>
       </header>
 
       <div className="layout">
-        <aside className="profile-list" aria-label="接口配置列表">
+        <aside className="profile-list" aria-label={t('profileListLabel')}>
           {settings.profiles.map((profile) => (
             <button
               type="button"
               key={profile.id}
               className={profile.id === editingProfile.id ? 'active' : ''}
               onClick={() => setEditingId(profile.id)}
-              title={`${profile.name} · ${profile.model || '未设置模型'}`}
+              title={`${profile.name} · ${profile.model || t('modelUnset')}`}
             >
               <strong>{profile.name}</strong>
-              <span>模型：{profile.model || '未设置'}</span>
+              <span>{t('modelPrefix', profile.model || t('modelUnset'))}</span>
             </button>
           ))}
         </aside>
@@ -177,28 +178,28 @@ export function Options() {
               onClick={() => activateProfile(editingProfile.id)}
               disabled={settings.activeProfileId === editingProfile.id}
             >
-              设为当前
+              {t('setActive')}
             </button>
             <button type="button" className="secondary" onClick={duplicateProfile}>
-              复制
+              {t('duplicate')}
             </button>
             <button type="button" className="danger" onClick={removeProfile}>
-              删除
+              {t('delete')}
             </button>
           </div>
 
           <label>
-            <span>配置名称</span>
+            <span>{t('profileName')}</span>
             <input
               value={editingProfile.name}
               onChange={(event) => updateProfile('name', event.target.value)}
-              placeholder="例如 OpenAI、DeepSeek、内网模型"
+              placeholder={t('profileNamePlaceholder')}
               maxLength={profileFieldLimits.name}
             />
           </label>
 
           <label>
-            <span>接口地址</span>
+            <span>{t('apiBaseUrl')}</span>
             <input
               value={editingProfile.apiBaseUrl}
               onChange={(event) => updateProfile('apiBaseUrl', event.target.value)}
@@ -209,7 +210,7 @@ export function Options() {
           </label>
 
           <label>
-            <span>模型名称</span>
+            <span>{t('modelName')}</span>
             <input
               value={editingProfile.model}
               onChange={(event) => updateProfile('model', event.target.value)}
@@ -220,7 +221,7 @@ export function Options() {
           </label>
 
           <label>
-            <span>API Key</span>
+            <span>{t('apiKey')}</span>
             <input
               value={editingProfile.apiKey}
               onChange={(event) => updateProfile('apiKey', event.target.value)}
@@ -232,33 +233,33 @@ export function Options() {
           </label>
 
           <label>
-            <span>目标语言</span>
+            <span>{t('targetLanguage')}</span>
             <input
               value={editingProfile.targetLanguage}
               onChange={(event) => updateProfile('targetLanguage', event.target.value)}
-              placeholder="简体中文"
+              placeholder={t('targetLanguagePlaceholder')}
               maxLength={profileFieldLimits.targetLanguage}
             />
           </label>
 
           <label>
-            <span>自定义系统提示词</span>
+            <span>{t('customPrompt')}</span>
             <textarea
               value={editingProfile.customPrompt}
               onChange={(event) => updateProfile('customPrompt', event.target.value)}
-              placeholder="留空时使用默认翻译提示词"
+              placeholder={t('customPromptPlaceholder')}
               rows={5}
               maxLength={profileFieldLimits.customPrompt}
             />
           </label>
 
           <div className="endpoint-preview">
-            <span>请求端点</span>
+            <span>{t('endpointPreview')}</span>
             <code>{getEndpointPreview(editingProfile.apiBaseUrl)}</code>
           </div>
 
           <button type="submit" className="primary">
-            保存配置
+            {t('saveProfile')}
           </button>
 
           <p className="status-message">{status}</p>
@@ -271,7 +272,7 @@ export function Options() {
 function getEndpointPreview(apiBaseUrl: string) {
   const normalized = apiBaseUrl.trim().replace(/\/+$/, '')
   if (!normalized) {
-    return '未设置'
+    return t('endpointUnset')
   }
 
   return normalized.endsWith('/chat/completions')

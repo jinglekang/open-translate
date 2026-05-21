@@ -1,0 +1,274 @@
+{
+  "extensionName": {
+    "message": "Open Translate"
+  },
+  "extensionDescription": {
+    "message": "使用 OpenAI 兼容接口翻译选中文本或整页内容"
+  },
+  "contextMenuTranslate": {
+    "message": "翻译为目标语言"
+  },
+  "popupTitle": {
+    "message": "选择翻译接口"
+  },
+  "loadingSettings": {
+    "message": "正在读取配置..."
+  },
+  "chooseCurrentProfile": {
+    "message": "选择当前翻译接口"
+  },
+  "currentProfile": {
+    "message": "当前配置"
+  },
+  "profileSwitched": {
+    "message": "已切换当前接口"
+  },
+  "displayMode": {
+    "message": "翻译偏好"
+  },
+  "translationOnly": {
+    "message": "仅译文"
+  },
+  "bilingual": {
+    "message": "双语对照"
+  },
+  "translationOnlyEnabled": {
+    "message": "已切换为仅译文"
+  },
+  "bilingualEnabled": {
+    "message": "已切换为双语对照"
+  },
+  "manageProfiles": {
+    "message": "管理接口配置"
+  },
+  "extensionEnabled": {
+    "message": "扩展已启用"
+  },
+  "modelUnset": {
+    "message": "未设置模型"
+  },
+  "endpointUnset": {
+    "message": "未设置接口地址"
+  },
+  "optionsTitle": {
+    "message": "接口配置"
+  },
+  "addProfile": {
+    "message": "新增配置"
+  },
+  "settingsSynced": {
+    "message": "配置会自动同步到当前浏览器账号"
+  },
+  "settingsInvalid": {
+    "message": "接口配置无效"
+  },
+  "saveFailed": {
+    "message": "保存失败，请重试"
+  },
+  "profileSaved": {
+    "message": "已保存接口配置"
+  },
+  "profileAdded": {
+    "message": "已新增接口配置"
+  },
+  "profileDuplicated": {
+    "message": "已复制接口配置"
+  },
+  "keepOneProfile": {
+    "message": "至少保留一个接口配置"
+  },
+  "profileDeleted": {
+    "message": "已删除接口配置"
+  },
+  "activeProfileSet": {
+    "message": "已设为当前翻译接口"
+  },
+  "setActive": {
+    "message": "设为当前"
+  },
+  "duplicate": {
+    "message": "复制"
+  },
+  "delete": {
+    "message": "删除"
+  },
+  "profileListLabel": {
+    "message": "接口配置列表"
+  },
+  "profileName": {
+    "message": "配置名称"
+  },
+  "profileNameRequired": {
+    "message": "请填写配置名称"
+  },
+  "profileNameTooLong": {
+    "message": "配置名称不能超过 $LIMIT$ 个字符",
+    "placeholders": {
+      "limit": {
+        "content": "$1"
+      }
+    }
+  },
+  "profileNamePlaceholder": {
+    "message": "例如 OpenAI、DeepSeek、内网模型"
+  },
+  "apiBaseUrl": {
+    "message": "接口地址"
+  },
+  "apiBaseUrlRequired": {
+    "message": "请填写接口地址"
+  },
+  "apiBaseUrlTooLong": {
+    "message": "接口地址不能超过 $LIMIT$ 个字符",
+    "placeholders": {
+      "limit": {
+        "content": "$1"
+      }
+    }
+  },
+  "modelName": {
+    "message": "模型名称"
+  },
+  "modelNameRequired": {
+    "message": "请填写模型名称"
+  },
+  "modelNameTooLong": {
+    "message": "模型名称不能超过 $LIMIT$ 个字符",
+    "placeholders": {
+      "limit": {
+        "content": "$1"
+      }
+    }
+  },
+  "apiKey": {
+    "message": "API Key"
+  },
+  "apiKeyTooLong": {
+    "message": "API Key 不能超过 $LIMIT$ 个字符",
+    "placeholders": {
+      "limit": {
+        "content": "$1"
+      }
+    }
+  },
+  "targetLanguage": {
+    "message": "目标语言"
+  },
+  "targetLanguageRequired": {
+    "message": "请填写目标语言"
+  },
+  "targetLanguageTooLong": {
+    "message": "目标语言不能超过 $LIMIT$ 个字符",
+    "placeholders": {
+      "limit": {
+        "content": "$1"
+      }
+    }
+  },
+  "targetLanguagePlaceholder": {
+    "message": "简体中文"
+  },
+  "customPrompt": {
+    "message": "自定义系统提示词"
+  },
+  "customPromptTooLong": {
+    "message": "自定义系统提示词不能超过 $LIMIT$ 个字符",
+    "placeholders": {
+      "limit": {
+        "content": "$1"
+      }
+    }
+  },
+  "customPromptPlaceholder": {
+    "message": "留空时使用默认翻译提示词"
+  },
+  "endpointPreview": {
+    "message": "请求端点"
+  },
+  "saveProfile": {
+    "message": "保存配置"
+  },
+  "modelPrefix": {
+    "message": "模型：$MODEL$",
+    "placeholders": {
+      "model": {
+        "content": "$1"
+      }
+    }
+  },
+  "untitledProfile": {
+    "message": "未命名配置"
+  },
+  "defaultProfileName": {
+    "message": "默认 OpenAI"
+  },
+  "newProfileName": {
+    "message": "新的接口配置"
+  },
+  "copySuffix": {
+    "message": "$NAME$ 副本",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "translatingSelection": {
+    "message": "正在翻译选中文本..."
+  },
+  "selectionTranslated": {
+    "message": "选中文本已翻译"
+  },
+  "selectionNotFound": {
+    "message": "没有找到可显示的选中文本"
+  },
+  "translationFailed": {
+    "message": "翻译失败"
+  },
+  "collectingPageText": {
+    "message": "正在收集页面文本..."
+  },
+  "pageTextNotFound": {
+    "message": "当前页面没有可翻译的可见文本"
+  },
+  "translatingPageBatch": {
+    "message": "正在翻译整页内容 $CURRENT$/$TOTAL$...",
+    "placeholders": {
+      "current": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
+  "pageTranslated": {
+    "message": "整页翻译完成"
+  },
+  "emptyTranslationResponse": {
+    "message": "接口没有返回可用的翻译结果"
+  },
+  "invalidBatchResponse": {
+    "message": "接口返回的整页翻译格式不正确"
+  },
+  "apiRequestFailed": {
+    "message": "接口请求失败：$DETAIL$",
+    "placeholders": {
+      "detail": {
+        "content": "$1"
+      }
+    }
+  },
+  "missingApiBaseUrl": {
+    "message": "请先在选项页填写接口地址"
+  },
+  "missingModel": {
+    "message": "请先在选项页填写模型名称"
+  },
+  "missingApiKey": {
+    "message": "请先在选项页填写 API Key"
+  },
+  "close": {
+    "message": "关闭"
+  }
+}

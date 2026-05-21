@@ -1,3 +1,4 @@
+import { t } from '../shared/i18n'
 import { getActiveProfile, normalizeSettings, validateProfileForUse } from '../shared/settings'
 import type { TranslationDisplayMode, TranslationProfile, TranslationSettings } from '../shared/settings'
 
@@ -38,7 +39,7 @@ const CACHE_KEY_PREFIX = "open-translate-cache";
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
     id: MENU_ID,
-    title: "翻译为目标语言",
+    title: t("contextMenuTranslate"),
     contexts: ["page", "selection"],
   });
 });
@@ -60,7 +61,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 
     await translatePage(tab.id, profile, settings.displayMode);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "翻译失败";
+    const message = error instanceof Error ? error.message : t("translationFailed");
       await showInlineNotice(tab.id, message, "error");
   }
 });
@@ -71,7 +72,7 @@ async function translateSelection(
   profile: TranslationProfile,
   displayMode: TranslationDisplayMode,
 ) {
-  await showInlineNotice(tabId, "正在翻译选中文本...", "loading");
+  await showInlineNotice(tabId, t("translatingSelection"), "loading");
   const translatedText = await translateText(selectedText, profile);
 
   const [{ result: didShow }] = await chrome.scripting.executeScript({
@@ -82,7 +83,7 @@ async function translateSelection(
 
   await showInlineNotice(
     tabId,
-    didShow ? "选中文本已翻译" : "没有找到可显示的选中文本",
+    didShow ? t("selectionTranslated") : t("selectionNotFound"),
     didShow ? "success" : "error",
   );
 }
@@ -92,7 +93,7 @@ async function translatePage(
   profile: TranslationProfile,
   displayMode: TranslationDisplayMode,
 ) {
-  await showInlineNotice(tabId, "正在收集页面文本...", "loading");
+  await showInlineNotice(tabId, t("collectingPageText"), "loading");
 
   const [{ result: textNodes = [] }] = await chrome.scripting.executeScript<
     [number],
@@ -104,7 +105,7 @@ async function translatePage(
   });
 
   if (!textNodes.length) {
-    throw new Error("当前页面没有可翻译的可见文本");
+    throw new Error(t("pageTextNotFound"));
   }
 
   const batches = createBatches(textNodes, MAX_BATCH_CHARS);
@@ -113,7 +114,7 @@ async function translatePage(
   for (const batch of batches) {
     await showInlineNotice(
       tabId,
-      `正在翻译整页内容 ${completed + 1}/${batches.length}...`,
+      t("translatingPageBatch", [String(completed + 1), String(batches.length)]),
       "loading",
     );
 
@@ -137,7 +138,7 @@ async function translatePage(
     completed += 1;
   }
 
-  await showInlineNotice(tabId, "整页翻译完成", "success");
+  await showInlineNotice(tabId, t("pageTranslated"), "success");
 }
 
 async function getCurrentSettings(): Promise<TranslationSettings> {
@@ -158,7 +159,7 @@ async function translateText(sourceText: string, profile: TranslationProfile) {
 
   const translatedText = payload?.choices?.[0]?.message?.content?.trim();
   if (!translatedText) {
-    throw new Error("接口没有返回可用的翻译结果");
+    throw new Error(t("emptyTranslationResponse"));
   }
 
   await cacheTranslation(sourceText, translatedText, profile);
@@ -184,23 +185,23 @@ async function translateTextList(texts: string[], profile: TranslationProfile) {
       role: "system",
       content: `${getSystemPrompt(profile)}
 
-你会收到一个 JSON 字符串数组。请逐项翻译数组中的文本，并只返回 JSON 字符串数组。
-要求：
-1. 返回数组长度必须与输入一致。
-2. 不要返回 Markdown，不要包裹代码块。
-3. 保留数字、URL、邮箱、代码片段和多余空白。`,
+You will receive a JSON string array. Translate each item in the array and return only a JSON string array.
+Requirements:
+1. The returned array length must exactly match the input array length.
+2. Do not return Markdown or wrap the result in a code block.
+3. Preserve numbers, URLs, email addresses, code snippets, and extra whitespace.`,
     },
     { role: "user", content: JSON.stringify(missingItems.map((item) => item.text)) },
   ]);
 
   const rawContent = payload?.choices?.[0]?.message?.content?.trim();
   if (!rawContent) {
-    throw new Error("接口没有返回可用的翻译结果");
+    throw new Error(t("emptyTranslationResponse"));
   }
 
   const parsed = parseJsonArray(rawContent);
   if (!Array.isArray(parsed) || parsed.length !== missingItems.length) {
-    throw new Error("接口返回的整页翻译格式不正确");
+    throw new Error(t("invalidBatchResponse"));
   }
 
   const translatedMissingItems = parsed.map((item) => String(item));
@@ -306,7 +307,7 @@ async function requestChatCompletions(
       payload?.error?.message ||
       payload?.message ||
       `${response.status} ${response.statusText}`;
-    throw new Error(`接口请求失败：${detail}`);
+    throw new Error(t("apiRequestFailed", detail));
   }
 
   return payload;
@@ -315,7 +316,7 @@ async function requestChatCompletions(
 function getSystemPrompt(profile: TranslationProfile) {
   return (
     profile.customPrompt.trim() ||
-    `你是专业翻译助手。请将用户提供的文本翻译为${profile.targetLanguage}，保留原文格式、专有名词和代码块。只输出译文，不要解释。`
+    `You are a professional translation assistant. Translate the user's text into ${profile.targetLanguage}. Preserve the original formatting, proper nouns, and code blocks. Output only the translation without explanations.`
   );
 }
 
@@ -325,7 +326,7 @@ function parseJsonArray(content: string): unknown {
   } catch {
     const match = content.match(/\[[\s\S]*\]/);
     if (!match) {
-      throw new Error("接口返回的整页翻译格式不正确");
+      throw new Error(t("invalidBatchResponse"));
     }
 
     return JSON.parse(match[0]);
@@ -588,7 +589,7 @@ function renderSelectionTranslationPanel(
   const closeButton = document.createElement("button");
   closeButton.type = "button";
   closeButton.textContent = "×";
-  closeButton.title = "关闭";
+  closeButton.title = t("close");
   closeButton.addEventListener("click", () => panel.remove());
 
   panel.append(content, closeButton);

@@ -1,0 +1,274 @@
+{
+  "extensionName": {
+    "message": "Open Translate"
+  },
+  "extensionDescription": {
+    "message": "Translate selected text or full pages with OpenAI-compatible models."
+  },
+  "contextMenuTranslate": {
+    "message": "Translate to target language"
+  },
+  "popupTitle": {
+    "message": "Choose Translator"
+  },
+  "loadingSettings": {
+    "message": "Loading settings..."
+  },
+  "chooseCurrentProfile": {
+    "message": "Choose the active translator"
+  },
+  "currentProfile": {
+    "message": "Current profile"
+  },
+  "profileSwitched": {
+    "message": "Active profile switched"
+  },
+  "displayMode": {
+    "message": "Display preference"
+  },
+  "translationOnly": {
+    "message": "Translation only"
+  },
+  "bilingual": {
+    "message": "Bilingual"
+  },
+  "translationOnlyEnabled": {
+    "message": "Switched to translation only"
+  },
+  "bilingualEnabled": {
+    "message": "Switched to bilingual"
+  },
+  "manageProfiles": {
+    "message": "Manage API profiles"
+  },
+  "extensionEnabled": {
+    "message": "Extension enabled"
+  },
+  "modelUnset": {
+    "message": "Model not set"
+  },
+  "endpointUnset": {
+    "message": "Endpoint not set"
+  },
+  "optionsTitle": {
+    "message": "API Profiles"
+  },
+  "addProfile": {
+    "message": "Add Profile"
+  },
+  "settingsSynced": {
+    "message": "Settings sync with your browser account"
+  },
+  "settingsInvalid": {
+    "message": "Invalid API profile"
+  },
+  "saveFailed": {
+    "message": "Save failed. Please try again."
+  },
+  "profileSaved": {
+    "message": "API profile saved"
+  },
+  "profileAdded": {
+    "message": "API profile added"
+  },
+  "profileDuplicated": {
+    "message": "API profile duplicated"
+  },
+  "keepOneProfile": {
+    "message": "Keep at least one API profile"
+  },
+  "profileDeleted": {
+    "message": "API profile deleted"
+  },
+  "activeProfileSet": {
+    "message": "Set as active translator"
+  },
+  "setActive": {
+    "message": "Set Active"
+  },
+  "duplicate": {
+    "message": "Duplicate"
+  },
+  "delete": {
+    "message": "Delete"
+  },
+  "profileListLabel": {
+    "message": "API profile list"
+  },
+  "profileName": {
+    "message": "Profile name"
+  },
+  "profileNameRequired": {
+    "message": "Please enter a profile name"
+  },
+  "profileNameTooLong": {
+    "message": "Profile name must be $LIMIT$ characters or fewer",
+    "placeholders": {
+      "limit": {
+        "content": "$1"
+      }
+    }
+  },
+  "profileNamePlaceholder": {
+    "message": "For example: OpenAI, DeepSeek, Internal Model"
+  },
+  "apiBaseUrl": {
+    "message": "API base URL"
+  },
+  "apiBaseUrlRequired": {
+    "message": "Please enter an API base URL"
+  },
+  "apiBaseUrlTooLong": {
+    "message": "API base URL must be $LIMIT$ characters or fewer",
+    "placeholders": {
+      "limit": {
+        "content": "$1"
+      }
+    }
+  },
+  "modelName": {
+    "message": "Model name"
+  },
+  "modelNameRequired": {
+    "message": "Please enter a model name"
+  },
+  "modelNameTooLong": {
+    "message": "Model name must be $LIMIT$ characters or fewer",
+    "placeholders": {
+      "limit": {
+        "content": "$1"
+      }
+    }
+  },
+  "apiKey": {
+    "message": "API Key"
+  },
+  "apiKeyTooLong": {
+    "message": "API Key must be $LIMIT$ characters or fewer",
+    "placeholders": {
+      "limit": {
+        "content": "$1"
+      }
+    }
+  },
+  "targetLanguage": {
+    "message": "Target language"
+  },
+  "targetLanguageRequired": {
+    "message": "Please enter a target language"
+  },
+  "targetLanguageTooLong": {
+    "message": "Target language must be $LIMIT$ characters or fewer",
+    "placeholders": {
+      "limit": {
+        "content": "$1"
+      }
+    }
+  },
+  "targetLanguagePlaceholder": {
+    "message": "Simplified Chinese"
+  },
+  "customPrompt": {
+    "message": "Custom system prompt"
+  },
+  "customPromptTooLong": {
+    "message": "Custom system prompt must be $LIMIT$ characters or fewer",
+    "placeholders": {
+      "limit": {
+        "content": "$1"
+      }
+    }
+  },
+  "customPromptPlaceholder": {
+    "message": "Leave blank to use the default translation prompt"
+  },
+  "endpointPreview": {
+    "message": "Request endpoint"
+  },
+  "saveProfile": {
+    "message": "Save Profile"
+  },
+  "modelPrefix": {
+    "message": "Model: $MODEL$",
+    "placeholders": {
+      "model": {
+        "content": "$1"
+      }
+    }
+  },
+  "untitledProfile": {
+    "message": "Untitled profile"
+  },
+  "defaultProfileName": {
+    "message": "Default OpenAI"
+  },
+  "newProfileName": {
+    "message": "New API profile"
+  },
+  "copySuffix": {
+    "message": "$NAME$ copy",
+    "placeholders": {
+      "name": {
+        "content": "$1"
+      }
+    }
+  },
+  "translatingSelection": {
+    "message": "Translating selected text..."
+  },
+  "selectionTranslated": {
+    "message": "Selected text translated"
+  },
+  "selectionNotFound": {
+    "message": "No selected text found"
+  },
+  "translationFailed": {
+    "message": "Translation failed"
+  },
+  "collectingPageText": {
+    "message": "Collecting page text..."
+  },
+  "pageTextNotFound": {
+    "message": "No visible translatable text found on this page"
+  },
+  "translatingPageBatch": {
+    "message": "Translating page content $CURRENT$/$TOTAL$...",
+    "placeholders": {
+      "current": {
+        "content": "$1"
+      },
+      "total": {
+        "content": "$2"
+      }
+    }
+  },
+  "pageTranslated": {
+    "message": "Page translation complete"
+  },
+  "emptyTranslationResponse": {
+    "message": "The API did not return a usable translation"
+  },
+  "invalidBatchResponse": {
+    "message": "The API returned an invalid full-page translation format"
+  },
+  "apiRequestFailed": {
+    "message": "API request failed: $DETAIL$",
+    "placeholders": {
+      "detail": {
+        "content": "$1"
+      }
+    }
+  },
+  "missingApiBaseUrl": {
+    "message": "Please enter an API base URL in Options first"
+  },
+  "missingModel": {
+    "message": "Please enter a model name in Options first"
+  },
+  "missingApiKey": {
+    "message": "Please enter an API Key in Options first"
+  },
+  "close": {
+    "message": "Close"
+  }
+}

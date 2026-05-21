@@ -1,12 +1,13 @@
 import { StrictMode, useEffect, useMemo, useState } from 'react'
 import { createRoot } from 'react-dom/client'
+import { t } from '../shared/i18n'
 import { getActiveProfile, normalizeSettings } from '../shared/settings'
 import type { TranslationDisplayMode, TranslationSettings } from '../shared/settings'
 import './style.css'
 
 export function Popup() {
   const [settings, setSettings] = useState<TranslationSettings | null>(null)
-  const [status, setStatus] = useState('正在读取配置...')
+  const [status, setStatus] = useState(t('loadingSettings'))
 
   const activeProfile = useMemo(
     () => (settings ? getActiveProfile(settings) : null),
@@ -17,7 +18,7 @@ export function Popup() {
     chrome.storage.sync.get(null).then((stored) => {
       const nextSettings = normalizeSettings(stored)
       setSettings(nextSettings)
-      setStatus('选择当前翻译接口')
+      setStatus(t('chooseCurrentProfile'))
     })
   }, [])
 
@@ -29,7 +30,7 @@ export function Popup() {
     const nextSettings = { ...settings, activeProfileId: profileId }
     setSettings(nextSettings)
     await chrome.storage.sync.set({ activeProfileId: profileId })
-    setStatus('已切换当前接口')
+    setStatus(t('profileSwitched'))
   }
 
   async function handleDisplayModeChange(displayMode: TranslationDisplayMode) {
@@ -40,7 +41,7 @@ export function Popup() {
     const nextSettings = { ...settings, displayMode }
     setSettings(nextSettings)
     await chrome.storage.sync.set({ displayMode })
-    setStatus(displayMode === 'translation' ? '已切换为仅译文' : '已切换为双语对照')
+    setStatus(displayMode === 'translation' ? t('translationOnlyEnabled') : t('bilingualEnabled'))
   }
 
   async function openOptionsPage() {
@@ -52,15 +53,15 @@ export function Popup() {
       <header className="popup-header">
         <div>
           <p className="eyebrow">Open Translate</p>
-          <h1>选择翻译接口</h1>
+          <h1>{t('popupTitle')}</h1>
         </div>
-        <span className="status-dot" aria-label="扩展已启用" />
+        <span className="status-dot" aria-label={t('extensionEnabled')} />
       </header>
 
       {settings && (
         <section className="switcher">
           <label>
-            <span>当前配置</span>
+            <span>{t('currentProfile')}</span>
             <select
               value={settings.activeProfileId}
               onChange={(event) => handleProfileChange(event.target.value)}
@@ -75,34 +76,34 @@ export function Popup() {
 
           <div className="profile-card">
             <strong>{activeProfile?.name}</strong>
-            <span>{activeProfile?.model || '未设置模型'}</span>
+            <span>{activeProfile?.model || t('modelUnset')}</span>
             <code title={getEndpointPreview(activeProfile?.apiBaseUrl || '')}>
               {getEndpointPreview(activeProfile?.apiBaseUrl || '')}
             </code>
           </div>
 
           <fieldset className="display-mode">
-            <legend>翻译偏好</legend>
+            <legend>{t('displayMode')}</legend>
             <div>
               <button
                 type="button"
                 className={settings.displayMode === 'translation' ? 'active' : ''}
                 onClick={() => handleDisplayModeChange('translation')}
               >
-                仅译文
+                {t('translationOnly')}
               </button>
               <button
                 type="button"
                 className={settings.displayMode === 'bilingual' ? 'active' : ''}
                 onClick={() => handleDisplayModeChange('bilingual')}
               >
-                双语对照
+                {t('bilingual')}
               </button>
             </div>
           </fieldset>
 
           <button type="button" className="manage-button" onClick={openOptionsPage}>
-            管理接口配置
+            {t('manageProfiles')}
           </button>
         </section>
       )}
@@ -115,7 +116,7 @@ export function Popup() {
 function getEndpointPreview(apiBaseUrl: string) {
   const normalized = apiBaseUrl.trim().replace(/\/+$/, '')
   if (!normalized) {
-    return '未设置接口地址'
+    return t('endpointUnset')
   }
 
   return normalized.endsWith('/chat/completions')

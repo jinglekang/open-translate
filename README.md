@@ -15,6 +15,7 @@ Open Translate 是一个开源 Chrome 翻译插件，支持配置 OpenAI 兼容�
 - 未选中文本时通过右键菜单翻译当前页面可见文本
 - 整页翻译支持仅译文替换或双语对照显示
 - 使用本地缓存，相同原文和相同配置下会优先复用缓存译文
+- 支持 Chrome 扩展国际化，目前内置简体中文和英文
 
 ## 开发
 
@@ -31,6 +32,7 @@ pnpm build
 - `src/options/index.html` 作为插件选项页入口，`src/options/main.tsx` 维护多套接口配置
 - `src/background/index.ts` 作为 Chrome MV3 后台脚本入口，构建后固定输出为 `dist/service-worker.js`
 - `src/shared/settings.ts` 维护配置 schema、zod 校验、旧配置迁移和默认值
+- `public/_locales` 维护 Chrome 扩展国际化文案
 
 ## 安装到 Chrome
 

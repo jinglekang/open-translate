@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { t } from './i18n'
 
 const trimmedString = z.string().trim()
 
@@ -17,34 +18,34 @@ export type TranslationDisplayMode = z.infer<typeof translationDisplayModeSchema
 export const translationProfileSchema = z.object({
   id: trimmedString.min(1),
   name: trimmedString
-    .min(1, '请填写配置名称')
-    .max(profileFieldLimits.name, `配置名称不能超过 ${profileFieldLimits.name} 个字符`)
-    .catch('未命名配置'),
+    .min(1, t('profileNameRequired'))
+    .max(profileFieldLimits.name, t('profileNameTooLong', String(profileFieldLimits.name)))
+    .catch(t('untitledProfile')),
   apiBaseUrl: trimmedString
-    .min(1, '请填写接口地址')
+    .min(1, t('apiBaseUrlRequired'))
     .max(
       profileFieldLimits.apiBaseUrl,
-      `接口地址不能超过 ${profileFieldLimits.apiBaseUrl} 个字符`,
+      t('apiBaseUrlTooLong', String(profileFieldLimits.apiBaseUrl)),
     )
     .catch('https://api.openai.com/v1'),
   model: trimmedString
-    .min(1, '请填写模型名称')
-    .max(profileFieldLimits.model, `模型名称不能超过 ${profileFieldLimits.model} 个字符`)
+    .min(1, t('modelNameRequired'))
+    .max(profileFieldLimits.model, t('modelNameTooLong', String(profileFieldLimits.model)))
     .catch('gpt-4o-mini'),
   apiKey: trimmedString
-    .max(profileFieldLimits.apiKey, `API Key 不能超过 ${profileFieldLimits.apiKey} 个字符`)
+    .max(profileFieldLimits.apiKey, t('apiKeyTooLong', String(profileFieldLimits.apiKey)))
     .catch(''),
   targetLanguage: trimmedString
-    .min(1, '请填写目标语言')
+    .min(1, t('targetLanguageRequired'))
     .max(
       profileFieldLimits.targetLanguage,
-      `目标语言不能超过 ${profileFieldLimits.targetLanguage} 个字符`,
+      t('targetLanguageTooLong', String(profileFieldLimits.targetLanguage)),
     )
     .catch('简体中文'),
   customPrompt: trimmedString
     .max(
       profileFieldLimits.customPrompt,
-      `自定义系统提示词不能超过 ${profileFieldLimits.customPrompt} 个字符`,
+      t('customPromptTooLong', String(profileFieldLimits.customPrompt)),
     )
     .catch(''),
 })
@@ -74,7 +75,7 @@ export type TranslationSettings = z.infer<typeof translationSettingsSchema>
 
 export const defaultProfile: TranslationProfile = {
   id: 'default',
-  name: '默认 OpenAI',
+  name: t('defaultProfileName'),
   apiBaseUrl: 'https://api.openai.com/v1',
   model: 'gpt-4o-mini',
   apiKey: '',
@@ -100,7 +101,7 @@ export function createProfile(): TranslationProfile {
   return {
     ...defaultProfile,
     id: `profile-${Date.now()}-${Math.random().toString(16).slice(2)}`,
-    name: '新的接口配置',
+    name: t('newProfileName'),
     apiKey: '',
   }
 }
@@ -143,29 +144,29 @@ export function sanitizeSettings(settings: TranslationSettings): TranslationSett
     return settingsResult.data
   }
 
-  throw new Error(settingsResult.error.issues[0]?.message || '接口配置无效')
+  throw new Error(settingsResult.error.issues[0]?.message || t('settingsInvalid'))
 }
 
 export function validateProfileForUse(profile: TranslationProfile) {
   const result = translationProfileSchema
     .extend({
       apiBaseUrl: trimmedString
-        .min(1, '请先在选项页填写接口地址')
+        .min(1, t('missingApiBaseUrl'))
         .max(
           profileFieldLimits.apiBaseUrl,
-          `接口地址不能超过 ${profileFieldLimits.apiBaseUrl} 个字符`,
+          t('apiBaseUrlTooLong', String(profileFieldLimits.apiBaseUrl)),
         ),
       model: trimmedString
-        .min(1, '请先在选项页填写模型名称')
-        .max(profileFieldLimits.model, `模型名称不能超过 ${profileFieldLimits.model} 个字符`),
+        .min(1, t('missingModel'))
+        .max(profileFieldLimits.model, t('modelNameTooLong', String(profileFieldLimits.model))),
       apiKey: trimmedString
-        .min(1, '请先在选项页填写 API Key')
-        .max(profileFieldLimits.apiKey, `API Key 不能超过 ${profileFieldLimits.apiKey} 个字符`),
+        .min(1, t('missingApiKey'))
+        .max(profileFieldLimits.apiKey, t('apiKeyTooLong', String(profileFieldLimits.apiKey))),
     })
     .safeParse(profile)
 
   if (!result.success) {
-    throw new Error(result.error.issues[0]?.message || '接口配置无效')
+    throw new Error(result.error.issues[0]?.message || t('settingsInvalid'))
   }
 
   return result.data as TranslationProfile
