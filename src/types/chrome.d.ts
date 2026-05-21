@@ -25,6 +25,10 @@ declare namespace chrome {
     } | undefined
 
     function sendMessage(message: unknown, responseCallback?: (response?: unknown) => void): void
+
+    const onStartup: {
+      addListener(callback: () => void): void
+    }
   }
 
   namespace i18n {
@@ -48,6 +52,13 @@ declare namespace chrome {
       title: string
       contexts: ContextType[]
     }): void
+
+    function update(
+      id: string,
+      updateProperties: {
+        title?: string
+      },
+    ): Promise<void>
 
     const onClicked: {
       addListener(callback: (info: OnClickData, tab?: Tab) => void): void
@@ -85,6 +96,17 @@ declare namespace chrome {
     namespace local {
       function get(keys: string[] | string | null): Promise<StorageItems>
       function set(items: StorageItems): Promise<void>
+    }
+
+    type StorageChange = {
+      oldValue?: unknown
+      newValue?: unknown
+    }
+
+    const onChanged: {
+      addListener(
+        callback: (changes: Record<string, StorageChange>, areaName: 'sync' | 'local') => void,
+      ): void
     }
   }
 }

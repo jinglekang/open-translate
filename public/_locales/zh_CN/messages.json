@@ -5,11 +5,21 @@
   "extensionDescription": {
     "message": "使用 OpenAI 兼容接口翻译选中文本或整页内容"
   },
-  "contextMenuTranslate": {
-    "message": "翻译为目标语言"
+  "contextMenuTranslateToLanguage": {
+    "message": "翻译成$LANGUAGE$",
+    "placeholders": {
+      "language": {
+        "content": "$1"
+      }
+    }
   },
-  "contextMenuTranslateSelection": {
-    "message": "翻译：“%s”"
+  "contextMenuTranslateSelectionToLanguage": {
+    "message": "翻译“%s”为$LANGUAGE$",
+    "placeholders": {
+      "language": {
+        "content": "$1"
+      }
+    }
   },
   "popupTitle": {
     "message": "选择翻译接口"

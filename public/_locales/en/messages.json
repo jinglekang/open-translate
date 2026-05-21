@@ -5,11 +5,21 @@
   "extensionDescription": {
     "message": "Translate selected text or full pages with OpenAI-compatible models."
   },
-  "contextMenuTranslate": {
-    "message": "Translate to target language"
+  "contextMenuTranslateToLanguage": {
+    "message": "Translate to $LANGUAGE$",
+    "placeholders": {
+      "language": {
+        "content": "$1"
+      }
+    }
   },
-  "contextMenuTranslateSelection": {
-    "message": "Translate \"%s\""
+  "contextMenuTranslateSelectionToLanguage": {
+    "message": "Translate \"%s\" to $LANGUAGE$",
+    "placeholders": {
+      "language": {
+        "content": "$1"
+      }
+    }
   },
   "popupTitle": {
     "message": "Choose Translator"

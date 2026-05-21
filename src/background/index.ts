@@ -45,14 +45,28 @@ const CACHE_KEY_PREFIX = "open-translate-cache";
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
     id: PAGE_MENU_ID,
-    title: t("contextMenuTranslate"),
+    title: t("contextMenuTranslateToLanguage", getDefaultTargetLanguage()),
     contexts: ["page"],
   });
   chrome.contextMenus.create({
     id: SELECTION_MENU_ID,
-    title: t("contextMenuTranslateSelection"),
+    title: t("contextMenuTranslateSelectionToLanguage", getDefaultTargetLanguage()),
     contexts: ["selection"],
   });
+  void updateContextMenuTitles();
+});
+
+chrome.runtime.onStartup.addListener(() => {
+  void updateContextMenuTitles();
+});
+
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (
+    areaName === "sync" &&
+    (changes.profiles || changes.activeProfileId || changes.targetLanguage)
+  ) {
+    void updateContextMenuTitles();
+  }
 });
 
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
@@ -76,7 +90,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     await translatePage(tab.id, profile, settings.displayMode);
   } catch (error) {
     const message = error instanceof Error ? error.message : t("translationFailed");
-      await showInlineNotice(tab.id, message, "error");
+    await showInlineNotice(tab.id, message, "error");
   }
 });
 
@@ -179,6 +193,24 @@ async function translatePage(
 async function getCurrentSettings(): Promise<TranslationSettings> {
   const stored = await chrome.storage.sync.get(null);
   return normalizeSettings(stored);
+}
+
+async function updateContextMenuTitles() {
+  const settings = await getCurrentSettings();
+  const targetLanguage = getActiveProfile(settings).targetLanguage || getDefaultTargetLanguage();
+
+  await Promise.allSettled([
+    chrome.contextMenus.update(PAGE_MENU_ID, {
+      title: t("contextMenuTranslateToLanguage", targetLanguage),
+    }),
+    chrome.contextMenus.update(SELECTION_MENU_ID, {
+      title: t("contextMenuTranslateSelectionToLanguage", targetLanguage),
+    }),
+  ]);
+}
+
+function getDefaultTargetLanguage() {
+  return t("targetLanguagePlaceholder");
 }
 
 async function translateDynamicTexts(texts: string[]) {
