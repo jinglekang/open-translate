@@ -68,16 +68,16 @@ async function translateSelection(
   await showInlineNotice(tabId, "正在翻译选中文本...", false);
   const translatedText = await translateText(selectedText, profile);
 
-  const [{ result: didReplace }] = await chrome.scripting.executeScript({
+  const [{ result: didShow }] = await chrome.scripting.executeScript({
     target: { tabId },
-    func: replaceCurrentSelection,
+    func: renderSelectionTranslationPanel,
     args: [translatedText],
   });
 
   await showInlineNotice(
     tabId,
-    didReplace ? "选中文本已翻译" : "没有找到可替换的选中文本",
-    !didReplace,
+    didShow ? "选中文本已翻译" : "没有找到可显示的选中文本",
+    !didShow,
   );
 }
 
@@ -472,16 +472,81 @@ function replacePageTextNodes(replacements: TextReplacement[]) {
   }
 }
 
-function replaceCurrentSelection(translatedText: string) {
+function renderSelectionTranslationPanel(translatedText: string) {
   const selection = window.getSelection();
   if (!selection || selection.rangeCount === 0) {
     return false;
   }
 
   const range = selection.getRangeAt(0);
-  range.deleteContents();
-  range.insertNode(document.createTextNode(translatedText));
-  selection.removeAllRanges();
+  const rect = range.getBoundingClientRect();
+  if (!rect.width && !rect.height) {
+    return false;
+  }
+
+  document.querySelector("[data-open-translate-selection-panel]")?.remove();
+
+  const panel = document.createElement("section");
+  panel.dataset.openTranslateSelectionPanel = "true";
+  panel.setAttribute("role", "dialog");
+  panel.setAttribute("aria-live", "polite");
+
+  const content = document.createElement("div");
+  content.textContent = translatedText;
+
+  const closeButton = document.createElement("button");
+  closeButton.type = "button";
+  closeButton.textContent = "×";
+  closeButton.title = "关闭";
+  closeButton.addEventListener("click", () => panel.remove());
+
+  panel.append(content, closeButton);
+  panel.style.cssText = `
+    position: fixed;
+    z-index: 2147483647;
+    width: min(360px, calc(100vw - 24px));
+    max-height: min(280px, calc(100vh - 24px));
+    overflow: auto;
+    padding: 12px 42px 12px 14px;
+    color: #172033;
+    background: #ffffff;
+    border: 1px solid #d8dde8;
+    border-radius: 8px;
+    box-shadow: 0 14px 36px rgba(17, 24, 39, 0.2);
+    font: 14px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    white-space: pre-wrap;
+    word-break: break-word;
+  `;
+  closeButton.style.cssText = `
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 28px;
+    height: 28px;
+    border: 0;
+    border-radius: 6px;
+    color: #64748b;
+    background: transparent;
+    font: 18px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    cursor: pointer;
+  `;
+
+  document.documentElement.append(panel);
+
+  const panelRect = panel.getBoundingClientRect();
+  const spacing = 8;
+  const preferredTop = rect.bottom + spacing;
+  const top =
+    preferredTop + panelRect.height <= window.innerHeight - spacing
+      ? preferredTop
+      : Math.max(spacing, rect.top - panelRect.height - spacing);
+  const left = Math.min(
+    Math.max(spacing, rect.left),
+    window.innerWidth - panelRect.width - spacing,
+  );
+
+  panel.style.top = `${top}px`;
+  panel.style.left = `${left}px`;
   return true;
 }
 
