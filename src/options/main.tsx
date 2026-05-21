@@ -11,7 +11,8 @@ import {
   sanitizeSettings,
 } from '../shared/settings'
 import type { TranslationProfile, TranslationSettings } from '../shared/settings'
-import './style.css'
+import { Button } from '../components/ui/button'
+import '../shared/style.css'
 
 export function Options() {
   const [settings, setSettings] = useState<TranslationSettings>(defaultSettings)
@@ -143,54 +144,90 @@ export function Options() {
   }
 
   return (
-    <main className="options-shell">
-      <header className="options-header">
+    <main className="min-h-screen bg-slate-50 px-7 py-7 text-slate-900">
+      <header className="mx-auto mb-5 flex w-full max-w-[1040px] items-center justify-between gap-[18px]">
         <div>
-          <p className="eyebrow">Open Translate</p>
-          <h1>{t('optionsTitle')}</h1>
+          <p className="mb-1 text-[11px] font-bold uppercase tracking-[0.08em] text-blue-600">
+            Open Translate
+          </p>
+          <h1 className="text-[28px] leading-tight font-semibold text-slate-900">
+            {t('optionsTitle')}
+          </h1>
         </div>
-        <button type="button" onClick={addProfile}>
+        <Button
+          type="button"
+          size="lg"
+          className="h-9 rounded-md bg-blue-600 px-3.5 text-sm font-semibold text-white transition hover:bg-blue-700"
+          onClick={addProfile}
+        >
           {t('addProfile')}
-        </button>
+        </Button>
       </header>
 
-      <div className="layout">
-        <aside className="profile-list" aria-label={t('profileListLabel')}>
+      <div className="mx-auto grid w-full max-w-[1040px] grid-cols-[248px_minmax(0,1fr)] gap-[18px]">
+        <aside className="grid content-start gap-2" aria-label={t('profileListLabel')}>
           {settings.profiles.map((profile) => (
-            <button
+            <Button
               type="button"
+              variant={profile.id === editingProfile.id ? 'default' : 'outline'}
+              size="lg"
               key={profile.id}
-              className={profile.id === editingProfile.id ? 'active' : ''}
+              className={`relative grid h-auto min-h-[68px] w-full min-w-0 grid-cols-[minmax(0,1fr)] gap-1 overflow-hidden rounded-lg px-3 py-2.5 text-left transition before:absolute before:inset-y-[9px] before:left-0 before:w-[3px] before:rounded-r-full before:content-[''] ${profile.id === editingProfile.id
+                ? 'border-blue-600 bg-blue-50 shadow-[0_0_0_3px_rgba(37,99,235,0.12)] before:bg-blue-600'
+                : 'border-slate-200 bg-white before:bg-transparent hover:border-slate-300 hover:bg-slate-50'
+                }`}
               onClick={() => setEditingId(profile.id)}
               title={`${profile.name} · ${profile.model || t('modelUnset')}`}
             >
-              <strong>{profile.name}</strong>
-              <span>{t('modelPrefix', profile.model || t('modelUnset'))}</span>
-            </button>
+              <strong className="block max-w-full truncate text-sm leading-[1.35] font-semibold text-slate-900">
+                {profile.name}
+              </strong>
+              <span className="block max-w-full truncate text-xs leading-[1.35] font-medium text-slate-500">
+                {t('modelPrefix', profile.model || t('modelUnset'))}
+              </span>
+            </Button>
           ))}
         </aside>
 
-        <form className="settings-form" onSubmit={handleSubmit}>
-          <div className="form-toolbar">
-            <button
+        <form
+          className="grid gap-3.5 rounded-lg border border-slate-200 bg-white p-[18px]"
+          onSubmit={handleSubmit}
+        >
+          <div className="flex justify-end gap-2">
+            <Button
               type="button"
-              className="secondary"
+              variant="outline"
+              size="lg"
+              className="h-9 rounded-md border-slate-300 bg-white px-3.5 text-sm font-semibold text-slate-900 transition hover:bg-slate-50 disabled:cursor-default disabled:opacity-[0.55]"
               onClick={() => activateProfile(editingProfile.id)}
               disabled={settings.activeProfileId === editingProfile.id}
             >
               {t('setActive')}
-            </button>
-            <button type="button" className="secondary" onClick={duplicateProfile}>
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="lg"
+              className="h-9 rounded-md border-slate-300 bg-white px-3.5 text-sm font-semibold text-slate-900 transition hover:bg-slate-50"
+              onClick={duplicateProfile}
+            >
               {t('duplicate')}
-            </button>
-            <button type="button" className="danger" onClick={removeProfile}>
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              size="lg"
+              className="h-9 rounded-md border border-red-200 bg-red-50 px-3.5 text-sm font-semibold text-red-700 transition hover:bg-red-100"
+              onClick={removeProfile}
+            >
               {t('delete')}
-            </button>
+            </Button>
           </div>
 
-          <label>
-            <span>{t('profileName')}</span>
+          <label className="grid gap-1.5">
+            <span className="text-[13px] font-semibold text-slate-600">{t('profileName')}</span>
             <input
+              className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-900 outline-none transition focus:border-blue-600 focus:ring-[3px] focus:ring-blue-100"
               value={editingProfile.name}
               onChange={(event) => updateProfile('name', event.target.value)}
               placeholder={t('profileNamePlaceholder')}
@@ -198,9 +235,10 @@ export function Options() {
             />
           </label>
 
-          <label>
-            <span>{t('apiBaseUrl')}</span>
+          <label className="grid gap-1.5">
+            <span className="text-[13px] font-semibold text-slate-600">{t('apiBaseUrl')}</span>
             <input
+              className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-900 outline-none transition focus:border-blue-600 focus:ring-[3px] focus:ring-blue-100"
               value={editingProfile.apiBaseUrl}
               onChange={(event) => updateProfile('apiBaseUrl', event.target.value)}
               placeholder="https://api.openai.com/v1"
@@ -209,9 +247,10 @@ export function Options() {
             />
           </label>
 
-          <label>
-            <span>{t('modelName')}</span>
+          <label className="grid gap-1.5">
+            <span className="text-[13px] font-semibold text-slate-600">{t('modelName')}</span>
             <input
+              className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-900 outline-none transition focus:border-blue-600 focus:ring-[3px] focus:ring-blue-100"
               value={editingProfile.model}
               onChange={(event) => updateProfile('model', event.target.value)}
               placeholder="gpt-4o-mini"
@@ -220,9 +259,10 @@ export function Options() {
             />
           </label>
 
-          <label>
-            <span>{t('apiKey')}</span>
+          <label className="grid gap-1.5">
+            <span className="text-[13px] font-semibold text-slate-600">{t('apiKey')}</span>
             <input
+              className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-900 outline-none transition focus:border-blue-600 focus:ring-[3px] focus:ring-blue-100"
               value={editingProfile.apiKey}
               onChange={(event) => updateProfile('apiKey', event.target.value)}
               placeholder="sk-..."
@@ -232,9 +272,10 @@ export function Options() {
             />
           </label>
 
-          <label>
-            <span>{t('targetLanguage')}</span>
+          <label className="grid gap-1.5">
+            <span className="text-[13px] font-semibold text-slate-600">{t('targetLanguage')}</span>
             <input
+              className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-900 outline-none transition focus:border-blue-600 focus:ring-[3px] focus:ring-blue-100"
               value={editingProfile.targetLanguage}
               onChange={(event) => updateProfile('targetLanguage', event.target.value)}
               placeholder={t('targetLanguagePlaceholder')}
@@ -242,9 +283,10 @@ export function Options() {
             />
           </label>
 
-          <label>
-            <span>{t('customPrompt')}</span>
+          <label className="grid gap-1.5">
+            <span className="text-[13px] font-semibold text-slate-600">{t('customPrompt')}</span>
             <textarea
+              className="min-h-28 w-full resize-y rounded-md border border-slate-300 bg-white px-2.5 py-2 text-sm leading-snug text-slate-900 outline-none transition focus:border-blue-600 focus:ring-[3px] focus:ring-blue-100"
               value={editingProfile.customPrompt}
               onChange={(event) => updateProfile('customPrompt', event.target.value)}
               placeholder={t('customPromptPlaceholder')}
@@ -253,16 +295,22 @@ export function Options() {
             />
           </label>
 
-          <div className="endpoint-preview">
-            <span>{t('endpointPreview')}</span>
-            <code>{getEndpointPreview(editingProfile.apiBaseUrl)}</code>
+          <div className="grid gap-1.5 rounded-lg border border-slate-200 bg-slate-50 p-2.5">
+            <span className="text-[13px] font-semibold text-slate-600">{t('endpointPreview')}</span>
+            <code className="break-all font-mono text-xs leading-relaxed text-slate-700">
+              {getEndpointPreview(editingProfile.apiBaseUrl)}
+            </code>
           </div>
 
-          <button type="submit" className="primary">
+          <Button
+            type="submit"
+            size="lg"
+            className="h-9 rounded-md bg-blue-600 px-3.5 text-sm font-semibold text-white transition hover:bg-blue-700"
+          >
             {t('saveProfile')}
-          </button>
+          </Button>
 
-          <p className="status-message">{status}</p>
+          <p className="min-h-5 text-[13px] text-slate-500">{status}</p>
         </form>
       </div>
     </main>

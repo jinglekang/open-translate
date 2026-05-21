@@ -1,9 +1,17 @@
 import { StrictMode, useEffect, useMemo, useState } from 'react'
 import { createRoot } from 'react-dom/client'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../components/ui/select'
+import { Button } from '../components/ui/button'
 import { t } from '../shared/i18n'
 import { getActiveProfile, normalizeSettings } from '../shared/settings'
 import type { TranslationDisplayMode, TranslationSettings } from '../shared/settings'
-import './style.css'
+import '../shared/style.css'
 
 export function Popup() {
   const [settings, setSettings] = useState<TranslationSettings | null>(null)
@@ -49,66 +57,106 @@ export function Popup() {
   }
 
   return (
-    <main className="popup-shell">
-      <header className="popup-header">
+    <main className="w-80 bg-slate-50 p-[18px] text-slate-900">
+      <header className="mb-[18px] flex items-start justify-between gap-4">
         <div>
-          <p className="eyebrow">Open Translate</p>
-          <h1>{t('popupTitle')}</h1>
+          <p className="mb-1 text-[11px] font-bold uppercase tracking-[0.08em] text-blue-600">
+            Open Translate
+          </p>
+          <h1 className="text-xl leading-tight font-semibold text-slate-900">{t('popupTitle')}</h1>
         </div>
-        <span className="status-dot" aria-label={t('extensionEnabled')} />
+        <span
+          className="mt-2 h-2.5 w-2.5 rounded-full bg-green-600 shadow-[0_0_0_4px_rgba(22,163,74,0.12)]"
+          aria-label={t('extensionEnabled')}
+        />
       </header>
 
       {settings && (
-        <section className="switcher">
-          <label>
-            <span>{t('currentProfile')}</span>
-            <select
+        <section className="grid gap-3">
+          <label className="grid gap-1.5">
+            <span className="text-[13px] font-semibold text-slate-600">{t('currentProfile')}</span>
+            <Select
               value={settings.activeProfileId}
-              onChange={(event) => handleProfileChange(event.target.value)}
+              onValueChange={(value) => {
+                if (!value) {
+                  return
+                }
+
+                void handleProfileChange(value)
+              }}
             >
-              {settings.profiles.map((profile) => (
-                <option key={profile.id} value={profile.id}>
-                  {profile.name}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger className="h-9 w-full rounded-md border-slate-300 bg-white px-2.5 text-sm text-slate-900">
+                <SelectValue>{activeProfile?.name ?? ''}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {settings.profiles.map((profile) => (
+                  <SelectItem key={profile.id} value={profile.id}>
+                    {profile.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </label>
 
-          <div className="profile-card">
-            <strong>{activeProfile?.name}</strong>
-            <span>{activeProfile?.model || t('modelUnset')}</span>
-            <code title={getEndpointPreview(activeProfile?.apiBaseUrl || '')}>
+          <div className="grid min-w-0 gap-1.5 rounded-lg border border-slate-200 bg-white p-3">
+            <strong className="block truncate text-sm font-semibold text-slate-900">
+              {activeProfile?.name}
+            </strong>
+            <span className="block truncate text-[13px] text-slate-600">
+              {activeProfile?.model || t('modelUnset')}
+            </span>
+            <code
+              className="block max-w-full break-all whitespace-normal font-mono text-xs leading-relaxed text-slate-700"
+              title={getEndpointPreview(activeProfile?.apiBaseUrl || '')}
+            >
               {getEndpointPreview(activeProfile?.apiBaseUrl || '')}
             </code>
           </div>
 
-          <fieldset className="display-mode">
-            <legend>{t('displayMode')}</legend>
-            <div>
-              <button
+          <fieldset className="grid gap-2 border-0 p-0 m-0">
+            <legend className="text-[13px] font-semibold text-slate-600">{t('displayMode')}</legend>
+            <div className="grid grid-cols-2 gap-1.5 rounded-lg border border-slate-200 bg-white p-1">
+              <Button
                 type="button"
-                className={settings.displayMode === 'translation' ? 'active' : ''}
+                size="default"
+                variant={settings.displayMode === 'translation' ? 'default' : 'ghost'}
+                className={
+                  settings.displayMode === 'translation'
+                    ? 'h-8 rounded-md bg-blue-600 text-sm font-semibold text-white'
+                    : 'h-8 rounded-md bg-transparent text-sm font-semibold text-slate-600 transition hover:bg-blue-50'
+                }
                 onClick={() => handleDisplayModeChange('translation')}
               >
                 {t('translationOnly')}
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
-                className={settings.displayMode === 'bilingual' ? 'active' : ''}
+                size="default"
+                variant={settings.displayMode === 'bilingual' ? 'default' : 'ghost'}
+                className={
+                  settings.displayMode === 'bilingual'
+                    ? 'h-8 rounded-md bg-blue-600 text-sm font-semibold text-white'
+                    : 'h-8 rounded-md bg-transparent text-sm font-semibold text-slate-600 transition hover:bg-blue-50'
+                }
                 onClick={() => handleDisplayModeChange('bilingual')}
               >
                 {t('bilingual')}
-              </button>
+              </Button>
             </div>
           </fieldset>
 
-          <button type="button" className="manage-button" onClick={openOptionsPage}>
+          <Button
+            type="button"
+            size="lg"
+            className="h-9 rounded-md bg-blue-600 px-3 text-sm font-semibold text-white transition hover:bg-blue-700"
+            onClick={openOptionsPage}
+          >
             {t('manageProfiles')}
-          </button>
+          </Button>
         </section>
       )}
 
-      <p className="status-message">{status}</p>
+      <p className="mt-3 min-h-5 text-[13px] text-slate-500">{status}</p>
     </main>
   )
 }

@@ -1,11 +1,17 @@
 import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
 import { existsSync, mkdirSync, renameSync, rmSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), moveExtensionPages()],
+  plugins: [react(), tailwindcss(), moveExtensionPages()],
+  resolve: {
+    alias: {
+      '@': resolve(__dirname, 'src'),
+    },
+  },
   build: {
     rollupOptions: {
       input: {
