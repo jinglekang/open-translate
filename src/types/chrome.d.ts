@@ -1,0 +1,55 @@
+declare namespace chrome {
+  namespace runtime {
+    function openOptionsPage(): Promise<void>
+
+    const onInstalled: {
+      addListener(callback: () => void): void
+    }
+  }
+
+  namespace contextMenus {
+    type ContextType = 'page' | 'selection'
+
+    type OnClickData = {
+      menuItemId: string | number
+      selectionText?: string
+    }
+
+    type Tab = {
+      id?: number
+    }
+
+    function create(createProperties: {
+      id: string
+      title: string
+      contexts: ContextType[]
+    }): void
+
+    const onClicked: {
+      addListener(callback: (info: OnClickData, tab?: Tab) => void): void
+    }
+  }
+
+  namespace scripting {
+    type InjectionTarget = {
+      tabId: number
+    }
+
+    type InjectionResult<T> = {
+      result?: T
+    }
+
+    function executeScript<Args extends unknown[], Result>(injection: {
+      target: InjectionTarget
+      func: (...args: Args) => Result
+      args?: Args
+    }): Promise<Array<InjectionResult<Awaited<Result>>>>
+  }
+
+  namespace storage {
+    namespace sync {
+      function get<T extends Record<string, unknown>>(defaults: T | null): Promise<T>
+      function set(items: Record<string, unknown>): Promise<void>
+    }
+  }
+}
