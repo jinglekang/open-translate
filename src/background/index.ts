@@ -56,7 +56,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     await translatePage(tab.id, profile);
   } catch (error) {
     const message = error instanceof Error ? error.message : "翻译失败";
-    await showInlineNotice(tab.id, message, true);
+      await showInlineNotice(tab.id, message, "error");
   }
 });
 
@@ -65,7 +65,7 @@ async function translateSelection(
   selectedText: string,
   profile: TranslationProfile,
 ) {
-  await showInlineNotice(tabId, "正在翻译选中文本...", false);
+  await showInlineNotice(tabId, "正在翻译选中文本...", "loading");
   const translatedText = await translateText(selectedText, profile);
 
   const [{ result: didShow }] = await chrome.scripting.executeScript({
@@ -77,12 +77,12 @@ async function translateSelection(
   await showInlineNotice(
     tabId,
     didShow ? "选中文本已翻译" : "没有找到可显示的选中文本",
-    !didShow,
+    didShow ? "success" : "error",
   );
 }
 
 async function translatePage(tabId: number, profile: TranslationProfile) {
-  await showInlineNotice(tabId, "正在收集页面文本...", false);
+  await showInlineNotice(tabId, "正在收集页面文本...", "loading");
 
   const [{ result: textNodes = [] }] = await chrome.scripting.executeScript<
     [number],
@@ -104,7 +104,7 @@ async function translatePage(tabId: number, profile: TranslationProfile) {
     await showInlineNotice(
       tabId,
       `正在翻译整页内容 ${completed + 1}/${batches.length}...`,
-      false,
+      "loading",
     );
 
     const translatedItems = await translateTextList(
@@ -126,7 +126,7 @@ async function translatePage(tabId: number, profile: TranslationProfile) {
     completed += 1;
   }
 
-  await showInlineNotice(tabId, "整页翻译完成", false);
+  await showInlineNotice(tabId, "整页翻译完成", "success");
 }
 
 async function getCurrentProfile(): Promise<TranslationProfile> {
@@ -355,11 +355,15 @@ function createBatches(items: PageTextNode[], maxChars: number) {
   return batches;
 }
 
-async function showInlineNotice(tabId: number, message: string, isError: boolean) {
+async function showInlineNotice(
+  tabId: number,
+  message: string,
+  status: "loading" | "success" | "error",
+) {
   await chrome.scripting.executeScript({
     target: { tabId },
     func: renderInlineNotice,
-    args: [message, isError],
+    args: [message, status],
   });
 }
 
@@ -550,11 +554,13 @@ function renderSelectionTranslationPanel(translatedText: string) {
   return true;
 }
 
-function renderInlineNotice(message: string, isError: boolean) {
+function renderInlineNotice(message: string, status: "loading" | "success" | "error") {
   document.querySelector("[data-open-translate-ui]")?.remove();
+  const isError = status === "error";
 
   const notice = document.createElement("div");
   notice.dataset.openTranslateUi = "true";
+  notice.dataset.status = status;
   notice.textContent = message;
   notice.style.cssText = `
     position: fixed;
@@ -573,5 +579,7 @@ function renderInlineNotice(message: string, isError: boolean) {
   `;
 
   document.documentElement.append(notice);
-  window.setTimeout(() => notice.remove(), isError ? 6000 : 2200);
+  if (status !== "loading") {
+    window.setTimeout(() => notice.remove(), isError ? 6000 : 2200);
+  }
 }
