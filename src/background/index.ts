@@ -29,6 +29,7 @@ type TextReplacement = PageTextNode;
 
 const MAX_BATCH_CHARS = 6000;
 const MAX_TEXT_NODES = 180;
+const CACHE_KEY_PREFIX = "open-translate-cache";
 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
@@ -135,6 +136,11 @@ async function getCurrentProfile(): Promise<TranslationProfile> {
 }
 
 async function translateText(sourceText: string, profile: TranslationProfile) {
+  const cachedTranslation = await getCachedTranslation(sourceText, profile);
+  if (cachedTranslation) {
+    return cachedTranslation;
+  }
+
   const payload = await requestChatCompletions(profile, [
     { role: "system", content: getSystemPrompt(profile) },
     { role: "user", content: sourceText },
@@ -145,10 +151,24 @@ async function translateText(sourceText: string, profile: TranslationProfile) {
     throw new Error("接口没有返回可用的翻译结果");
   }
 
+  await cacheTranslation(sourceText, translatedText, profile);
   return translatedText;
 }
 
 async function translateTextList(texts: string[], profile: TranslationProfile) {
+  const cachedTranslations = await getCachedTranslations(texts, profile);
+  const missingItems = cachedTranslations
+    .map((translation, index) => ({
+      index,
+      text: texts[index],
+      translation,
+    }))
+    .filter((item) => !item.translation);
+
+  if (!missingItems.length) {
+    return cachedTranslations as string[];
+  }
+
   const payload = await requestChatCompletions(profile, [
     {
       role: "system",
@@ -160,7 +180,7 @@ async function translateTextList(texts: string[], profile: TranslationProfile) {
 2. 不要返回 Markdown，不要包裹代码块。
 3. 保留数字、URL、邮箱、代码片段和多余空白。`,
     },
-    { role: "user", content: JSON.stringify(texts) },
+    { role: "user", content: JSON.stringify(missingItems.map((item) => item.text)) },
   ]);
 
   const rawContent = payload?.choices?.[0]?.message?.content?.trim();
@@ -169,11 +189,86 @@ async function translateTextList(texts: string[], profile: TranslationProfile) {
   }
 
   const parsed = parseJsonArray(rawContent);
-  if (!Array.isArray(parsed) || parsed.length !== texts.length) {
+  if (!Array.isArray(parsed) || parsed.length !== missingItems.length) {
     throw new Error("接口返回的整页翻译格式不正确");
   }
 
-  return parsed.map((item) => String(item));
+  const translatedMissingItems = parsed.map((item) => String(item));
+  const results = [...cachedTranslations];
+
+  for (const [missingIndex, translatedText] of translatedMissingItems.entries()) {
+    const item = missingItems[missingIndex];
+    results[item.index] = translatedText;
+  }
+
+  await cacheTranslations(
+    missingItems.map((item, index) => ({
+      sourceText: item.text,
+      translatedText: translatedMissingItems[index],
+    })),
+    profile,
+  );
+
+  return results as string[];
+}
+
+async function getCachedTranslation(sourceText: string, profile: TranslationProfile) {
+  const [translation] = await getCachedTranslations([sourceText], profile);
+  return translation;
+}
+
+async function getCachedTranslations(texts: string[], profile: TranslationProfile) {
+  const cacheKeys = await Promise.all(texts.map((text) => createTranslationCacheKey(text, profile)));
+  const cachedItems = await chrome.storage.local.get(cacheKeys);
+
+  return cacheKeys.map((cacheKey) => {
+    const cachedValue = cachedItems[cacheKey];
+    return typeof cachedValue === "string" ? cachedValue : undefined;
+  });
+}
+
+async function cacheTranslation(
+  sourceText: string,
+  translatedText: string,
+  profile: TranslationProfile,
+) {
+  await cacheTranslations([{ sourceText, translatedText }], profile);
+}
+
+async function cacheTranslations(
+  items: Array<{ sourceText: string; translatedText: string }>,
+  profile: TranslationProfile,
+) {
+  const entries = await Promise.all(
+    items.map(async (item) => [
+      await createTranslationCacheKey(item.sourceText, profile),
+      item.translatedText,
+    ]),
+  );
+
+  await chrome.storage.local.set(Object.fromEntries(entries));
+}
+
+async function createTranslationCacheKey(sourceText: string, profile: TranslationProfile) {
+  const cacheInput = JSON.stringify({
+    version: 1,
+    profile: {
+      endpoint: getChatCompletionsEndpoint(profile.apiBaseUrl),
+      model: profile.model,
+      targetLanguage: profile.targetLanguage,
+      customPrompt: profile.customPrompt,
+    },
+    sourceText,
+  });
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(cacheInput),
+  );
+  const hash = [...new Uint8Array(digest)]
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+
+  return `${CACHE_KEY_PREFIX}:${hash}`;
 }
 
 async function requestChatCompletions(

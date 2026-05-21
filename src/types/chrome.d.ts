@@ -47,9 +47,20 @@ declare namespace chrome {
   }
 
   namespace storage {
+    type StorageValue = string | number | boolean | null | StorageValue[] | {
+      [key: string]: StorageValue
+    }
+
+    type StorageItems = Record<string, StorageValue>
+
     namespace sync {
       function get<T extends Record<string, unknown>>(defaults: T | null): Promise<T>
       function set(items: Record<string, unknown>): Promise<void>
+    }
+
+    namespace local {
+      function get(keys: string[] | string | null): Promise<StorageItems>
+      function set(items: StorageItems): Promise<void>
     }
   }
 }
