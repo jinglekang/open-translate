@@ -1,5 +1,5 @@
 import { getActiveProfile, normalizeSettings, validateProfileForUse } from '../shared/settings'
-import type { TranslationProfile } from '../shared/settings'
+import type { TranslationDisplayMode, TranslationProfile, TranslationSettings } from '../shared/settings'
 
 const MENU_ID = "open-translate";
 
@@ -25,7 +25,11 @@ type PageTextNode = {
   text: string;
 };
 
-type TextReplacement = PageTextNode;
+type TextReplacement = {
+  path: number[];
+  sourceText: string;
+  text: string;
+};
 
 const MAX_BATCH_CHARS = 6000;
 const MAX_TEXT_NODES = 180;
@@ -45,15 +49,16 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   }
 
   try {
-    const profile = validateProfileForUse(await getCurrentProfile());
+    const settings = await getCurrentSettings();
+    const profile = validateProfileForUse(getActiveProfile(settings));
 
     const selectedText = (info.selectionText || "").trim();
     if (selectedText) {
-      await translateSelection(tab.id, selectedText, profile);
+      await translateSelection(tab.id, selectedText, profile, settings.displayMode);
       return;
     }
 
-    await translatePage(tab.id, profile);
+    await translatePage(tab.id, profile, settings.displayMode);
   } catch (error) {
     const message = error instanceof Error ? error.message : "翻译失败";
       await showInlineNotice(tab.id, message, "error");
@@ -64,6 +69,7 @@ async function translateSelection(
   tabId: number,
   selectedText: string,
   profile: TranslationProfile,
+  displayMode: TranslationDisplayMode,
 ) {
   await showInlineNotice(tabId, "正在翻译选中文本...", "loading");
   const translatedText = await translateText(selectedText, profile);
@@ -71,7 +77,7 @@ async function translateSelection(
   const [{ result: didShow }] = await chrome.scripting.executeScript({
     target: { tabId },
     func: renderSelectionTranslationPanel,
-    args: [translatedText],
+    args: [selectedText, translatedText, displayMode],
   });
 
   await showInlineNotice(
@@ -81,7 +87,11 @@ async function translateSelection(
   );
 }
 
-async function translatePage(tabId: number, profile: TranslationProfile) {
+async function translatePage(
+  tabId: number,
+  profile: TranslationProfile,
+  displayMode: TranslationDisplayMode,
+) {
   await showInlineNotice(tabId, "正在收集页面文本...", "loading");
 
   const [{ result: textNodes = [] }] = await chrome.scripting.executeScript<
@@ -114,13 +124,14 @@ async function translatePage(tabId: number, profile: TranslationProfile) {
 
     const replacements = batch.map((item, index) => ({
       path: item.path,
+      sourceText: item.text,
       text: translatedItems[index] || item.text,
     }));
 
     await chrome.scripting.executeScript({
       target: { tabId },
       func: replacePageTextNodes,
-      args: [replacements],
+      args: [replacements, displayMode],
     });
 
     completed += 1;
@@ -129,10 +140,9 @@ async function translatePage(tabId: number, profile: TranslationProfile) {
   await showInlineNotice(tabId, "整页翻译完成", "success");
 }
 
-async function getCurrentProfile(): Promise<TranslationProfile> {
+async function getCurrentSettings(): Promise<TranslationSettings> {
   const stored = await chrome.storage.sync.get(null);
-  const settings = normalizeSettings(stored);
-  return getActiveProfile(settings);
+  return normalizeSettings(stored);
 }
 
 async function translateText(sourceText: string, profile: TranslationProfile) {
@@ -393,7 +403,11 @@ function collectPageTextNodes(maxNodes: number) {
           return NodeFilter.FILTER_REJECT;
         }
 
-        if (parent.closest("[contenteditable='true'], [data-open-translate-ui]")) {
+        if (
+          parent.closest(
+            "[contenteditable='true'], [data-open-translate-ui], [data-open-translate-bilingual]",
+          )
+        ) {
           return NodeFilter.FILTER_REJECT;
         }
 
@@ -455,12 +469,61 @@ function collectPageTextNodes(maxNodes: number) {
   }
 }
 
-function replacePageTextNodes(replacements: TextReplacement[]) {
-  for (const replacement of replacements) {
+function replacePageTextNodes(
+  replacements: TextReplacement[],
+  displayMode: "translation" | "bilingual",
+) {
+  const orderedReplacements =
+    displayMode === "bilingual"
+      ? [...replacements].sort((left, right) => compareNodePathDesc(left.path, right.path))
+      : replacements;
+
+  for (const replacement of orderedReplacements) {
     const node = getNodeByPath(replacement.path);
     if (node?.nodeType === Node.TEXT_NODE) {
-      node.nodeValue = replacement.text;
+      const nextSibling = node.nextSibling;
+      if (
+        nextSibling instanceof HTMLElement &&
+        nextSibling.dataset.openTranslateBilingual === "true"
+      ) {
+        nextSibling.remove();
+      }
+
+      if (displayMode === "translation") {
+        node.nodeValue = replacement.text;
+      } else {
+        node.nodeValue = replacement.sourceText;
+        node.parentNode?.insertBefore(createBilingualText(replacement.text), node.nextSibling);
+      }
     }
+  }
+
+  function createBilingualText(translatedText: string) {
+    const wrapper = document.createElement("span");
+    wrapper.dataset.openTranslateBilingual = "true";
+    wrapper.textContent = translatedText;
+    wrapper.style.cssText = `
+      display: inline;
+      margin-left: 0.35em;
+      color: #2563eb;
+      font: inherit;
+      opacity: 0.96;
+    `;
+
+    return wrapper;
+  }
+
+  function compareNodePathDesc(left: number[], right: number[]) {
+    const length = Math.max(left.length, right.length);
+    for (let index = 0; index < length; index += 1) {
+      const leftValue = left[index] ?? -1;
+      const rightValue = right[index] ?? -1;
+      if (leftValue !== rightValue) {
+        return rightValue - leftValue;
+      }
+    }
+
+    return 0;
   }
 
   function getNodeByPath(path: number[]) {
@@ -476,7 +539,11 @@ function replacePageTextNodes(replacements: TextReplacement[]) {
   }
 }
 
-function renderSelectionTranslationPanel(translatedText: string) {
+function renderSelectionTranslationPanel(
+  sourceText: string,
+  translatedText: string,
+  displayMode: "translation" | "bilingual",
+) {
   const selection = window.getSelection();
   if (!selection || selection.rangeCount === 0) {
     return false;
@@ -496,7 +563,27 @@ function renderSelectionTranslationPanel(translatedText: string) {
   panel.setAttribute("aria-live", "polite");
 
   const content = document.createElement("div");
-  content.textContent = translatedText;
+  if (displayMode === "bilingual") {
+    const source = document.createElement("p");
+    source.textContent = sourceText;
+    source.style.cssText = `
+      margin: 0 0 8px;
+      color: #64748b;
+      border-bottom: 1px solid #e7eaf0;
+      padding-bottom: 8px;
+    `;
+
+    const translation = document.createElement("p");
+    translation.textContent = translatedText;
+    translation.style.cssText = `
+      margin: 0;
+      color: #172033;
+    `;
+
+    content.append(source, translation);
+  } else {
+    content.textContent = translatedText;
+  }
 
   const closeButton = document.createElement("button");
   closeButton.type = "button";

@@ -82,6 +82,7 @@ export function Options() {
       {
         profiles: [...settings.profiles, profile],
         activeProfileId: profile.id,
+        displayMode: settings.displayMode,
       },
       '已新增接口配置',
       profile.id,
@@ -98,6 +99,7 @@ export function Options() {
       {
         profiles: [...settings.profiles, profile],
         activeProfileId: profile.id,
+        displayMode: settings.displayMode,
       },
       '已复制接口配置',
       profile.id,
@@ -116,7 +118,11 @@ export function Options() {
         ? profiles[0].id
         : settings.activeProfileId
 
-    await saveSettings({ profiles, activeProfileId }, '已删除接口配置', activeProfileId)
+    await saveSettings(
+      { profiles, activeProfileId, displayMode: settings.displayMode },
+      '已删除接口配置',
+      activeProfileId,
+    )
   }
 
   async function activateProfile(profileId: string) {

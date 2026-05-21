@@ -1,7 +1,7 @@
 import { StrictMode, useEffect, useMemo, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { getActiveProfile, normalizeSettings } from '../shared/settings'
-import type { TranslationSettings } from '../shared/settings'
+import type { TranslationDisplayMode, TranslationSettings } from '../shared/settings'
 import './style.css'
 
 export function Popup() {
@@ -30,6 +30,17 @@ export function Popup() {
     setSettings(nextSettings)
     await chrome.storage.sync.set({ activeProfileId: profileId })
     setStatus('已切换当前接口')
+  }
+
+  async function handleDisplayModeChange(displayMode: TranslationDisplayMode) {
+    if (!settings) {
+      return
+    }
+
+    const nextSettings = { ...settings, displayMode }
+    setSettings(nextSettings)
+    await chrome.storage.sync.set({ displayMode })
+    setStatus(displayMode === 'translation' ? '已切换为仅译文' : '已切换为双语对照')
   }
 
   async function openOptionsPage() {
@@ -70,7 +81,27 @@ export function Popup() {
             </code>
           </div>
 
-          <button type="button" onClick={openOptionsPage}>
+          <fieldset className="display-mode">
+            <legend>翻译偏好</legend>
+            <div>
+              <button
+                type="button"
+                className={settings.displayMode === 'translation' ? 'active' : ''}
+                onClick={() => handleDisplayModeChange('translation')}
+              >
+                仅译文
+              </button>
+              <button
+                type="button"
+                className={settings.displayMode === 'bilingual' ? 'active' : ''}
+                onClick={() => handleDisplayModeChange('bilingual')}
+              >
+                双语对照
+              </button>
+            </div>
+          </fieldset>
+
+          <button type="button" className="manage-button" onClick={openOptionsPage}>
             管理接口配置
           </button>
         </section>

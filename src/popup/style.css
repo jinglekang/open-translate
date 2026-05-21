@@ -135,7 +135,47 @@ select {
   white-space: nowrap;
 }
 
-.switcher button {
+.display-mode {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.display-mode legend {
+  padding: 0;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.display-mode div {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  padding: 4px;
+  border: 1px solid #dbe3ef;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.display-mode button {
+  height: 32px;
+  border: 0;
+  border-radius: 6px;
+  color: #475569;
+  background: transparent;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.display-mode button.active {
+  color: #ffffff;
+  background: #2563eb;
+}
+
+.manage-button {
   height: 38px;
   border: 0;
   border-radius: 6px;
@@ -145,7 +185,15 @@ select {
   cursor: pointer;
 }
 
-.switcher button:hover {
+.manage-button:hover {
+  background: #1d4ed8;
+}
+
+.display-mode button:hover {
+  background: #eef4ff;
+}
+
+.display-mode button.active:hover {
   background: #1d4ed8;
 }
 

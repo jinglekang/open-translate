@@ -11,6 +11,9 @@ export const profileFieldLimits = {
   customPrompt: 4000,
 } as const
 
+export const translationDisplayModeSchema = z.enum(['translation', 'bilingual'])
+export type TranslationDisplayMode = z.infer<typeof translationDisplayModeSchema>
+
 export const translationProfileSchema = z.object({
   id: trimmedString.min(1),
   name: trimmedString
@@ -50,6 +53,7 @@ export const translationSettingsSchema = z
   .object({
     profiles: z.array(translationProfileSchema).min(1),
     activeProfileId: trimmedString.min(1),
+    displayMode: translationDisplayModeSchema.catch('translation'),
   })
   .transform((settings) => {
     const activeProfileId = settings.profiles.some(
@@ -61,6 +65,7 @@ export const translationSettingsSchema = z
     return {
       profiles: settings.profiles,
       activeProfileId,
+      displayMode: settings.displayMode,
     }
   })
 
@@ -80,6 +85,7 @@ export const defaultProfile: TranslationProfile = {
 export const defaultSettings: TranslationSettings = {
   profiles: [defaultProfile],
   activeProfileId: defaultProfile.id,
+  displayMode: 'translation',
 }
 
 const legacySettingsSchema = z.object({
@@ -127,6 +133,7 @@ export function normalizeSettings(stored: unknown): TranslationSettings {
       },
     ],
     activeProfileId: defaultProfile.id,
+    displayMode: 'translation',
   })
 }
 
