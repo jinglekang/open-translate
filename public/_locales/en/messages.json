@@ -8,6 +8,9 @@
   "contextMenuTranslate": {
     "message": "Translate to target language"
   },
+  "contextMenuTranslateSelection": {
+    "message": "Translate \"%s\""
+  },
   "popupTitle": {
     "message": "Choose Translator"
   },

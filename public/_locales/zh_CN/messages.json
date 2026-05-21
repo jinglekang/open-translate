@@ -8,6 +8,9 @@
   "contextMenuTranslate": {
     "message": "翻译为目标语言"
   },
+  "contextMenuTranslateSelection": {
+    "message": "翻译：“%s”"
+  },
   "popupTitle": {
     "message": "选择翻译接口"
   },
