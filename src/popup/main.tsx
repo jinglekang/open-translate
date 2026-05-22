@@ -8,6 +8,7 @@ import {
   SelectValue,
 } from '../components/ui/select'
 import { Button } from '../components/ui/button'
+import { getEndpointPreview } from '../shared/endpoint'
 import { t } from '../shared/i18n'
 import { getActiveProfile, normalizeSettings } from '../shared/settings'
 import type {
@@ -212,17 +213,6 @@ export function Popup() {
       <p className="mt-3 min-h-5 text-[13px] text-slate-500">{status}</p>
     </main>
   )
-}
-
-function getEndpointPreview(apiBaseUrl: string) {
-  const normalized = apiBaseUrl.trim().replace(/\/+$/, '')
-  if (!normalized) {
-    return t('endpointUnset')
-  }
-
-  return normalized.endsWith('/chat/completions')
-    ? normalized
-    : `${normalized}/chat/completions`
 }
 
 createRoot(document.getElementById('root')!).render(

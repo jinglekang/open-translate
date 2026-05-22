@@ -6,26 +6,10 @@ import type {
   TranslationProfile,
   TranslationSettings,
 } from '../shared/settings'
+import { translateText } from './translation'
 
 const PAGE_MENU_ID = "open-translate-page";
 const SELECTION_MENU_ID = "open-translate-selection";
-
-type ChatMessage = {
-  role: "system" | "user" | "assistant";
-  content: string;
-};
-
-type ChatCompletionsPayload = {
-  choices?: Array<{
-    message?: {
-      content?: string;
-    };
-  }>;
-  error?: {
-    message?: string;
-  };
-  message?: string;
-};
 
 type PageTextNode = {
   path: number[];
@@ -55,7 +39,6 @@ type TranslationProgress = {
 
 const MAX_TEXT_NODES = 180;
 const PAGE_TRANSLATION_CONCURRENCY = 4;
-const CACHE_KEY_PREFIX = "open-translate-cache";
 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
@@ -306,132 +289,6 @@ async function translateDynamicTexts(texts: string[], tabId?: number) {
     translations,
     displayMode: settings.displayMode,
   };
-}
-
-async function translateText(sourceText: string, profile: TranslationProfile) {
-  const cachedTranslation = await getCachedTranslation(sourceText, profile);
-  if (cachedTranslation) {
-    return cachedTranslation;
-  }
-
-  const payload = await requestChatCompletions(profile, [
-    { role: "system", content: getSystemPrompt(profile) },
-    { role: "user", content: sourceText },
-  ]);
-
-  const translatedText = payload?.choices?.[0]?.message?.content?.trim();
-  if (!translatedText) {
-    throw new Error(t("emptyTranslationResponse"));
-  }
-
-  await cacheTranslation(sourceText, translatedText, profile);
-  return translatedText;
-}
-
-async function getCachedTranslation(sourceText: string, profile: TranslationProfile) {
-  const [translation] = await getCachedTranslations([sourceText], profile);
-  return translation;
-}
-
-async function getCachedTranslations(texts: string[], profile: TranslationProfile) {
-  const cacheKeys = await Promise.all(texts.map((text) => createTranslationCacheKey(text, profile)));
-  const cachedItems = await chrome.storage.local.get(cacheKeys);
-
-  return cacheKeys.map((cacheKey) => {
-    const cachedValue = cachedItems[cacheKey];
-    return typeof cachedValue === "string" ? cachedValue : undefined;
-  });
-}
-
-async function cacheTranslation(
-  sourceText: string,
-  translatedText: string,
-  profile: TranslationProfile,
-) {
-  await cacheTranslations([{ sourceText, translatedText }], profile);
-}
-
-async function cacheTranslations(
-  items: Array<{ sourceText: string; translatedText: string }>,
-  profile: TranslationProfile,
-) {
-  const entries = await Promise.all(
-    items.map(async (item) => [
-      await createTranslationCacheKey(item.sourceText, profile),
-      item.translatedText,
-    ]),
-  );
-
-  await chrome.storage.local.set(Object.fromEntries(entries));
-}
-
-async function createTranslationCacheKey(sourceText: string, profile: TranslationProfile) {
-  const cacheInput = JSON.stringify({
-    version: 1,
-    profile: {
-      endpoint: getChatCompletionsEndpoint(profile.apiBaseUrl),
-      model: profile.model,
-      targetLanguage: profile.targetLanguage,
-      customPrompt: profile.customPrompt,
-    },
-    sourceText,
-  });
-  const digest = await crypto.subtle.digest(
-    "SHA-256",
-    new TextEncoder().encode(cacheInput),
-  );
-  const hash = [...new Uint8Array(digest)]
-    .map((byte) => byte.toString(16).padStart(2, "0"))
-    .join("");
-
-  return `${CACHE_KEY_PREFIX}:${hash}`;
-}
-
-async function requestChatCompletions(
-  profile: TranslationProfile,
-  messages: ChatMessage[],
-): Promise<ChatCompletionsPayload> {
-  const endpoint = getChatCompletionsEndpoint(profile.apiBaseUrl);
-  const response = await fetch(endpoint, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${profile.apiKey}`,
-    },
-    body: JSON.stringify({
-      model: profile.model,
-      messages,
-      temperature: 0.2,
-    }),
-  });
-
-  const payload = await response.json().catch(() => null);
-
-  if (!response.ok) {
-    const detail =
-      payload?.error?.message ||
-      payload?.message ||
-      `${response.status} ${response.statusText}`;
-    throw new Error(t("apiRequestFailed", detail));
-  }
-
-  return payload;
-}
-
-function getSystemPrompt(profile: TranslationProfile) {
-  return (
-    profile.customPrompt.trim() ||
-    `You are a professional translation assistant. Translate the user's text into ${profile.targetLanguage}. Preserve the original formatting, proper nouns, and code blocks. Output only the translation without explanations.`
-  );
-}
-
-function getChatCompletionsEndpoint(apiBaseUrl: string) {
-  const normalized = apiBaseUrl.trim().replace(/\/+$/, "");
-  if (normalized.endsWith("/chat/completions")) {
-    return normalized;
-  }
-
-  return `${normalized}/chat/completions`;
 }
 
 async function runConcurrent<T>(

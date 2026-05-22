@@ -1,6 +1,7 @@
 import { StrictMode, useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import { createRoot } from 'react-dom/client'
+import { getEndpointPreview } from '../shared/endpoint'
 import { t } from '../shared/i18n'
 import {
   createProfile,
@@ -82,10 +83,9 @@ export function Options() {
     const profile = createProfile()
     await saveSettings(
       {
+        ...settings,
         profiles: [...settings.profiles, profile],
         activeProfileId: profile.id,
-        displayMode: settings.displayMode,
-        pageTranslationScope: settings.pageTranslationScope,
       },
       t('profileAdded'),
       profile.id,
@@ -100,10 +100,9 @@ export function Options() {
     }
     await saveSettings(
       {
+        ...settings,
         profiles: [...settings.profiles, profile],
         activeProfileId: profile.id,
-        displayMode: settings.displayMode,
-        pageTranslationScope: settings.pageTranslationScope,
       },
       t('profileDuplicated'),
       profile.id,
@@ -124,10 +123,9 @@ export function Options() {
 
     await saveSettings(
       {
+        ...settings,
         profiles,
         activeProfileId,
-        displayMode: settings.displayMode,
-        pageTranslationScope: settings.pageTranslationScope,
       },
       t('profileDeleted'),
       activeProfileId,
@@ -322,17 +320,6 @@ export function Options() {
       </div>
     </main>
   )
-}
-
-function getEndpointPreview(apiBaseUrl: string) {
-  const normalized = apiBaseUrl.trim().replace(/\/+$/, '')
-  if (!normalized) {
-    return t('endpointUnset')
-  }
-
-  return normalized.endsWith('/chat/completions')
-    ? normalized
-    : `${normalized}/chat/completions`
 }
 
 createRoot(document.getElementById('root')!).render(
