@@ -291,14 +291,17 @@ async function translatePageTexts(texts: string[], tabId?: number, requestId?: s
     profile.translationBatchSegments,
     profile.translationBatchTextLength,
     tabId ? createPageTranslationProgress(tabId).update : undefined,
-    async (item, translatedText) => {
-      if (tabId && requestId && translatedText) {
+    async (translatedItems) => {
+      if (tabId && requestId && translatedItems.length) {
         try {
           await chrome.tabs.sendMessage(tabId, {
             type: "open-translate:partial-page-translations",
             requestId,
             displayMode: settings.displayMode,
-            translations: [{ index: item.index, text: translatedText }],
+            translations: translatedItems.map(({ item, translatedText }) => ({
+              index: item.index,
+              text: translatedText,
+            })),
           });
         } catch {
           // The final response still carries the translations if the runtime is reachable later.
@@ -356,7 +359,9 @@ async function translateItems<T>(
   maxBatchSegments: number,
   maxBatchTextLength: number,
   onProgress?: (progress: TranslationProgress) => Promise<void>,
-  onTranslated?: (item: T, translatedText: string) => Promise<void>,
+  onTranslations?: (
+    translations: Array<{ item: T; translatedText: string }>,
+  ) => Promise<void>,
 ) {
   const translations: string[] = new Array(items.length);
   let completed = 0;
@@ -375,26 +380,8 @@ async function translateItems<T>(
 
     translatableEntries.push(entry);
   }
-  const cachedTranslations = await getCachedTranslations(
-    translatableEntries.map((entry) => entry.sourceText),
-    profile,
-    targetLanguage,
-  );
-  const uncachedEntries: typeof entries = [];
-  for (const [entryIndex, entry] of translatableEntries.entries()) {
-    const cachedTranslation = cachedTranslations[entryIndex];
-    if (!cachedTranslation) {
-      uncachedEntries.push(entry);
-      continue;
-    }
-
-    translations[entry.index] = cachedTranslation;
-    await onTranslated?.(entry.item, cachedTranslation);
-    completed += 1;
-  }
-
   const batches = createTranslationBatches(
-    uncachedEntries,
+    translatableEntries,
     maxBatchSegments,
     maxBatchTextLength,
   );
@@ -408,20 +395,50 @@ async function translateItems<T>(
       batches,
       concurrency,
       async (batch) => {
-        const translatedTexts = await translateTextBatch(
+        const cachedTranslations = await getCachedTranslations(
           batch.map((entry) => entry.sourceText),
+          profile,
+          targetLanguage,
+        );
+        const cachedItems: Array<{ item: T; translatedText: string }> = [];
+        const uncachedEntries: typeof entries = [];
+        for (const [batchIndex, entry] of batch.entries()) {
+          const cachedTranslation = cachedTranslations[batchIndex];
+          if (!cachedTranslation) {
+            uncachedEntries.push(entry);
+            continue;
+          }
+
+          translations[entry.index] = cachedTranslation;
+          cachedItems.push({ item: entry.item, translatedText: cachedTranslation });
+        }
+
+        if (cachedItems.length) {
+          completed += cachedItems.length;
+          await onTranslations?.(cachedItems);
+          await onProgress?.({ completed, total: items.length });
+        }
+
+        if (!uncachedEntries.length) {
+          return;
+        }
+
+        const translatedTexts = await translateTextBatch(
+          uncachedEntries.map((entry) => entry.sourceText),
           profile,
           targetLanguage,
           userWhitelist,
         );
 
-        for (const [batchIndex, entry] of batch.entries()) {
+        const translatedItems: Array<{ item: T; translatedText: string }> = [];
+        for (const [batchIndex, entry] of uncachedEntries.entries()) {
           const translatedText = translatedTexts[batchIndex];
           translations[entry.index] = translatedText;
-          await onTranslated?.(entry.item, translatedText);
+          translatedItems.push({ item: entry.item, translatedText });
         }
+        await onTranslations?.(translatedItems);
 
-        completed += batch.length;
+        completed += uncachedEntries.length;
         await onProgress?.({ completed, total: items.length });
       },
     );

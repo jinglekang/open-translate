@@ -64,14 +64,25 @@ export async function translateTextBatch(
   return translateUncachedBatchWithFallback(sourceTexts, profile, targetLanguage, userWhitelist)
 }
 
-export function getCachedTranslations(
+export async function getCachedTranslations(
   sourceTexts: string[],
   profile: TranslationProfile,
   targetLanguage: string,
 ) {
-  return Promise.all(
-    sourceTexts.map((sourceText) => getCachedTranslation(sourceText, profile, targetLanguage)),
-  )
+  try {
+    const cacheKeys = await Promise.all(
+      sourceTexts.map((sourceText) => createTranslationCacheKey(sourceText, profile, targetLanguage)),
+    )
+    const cachedItems = await chrome.storage.local.get(cacheKeys)
+
+    return cacheKeys.map((cacheKey) => {
+      const cachedValue = cachedItems[cacheKey]
+      return typeof cachedValue === 'string' ? cachedValue : undefined
+    })
+  } catch (error) {
+    console.warn('Open Translate cache read failed', error)
+    return sourceTexts.map(() => undefined)
+  }
 }
 
 async function translateUncachedBatchWithFallback(
