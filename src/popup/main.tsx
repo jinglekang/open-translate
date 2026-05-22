@@ -10,7 +10,11 @@ import {
 import { Button } from '../components/ui/button'
 import { t } from '../shared/i18n'
 import { getActiveProfile, normalizeSettings } from '../shared/settings'
-import type { TranslationDisplayMode, TranslationSettings } from '../shared/settings'
+import type {
+  PageTranslationScope,
+  TranslationDisplayMode,
+  TranslationSettings,
+} from '../shared/settings'
 import '../shared/style.css'
 
 export function Popup() {
@@ -50,6 +54,21 @@ export function Popup() {
     setSettings(nextSettings)
     await chrome.storage.sync.set({ displayMode })
     setStatus(displayMode === 'translation' ? t('translationOnlyEnabled') : t('bilingualEnabled'))
+  }
+
+  async function handlePageScopeChange(pageTranslationScope: PageTranslationScope) {
+    if (!settings) {
+      return
+    }
+
+    const nextSettings = { ...settings, pageTranslationScope }
+    setSettings(nextSettings)
+    await chrome.storage.sync.set({ pageTranslationScope })
+    setStatus(
+      pageTranslationScope === 'viewport'
+        ? t('viewportTranslationEnabled')
+        : t('visiblePageTranslationEnabled'),
+    )
   }
 
   async function openOptionsPage() {
@@ -141,6 +160,40 @@ export function Popup() {
                 onClick={() => handleDisplayModeChange('bilingual')}
               >
                 {t('bilingual')}
+              </Button>
+            </div>
+          </fieldset>
+
+          <fieldset className="grid gap-2 border-0 p-0 m-0">
+            <legend className="text-[13px] font-semibold text-slate-600">
+              {t('pageTranslationScope')}
+            </legend>
+            <div className="grid grid-cols-2 gap-1.5 rounded-lg border border-slate-200 bg-white p-1">
+              <Button
+                type="button"
+                size="default"
+                variant={settings.pageTranslationScope === 'visible-page' ? 'default' : 'ghost'}
+                className={
+                  settings.pageTranslationScope === 'visible-page'
+                    ? 'h-8 rounded-md bg-blue-600 text-sm font-semibold text-white'
+                    : 'h-8 rounded-md bg-transparent text-sm font-semibold text-slate-600 transition hover:bg-blue-50'
+                }
+                onClick={() => handlePageScopeChange('visible-page')}
+              >
+                {t('visiblePage')}
+              </Button>
+              <Button
+                type="button"
+                size="default"
+                variant={settings.pageTranslationScope === 'viewport' ? 'default' : 'ghost'}
+                className={
+                  settings.pageTranslationScope === 'viewport'
+                    ? 'h-8 rounded-md bg-blue-600 text-sm font-semibold text-white'
+                    : 'h-8 rounded-md bg-transparent text-sm font-semibold text-slate-600 transition hover:bg-blue-50'
+                }
+                onClick={() => handlePageScopeChange('viewport')}
+              >
+                {t('viewport')}
               </Button>
             </div>
           </fieldset>

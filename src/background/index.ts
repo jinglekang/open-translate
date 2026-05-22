@@ -1,6 +1,11 @@
 import { t } from '../shared/i18n'
 import { getActiveProfile, normalizeSettings, validateProfileForUse } from '../shared/settings'
-import type { TranslationDisplayMode, TranslationProfile, TranslationSettings } from '../shared/settings'
+import type {
+  PageTranslationScope,
+  TranslationDisplayMode,
+  TranslationProfile,
+  TranslationSettings,
+} from '../shared/settings'
 
 const PAGE_MENU_ID = "open-translate-page";
 const SELECTION_MENU_ID = "open-translate-selection";
@@ -113,7 +118,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       return;
     }
 
-    await translatePage(tab.id, profile, settings.displayMode);
+    await translatePage(tab.id, profile, settings.displayMode, settings.pageTranslationScope);
   } catch (error) {
     const message = error instanceof Error ? error.message : t("translationFailed");
     await showInlineNotice(tab.id, message, "error");
@@ -172,6 +177,7 @@ async function translatePage(
   tabId: number,
   profile: TranslationProfile,
   displayMode: TranslationDisplayMode,
+  pageTranslationScope: PageTranslationScope,
 ) {
   await showInlineNotice(tabId, t("collectingPageText"), "loading");
 
@@ -181,12 +187,12 @@ async function translatePage(
   });
 
   const [{ result: textNodes = [] }] = await chrome.scripting.executeScript<
-    [number],
+    [number, PageTranslationScope],
     PageTextNode[]
   >({
     target: { tabId },
     func: collectPageTextNodes,
-    args: [MAX_TEXT_NODES],
+    args: [MAX_TEXT_NODES, pageTranslationScope],
   });
 
   if (!textNodes.length) {
@@ -219,7 +225,7 @@ async function translatePage(
   await chrome.scripting.executeScript({
     target: { tabId },
     func: installDynamicPageTranslator,
-    args: [MAX_TEXT_NODES, pageSessionId],
+    args: [MAX_TEXT_NODES, pageSessionId, pageTranslationScope],
   });
 }
 
@@ -518,7 +524,10 @@ async function showOptionalInlineNotice(
   }
 }
 
-function collectPageTextNodes(maxNodes: number) {
+function collectPageTextNodes(
+  maxNodes: number,
+  pageTranslationScope: "visible-page" | "viewport",
+) {
   const ignoredTags = new Set([
     "SCRIPT",
     "STYLE",
@@ -561,6 +570,7 @@ function collectPageTextNodes(maxNodes: number) {
         if (
           rect.width === 0 ||
           rect.height === 0 ||
+          (pageTranslationScope === "viewport" && !isRectInViewport(rect)) ||
           style.visibility === "hidden" ||
           style.display === "none" ||
           Number(style.opacity) === 0
@@ -590,6 +600,15 @@ function collectPageTextNodes(maxNodes: number) {
   function isLikelyNonLanguage(text: string) {
     const trimmed = text.trim();
     return /^[\d\s()[\]{}.,:;'"!?+\-*/\\|_=<>@#$%^&~`]+$/.test(trimmed);
+  }
+
+  function isRectInViewport(rect: DOMRect) {
+    return (
+      rect.bottom > 0 &&
+      rect.right > 0 &&
+      rect.top < window.innerHeight &&
+      rect.left < window.innerWidth
+    );
   }
 
   function getNodePath(node: Node) {
@@ -726,9 +745,14 @@ function replacePageTextNodes(
   }
 }
 
-function installDynamicPageTranslator(maxNodes: number, pageSessionId: number) {
+function installDynamicPageTranslator(
+  maxNodes: number,
+  pageSessionId: number,
+  pageTranslationScope: "visible-page" | "viewport",
+) {
   type DynamicState = {
     observer: MutationObserver;
+    removeScrollListener?: () => void;
   };
   type DynamicResponse = {
     translations?: string[];
@@ -747,6 +771,7 @@ function installDynamicPageTranslator(maxNodes: number, pageSessionId: number) {
   }
 
   windowWithTranslator.__openTranslateDynamicTranslator?.observer.disconnect();
+  windowWithTranslator.__openTranslateDynamicTranslator?.removeScrollListener?.();
 
   const ignoredTags = new Set([
     "SCRIPT",
@@ -761,6 +786,7 @@ function installDynamicPageTranslator(maxNodes: number, pageSessionId: number) {
     "OPTION",
   ]);
   const pendingNodes = new Set<Text>();
+  const inFlightNodes = new Set<Text>();
   let isApplyingTranslation = false;
   let debounceTimer = 0;
 
@@ -787,7 +813,21 @@ function installDynamicPageTranslator(maxNodes: number, pageSessionId: number) {
     characterData: true,
     subtree: true,
   });
-  windowWithTranslator.__openTranslateDynamicTranslator = { observer };
+  const handleScroll = () => {
+    scheduleViewportFlush();
+  };
+
+  if (pageTranslationScope === "viewport") {
+    window.addEventListener("scroll", handleScroll, { passive: true });
+  }
+
+  windowWithTranslator.__openTranslateDynamicTranslator = {
+    observer,
+    removeScrollListener:
+      pageTranslationScope === "viewport"
+        ? () => window.removeEventListener("scroll", handleScroll)
+        : undefined,
+  };
 
   function collectTextNodes(node: Node) {
     if (pendingNodes.size >= maxNodes) {
@@ -826,7 +866,7 @@ function installDynamicPageTranslator(maxNodes: number, pageSessionId: number) {
   }
 
   function enqueueTextNode(node: Text) {
-    if (isTranslatableTextNode(node)) {
+    if (!inFlightNodes.has(node) && isTranslatableTextNode(node)) {
       pendingNodes.add(node);
     }
   }
@@ -836,12 +876,26 @@ function installDynamicPageTranslator(maxNodes: number, pageSessionId: number) {
     debounceTimer = window.setTimeout(flushPendingNodes, 650);
   }
 
+  function scheduleViewportFlush() {
+    window.clearTimeout(debounceTimer);
+    debounceTimer = window.setTimeout(() => {
+      collectTextNodes(document.body);
+      flushPendingNodes();
+    }, 220);
+  }
+
   function flushPendingNodes() {
-    const nodes = [...pendingNodes].filter(isTranslatableTextNode).slice(0, maxNodes);
+    const nodes = [...pendingNodes]
+      .filter((node) => !inFlightNodes.has(node) && isTranslatableTextNode(node))
+      .slice(0, maxNodes);
     pendingNodes.clear();
 
     if (!nodes.length) {
       return;
+    }
+
+    for (const node of nodes) {
+      inFlightNodes.add(node);
     }
 
     const sourceTexts = nodes.map((node) => node.nodeValue || "");
@@ -849,39 +903,45 @@ function installDynamicPageTranslator(maxNodes: number, pageSessionId: number) {
       { type: "open-translate:translate-texts", texts: sourceTexts },
       (response) => {
         const dynamicResponse = response as DynamicResponse | undefined;
-        if (
-          chrome.runtime.lastError ||
-          dynamicResponse?.error ||
-          !dynamicResponse?.translations ||
-          windowWithTranslator.__openTranslatePageSessionId !== pageSessionId
-        ) {
-          return;
-        }
-
-        isApplyingTranslation = true;
         try {
-          for (const [index, node] of nodes.entries()) {
-            const translatedText = dynamicResponse.translations[index];
-            if (
-              !translatedText ||
-              !node.parentNode ||
-              node.nodeValue !== sourceTexts[index] ||
-              !isTranslatableTextNode(node)
-            ) {
-              continue;
-            }
+          if (
+            chrome.runtime.lastError ||
+            dynamicResponse?.error ||
+            !dynamicResponse?.translations ||
+            windowWithTranslator.__openTranslatePageSessionId !== pageSessionId
+          ) {
+            return;
+          }
 
-            applyDynamicTranslation(
-              node,
-              sourceTexts[index],
-              translatedText,
-              dynamicResponse.displayMode || "translation",
-            );
+          isApplyingTranslation = true;
+          try {
+            for (const [index, node] of nodes.entries()) {
+              const translatedText = dynamicResponse.translations[index];
+              if (
+                !translatedText ||
+                !node.parentNode ||
+                node.nodeValue !== sourceTexts[index] ||
+                !isTranslatableTextNode(node)
+              ) {
+                continue;
+              }
+
+              applyDynamicTranslation(
+                node,
+                sourceTexts[index],
+                translatedText,
+                dynamicResponse.displayMode || "translation",
+              );
+            }
+          } finally {
+            window.setTimeout(() => {
+              isApplyingTranslation = false;
+            }, 0);
           }
         } finally {
-          window.setTimeout(() => {
-            isApplyingTranslation = false;
-          }, 0);
+          for (const node of nodes) {
+            inFlightNodes.delete(node);
+          }
         }
       },
     );
@@ -978,9 +1038,19 @@ function installDynamicPageTranslator(maxNodes: number, pageSessionId: number) {
     return (
       rect.width > 0 &&
       rect.height > 0 &&
+      (pageTranslationScope !== "viewport" || isRectInViewport(rect)) &&
       style.visibility !== "hidden" &&
       style.display !== "none" &&
       Number(style.opacity) !== 0
+    );
+  }
+
+  function isRectInViewport(rect: DOMRect) {
+    return (
+      rect.bottom > 0 &&
+      rect.right > 0 &&
+      rect.top < window.innerHeight &&
+      rect.left < window.innerWidth
     );
   }
 }
@@ -1012,6 +1082,7 @@ function restorePageOriginalText() {
     __openTranslatePageOriginals?: Map<Text, PageTextTranslation>;
     __openTranslateDynamicTranslator?: {
       observer: MutationObserver;
+      removeScrollListener?: () => void;
     };
     __openTranslatePageSessionId?: number;
     __openTranslatePageTranslations?: Set<string>;
@@ -1021,6 +1092,7 @@ function restorePageOriginalText() {
   const didRestore = !!originals?.size || bilingualTexts.length > 0;
 
   pageWindow.__openTranslateDynamicTranslator?.observer.disconnect();
+  pageWindow.__openTranslateDynamicTranslator?.removeScrollListener?.();
   delete pageWindow.__openTranslateDynamicTranslator;
 
   for (const translatedText of bilingualTexts) {

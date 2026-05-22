@@ -14,6 +14,8 @@ export const profileFieldLimits = {
 
 export const translationDisplayModeSchema = z.enum(['translation', 'bilingual'])
 export type TranslationDisplayMode = z.infer<typeof translationDisplayModeSchema>
+export const pageTranslationScopeSchema = z.enum(['visible-page', 'viewport'])
+export type PageTranslationScope = z.infer<typeof pageTranslationScopeSchema>
 
 export const translationProfileSchema = z.object({
   id: trimmedString.min(1),
@@ -55,6 +57,7 @@ export const translationSettingsSchema = z
     profiles: z.array(translationProfileSchema).min(1),
     activeProfileId: trimmedString.min(1),
     displayMode: translationDisplayModeSchema.catch('translation'),
+    pageTranslationScope: pageTranslationScopeSchema.catch('visible-page'),
   })
   .transform((settings) => {
     const activeProfileId = settings.profiles.some(
@@ -67,6 +70,7 @@ export const translationSettingsSchema = z
       profiles: settings.profiles,
       activeProfileId,
       displayMode: settings.displayMode,
+      pageTranslationScope: settings.pageTranslationScope,
     }
   })
 
@@ -87,6 +91,7 @@ export const defaultSettings: TranslationSettings = {
   profiles: [defaultProfile],
   activeProfileId: defaultProfile.id,
   displayMode: 'translation',
+  pageTranslationScope: 'visible-page',
 }
 
 const legacySettingsSchema = z.object({
@@ -135,6 +140,7 @@ export function normalizeSettings(stored: unknown): TranslationSettings {
     ],
     activeProfileId: defaultProfile.id,
     displayMode: 'translation',
+    pageTranslationScope: 'visible-page',
   })
 }
 

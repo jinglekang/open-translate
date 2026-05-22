@@ -85,6 +85,7 @@ export function Options() {
         profiles: [...settings.profiles, profile],
         activeProfileId: profile.id,
         displayMode: settings.displayMode,
+        pageTranslationScope: settings.pageTranslationScope,
       },
       t('profileAdded'),
       profile.id,
@@ -102,6 +103,7 @@ export function Options() {
         profiles: [...settings.profiles, profile],
         activeProfileId: profile.id,
         displayMode: settings.displayMode,
+        pageTranslationScope: settings.pageTranslationScope,
       },
       t('profileDuplicated'),
       profile.id,
@@ -121,7 +123,12 @@ export function Options() {
         : settings.activeProfileId
 
     await saveSettings(
-      { profiles, activeProfileId, displayMode: settings.displayMode },
+      {
+        profiles,
+        activeProfileId,
+        displayMode: settings.displayMode,
+        pageTranslationScope: settings.pageTranslationScope,
+      },
       t('profileDeleted'),
       activeProfileId,
     )

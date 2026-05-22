@@ -54,6 +54,21 @@
   "bilingualEnabled": {
     "message": "Switched to bilingual"
   },
+  "pageTranslationScope": {
+    "message": "Page translation scope"
+  },
+  "visiblePage": {
+    "message": "Visible page"
+  },
+  "viewport": {
+    "message": "Viewport"
+  },
+  "visiblePageTranslationEnabled": {
+    "message": "Page translation will use visible page text"
+  },
+  "viewportTranslationEnabled": {
+    "message": "Page translation will use viewport text only"
+  },
   "manageProfiles": {
     "message": "Manage API profiles"
   },

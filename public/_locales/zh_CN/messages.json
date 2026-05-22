@@ -54,6 +54,21 @@
   "bilingualEnabled": {
     "message": "已切换为双语对照"
   },
+  "pageTranslationScope": {
+    "message": "整页翻译范围"
+  },
+  "visiblePage": {
+    "message": "可见页面"
+  },
+  "viewport": {
+    "message": "当前视窗"
+  },
+  "visiblePageTranslationEnabled": {
+    "message": "整页翻译将处理页面可见文本"
+  },
+  "viewportTranslationEnabled": {
+    "message": "整页翻译将仅处理当前视窗文本"
+  },
   "manageProfiles": {
     "message": "管理接口配置"
   },
