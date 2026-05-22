@@ -8,7 +8,6 @@ import {
   SelectValue,
 } from '../components/ui/select'
 import { Button } from '../components/ui/button'
-import { getEndpointPreview } from '../shared/endpoint'
 import { t } from '../shared/i18n'
 import { getActiveProfile, normalizeSettings } from '../shared/settings'
 import type {
@@ -118,37 +117,35 @@ export function Popup() {
             </Select>
           </label>
 
-          <div className="grid min-w-0 gap-1.5 rounded-lg border border-slate-200 bg-white p-3">
-            <strong className="block truncate text-sm font-semibold text-slate-900">
-              {activeProfile?.name}
-            </strong>
+          <div className="grid min-w-0 gap-2 rounded-lg border border-slate-200 bg-white p-3">
+            <div className="flex min-w-0 items-center justify-between gap-2">
+              <strong className="block min-w-0 truncate text-sm font-semibold text-slate-900">
+                {activeProfile?.name}
+              </strong>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="h-7 shrink-0 rounded-md px-2 text-xs font-semibold text-blue-600 hover:bg-blue-50 hover:text-blue-700"
+                onClick={openOptionsPage}
+              >
+                {t('manageProfiles')}
+              </Button>
+            </div>
             <span className="block truncate text-[13px] text-slate-600">
               {activeProfile?.model || t('modelUnset')}
             </span>
             <code
               className="block max-w-full break-all whitespace-normal font-mono text-xs leading-relaxed text-slate-700"
-              title={getEndpointPreview(activeProfile?.apiBaseUrl || '')}
+              title={activeProfile?.apiBaseUrl || t('endpointUnset')}
             >
-              {getEndpointPreview(activeProfile?.apiBaseUrl || '')}
+              {activeProfile?.apiBaseUrl || t('endpointUnset')}
             </code>
           </div>
 
           <fieldset className="grid gap-2 border-0 p-0 m-0">
             <legend className="text-[13px] font-semibold text-slate-600">{t('displayMode')}</legend>
             <div className="grid grid-cols-2 gap-1.5 rounded-lg border border-slate-200 bg-white p-1">
-              <Button
-                type="button"
-                size="default"
-                variant={settings.displayMode === 'translation' ? 'default' : 'ghost'}
-                className={
-                  settings.displayMode === 'translation'
-                    ? 'h-8 rounded-md bg-blue-600 text-sm font-semibold text-white'
-                    : 'h-8 rounded-md bg-transparent text-sm font-semibold text-slate-600 transition hover:bg-blue-50'
-                }
-                onClick={() => handleDisplayModeChange('translation')}
-              >
-                {t('translationOnly')}
-              </Button>
               <Button
                 type="button"
                 size="default"
@@ -162,6 +159,19 @@ export function Popup() {
               >
                 {t('bilingual')}
               </Button>
+              <Button
+                type="button"
+                size="default"
+                variant={settings.displayMode === 'translation' ? 'default' : 'ghost'}
+                className={
+                  settings.displayMode === 'translation'
+                    ? 'h-8 rounded-md bg-blue-600 text-sm font-semibold text-white'
+                    : 'h-8 rounded-md bg-transparent text-sm font-semibold text-slate-600 transition hover:bg-blue-50'
+                }
+                onClick={() => handleDisplayModeChange('translation')}
+              >
+                {t('translationOnly')}
+              </Button>
             </div>
           </fieldset>
 
@@ -170,19 +180,6 @@ export function Popup() {
               {t('pageTranslationScope')}
             </legend>
             <div className="grid grid-cols-2 gap-1.5 rounded-lg border border-slate-200 bg-white p-1">
-              <Button
-                type="button"
-                size="default"
-                variant={settings.pageTranslationScope === 'visible-page' ? 'default' : 'ghost'}
-                className={
-                  settings.pageTranslationScope === 'visible-page'
-                    ? 'h-8 rounded-md bg-blue-600 text-sm font-semibold text-white'
-                    : 'h-8 rounded-md bg-transparent text-sm font-semibold text-slate-600 transition hover:bg-blue-50'
-                }
-                onClick={() => handlePageScopeChange('visible-page')}
-              >
-                {t('visiblePage')}
-              </Button>
               <Button
                 type="button"
                 size="default"
@@ -196,17 +193,21 @@ export function Popup() {
               >
                 {t('viewport')}
               </Button>
+              <Button
+                type="button"
+                size="default"
+                variant={settings.pageTranslationScope === 'visible-page' ? 'default' : 'ghost'}
+                className={
+                  settings.pageTranslationScope === 'visible-page'
+                    ? 'h-8 rounded-md bg-blue-600 text-sm font-semibold text-white'
+                    : 'h-8 rounded-md bg-transparent text-sm font-semibold text-slate-600 transition hover:bg-blue-50'
+                }
+                onClick={() => handlePageScopeChange('visible-page')}
+              >
+                {t('visiblePage')}
+              </Button>
             </div>
           </fieldset>
-
-          <Button
-            type="button"
-            size="lg"
-            className="h-9 rounded-md bg-blue-600 px-3 text-sm font-semibold text-white transition hover:bg-blue-700"
-            onClick={openOptionsPage}
-          >
-            {t('manageProfiles')}
-          </Button>
         </section>
       )}
 

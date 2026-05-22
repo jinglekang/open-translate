@@ -56,8 +56,8 @@ export const translationSettingsSchema = z
   .object({
     profiles: z.array(translationProfileSchema).min(1),
     activeProfileId: trimmedString.min(1),
-    displayMode: translationDisplayModeSchema.catch('translation'),
-    pageTranslationScope: pageTranslationScopeSchema.catch('visible-page'),
+    displayMode: translationDisplayModeSchema.catch('bilingual'),
+    pageTranslationScope: pageTranslationScopeSchema.catch('viewport'),
   })
   .transform((settings) => {
     const activeProfileId = settings.profiles.some(
@@ -90,8 +90,8 @@ export const defaultProfile: TranslationProfile = {
 export const defaultSettings: TranslationSettings = {
   profiles: [defaultProfile],
   activeProfileId: defaultProfile.id,
-  displayMode: 'translation',
-  pageTranslationScope: 'visible-page',
+  displayMode: 'bilingual',
+  pageTranslationScope: 'viewport',
 }
 
 const legacySettingsSchema = z.object({
@@ -139,8 +139,8 @@ export function normalizeSettings(stored: unknown): TranslationSettings {
       },
     ],
     activeProfileId: defaultProfile.id,
-    displayMode: 'translation',
-    pageTranslationScope: 'visible-page',
+    displayMode: 'bilingual',
+    pageTranslationScope: 'viewport',
   })
 }
 
