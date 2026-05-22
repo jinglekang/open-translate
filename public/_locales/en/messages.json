@@ -222,6 +222,18 @@
   "translationConcurrencyInvalid": {
     "message": "Translation concurrency must be an integer from 1 to 8"
   },
+  "translationBatchSegments": {
+    "message": "Max segments per request"
+  },
+  "translationBatchSegmentsInvalid": {
+    "message": "Max segments per request must be an integer from 1 to 8"
+  },
+  "translationBatchTextLength": {
+    "message": "Max text length per request"
+  },
+  "translationBatchTextLengthInvalid": {
+    "message": "Max text length per request must be an integer from 1 to 4000"
+  },
   "saveProfile": {
     "message": "Save Profile"
   },

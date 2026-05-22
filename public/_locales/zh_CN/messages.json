@@ -222,6 +222,18 @@
   "translationConcurrencyInvalid": {
     "message": "并发翻译数必须是 1 到 8 的整数"
   },
+  "translationBatchSegments": {
+    "message": "单次请求最大段数"
+  },
+  "translationBatchSegmentsInvalid": {
+    "message": "单次请求最大段数必须是 1 到 8 的整数"
+  },
+  "translationBatchTextLength": {
+    "message": "单次请求最大文本长度"
+  },
+  "translationBatchTextLengthInvalid": {
+    "message": "单次请求最大文本长度必须是 1 到 4000 的整数"
+  },
   "saveProfile": {
     "message": "保存配置"
   },

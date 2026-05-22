@@ -10,6 +10,8 @@ import {
   normalizeSettings,
   profileFieldLimits,
   sanitizeSettings,
+  translationBatchSegmentLimits,
+  translationBatchTextLengthLimits,
   translationConcurrencyLimits,
 } from '../shared/settings'
 import type { TranslationProfile, TranslationSettings } from '../shared/settings'
@@ -276,6 +278,42 @@ export function Options() {
                 type="number"
                 min={translationConcurrencyLimits.min}
                 max={translationConcurrencyLimits.max}
+                step={1}
+              />
+            </label>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <label className="grid gap-1.5">
+              <span className="text-[13px] font-semibold text-slate-600">
+                {t('translationBatchSegments')}
+              </span>
+              <input
+                className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-900 outline-none transition focus:border-blue-600 focus:ring-[3px] focus:ring-blue-100"
+                value={editingProfile.translationBatchSegments}
+                onChange={(event) =>
+                  updateProfile('translationBatchSegments', Number(event.target.value))
+                }
+                type="number"
+                min={translationBatchSegmentLimits.min}
+                max={translationBatchSegmentLimits.max}
+                step={1}
+              />
+            </label>
+
+            <label className="grid gap-1.5">
+              <span className="text-[13px] font-semibold text-slate-600">
+                {t('translationBatchTextLength')}
+              </span>
+              <input
+                className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-900 outline-none transition focus:border-blue-600 focus:ring-[3px] focus:ring-blue-100"
+                value={editingProfile.translationBatchTextLength}
+                onChange={(event) =>
+                  updateProfile('translationBatchTextLength', Number(event.target.value))
+                }
+                type="number"
+                min={translationBatchTextLengthLimits.min}
+                max={translationBatchTextLengthLimits.max}
                 step={1}
               />
             </label>

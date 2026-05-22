@@ -19,6 +19,7 @@ type ChatCompletionsPayload = {
 }
 
 const CACHE_KEY_PREFIX = 'open-translate-cache'
+const BATCH_SEPARATOR = '<OPEN_TRANSLATE_SEGMENT_BREAK>'
 
 export async function translateText(
   sourceText: string,
@@ -42,6 +43,76 @@ export async function translateText(
 
   await cacheTranslation(sourceText, translatedText, profile, targetLanguage)
   return translatedText
+}
+
+export async function translateTextBatch(
+  sourceTexts: string[],
+  profile: TranslationProfile,
+  targetLanguage: string,
+) {
+  if (sourceTexts.length === 1) {
+    return [await translateText(sourceTexts[0], profile, targetLanguage)]
+  }
+
+  return translateUncachedBatchWithFallback(sourceTexts, profile, targetLanguage)
+}
+
+export function getCachedTranslations(
+  sourceTexts: string[],
+  profile: TranslationProfile,
+  targetLanguage: string,
+) {
+  return Promise.all(
+    sourceTexts.map((sourceText) => getCachedTranslation(sourceText, profile, targetLanguage)),
+  )
+}
+
+async function translateUncachedBatchWithFallback(
+  sourceTexts: string[],
+  profile: TranslationProfile,
+  targetLanguage: string,
+) {
+  try {
+    const translatedTexts = await requestBatchTranslations(sourceTexts, profile, targetLanguage)
+    await Promise.all(
+      sourceTexts.map((sourceText, index) =>
+        cacheTranslation(sourceText, translatedTexts[index], profile, targetLanguage),
+      ),
+    )
+    return translatedTexts
+  } catch {
+    return Promise.all(
+      sourceTexts.map((sourceText) => translateText(sourceText, profile, targetLanguage)),
+    )
+  }
+}
+
+async function requestBatchTranslations(
+  sourceTexts: string[],
+  profile: TranslationProfile,
+  targetLanguage: string,
+) {
+  const payload = await requestChatCompletions(profile, [
+    { role: 'system', content: getBatchSystemPrompt(profile, targetLanguage) },
+    { role: 'user', content: sourceTexts.join(`\n\n${BATCH_SEPARATOR}\n\n`) },
+  ])
+  const content = payload?.choices?.[0]?.message?.content?.trim()
+  if (!content) {
+    throw new Error(t('emptyTranslationResponse'))
+  }
+
+  const translatedTexts = content
+    .split(new RegExp(`\\s*${BATCH_SEPARATOR}\\s*`, 'g'))
+    .map((translatedText) => translatedText.trim())
+
+  if (
+    translatedTexts.length !== sourceTexts.length ||
+    translatedTexts.some((translatedText) => !translatedText)
+  ) {
+    throw new Error(t('emptyTranslationResponse'))
+  }
+
+  return translatedTexts
 }
 
 async function getCachedTranslation(
@@ -124,6 +195,16 @@ function getSystemPrompt(profile: TranslationProfile, targetLanguage: string) {
     profile.customPrompt.trim() ||
     `You are a professional translation assistant. Translate the user's text into ${targetLanguage}. Preserve the original formatting, proper nouns, and code blocks. Output only the translation without explanations.`
   )
+}
+
+function getBatchSystemPrompt(profile: TranslationProfile, targetLanguage: string) {
+  return `${getSystemPrompt(profile, targetLanguage)}
+
+The user input contains multiple text segments separated by ${BATCH_SEPARATOR}.
+Translate every segment independently and keep the segment order unchanged.
+Return exactly the same number of translated segments.
+Output only translated text and use ${BATCH_SEPARATOR} as the separator between translated segments.
+Do not add, remove, translate, wrap, or explain the separator.`
 }
 
 function getChatCompletionsEndpoint(apiBaseUrl: string) {

@@ -16,6 +16,16 @@ export const translationConcurrencyLimits = {
   default: 4,
   max: 8,
 } as const
+export const translationBatchSegmentLimits = {
+  min: 1,
+  default: 4,
+  max: 8,
+} as const
+export const translationBatchTextLengthLimits = {
+  min: 1,
+  default: 1200,
+  max: 4000,
+} as const
 
 export const translationDisplayModeSchema = z.enum(['translation', 'bilingual'])
 export type TranslationDisplayMode = z.infer<typeof translationDisplayModeSchema>
@@ -48,6 +58,18 @@ export const translationProfileSchema = z.object({
     .min(translationConcurrencyLimits.min, t('translationConcurrencyInvalid'))
     .max(translationConcurrencyLimits.max, t('translationConcurrencyInvalid'))
     .catch(translationConcurrencyLimits.default),
+  translationBatchSegments: z.coerce
+    .number()
+    .int(t('translationBatchSegmentsInvalid'))
+    .min(translationBatchSegmentLimits.min, t('translationBatchSegmentsInvalid'))
+    .max(translationBatchSegmentLimits.max, t('translationBatchSegmentsInvalid'))
+    .catch(translationBatchSegmentLimits.default),
+  translationBatchTextLength: z.coerce
+    .number()
+    .int(t('translationBatchTextLengthInvalid'))
+    .min(translationBatchTextLengthLimits.min, t('translationBatchTextLengthInvalid'))
+    .max(translationBatchTextLengthLimits.max, t('translationBatchTextLengthInvalid'))
+    .catch(translationBatchTextLengthLimits.default),
   customPrompt: trimmedString
     .max(
       profileFieldLimits.customPrompt,
@@ -96,6 +118,8 @@ export const defaultProfile: TranslationProfile = {
   model: 'gpt-4o-mini',
   apiKey: '',
   translationConcurrency: translationConcurrencyLimits.default,
+  translationBatchSegments: translationBatchSegmentLimits.default,
+  translationBatchTextLength: translationBatchTextLengthLimits.default,
   customPrompt: '',
 }
 

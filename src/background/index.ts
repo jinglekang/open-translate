@@ -6,7 +6,7 @@ import type {
   TranslationProfile,
   TranslationSettings,
 } from '../shared/settings'
-import { translateText } from './translation'
+import { getCachedTranslations, translateText, translateTextBatch } from './translation'
 
 const PAGE_MENU_ID = "open-translate-page";
 const SELECTION_MENU_ID = "open-translate-selection";
@@ -112,7 +112,6 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       settings.targetLanguage,
       settings.displayMode,
       settings.pageTranslationScope,
-      profile.translationConcurrency,
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : t("translationFailed");
@@ -175,7 +174,6 @@ async function translatePage(
   targetLanguage: string,
   displayMode: TranslationDisplayMode,
   pageTranslationScope: PageTranslationScope,
-  translationConcurrency: number,
 ) {
   await showInlineNotice(tabId, t("collectingPageText"), "loading");
 
@@ -203,7 +201,9 @@ async function translatePage(
     (item) => item.text,
     profile,
     targetLanguage,
-    translationConcurrency,
+    profile.translationConcurrency,
+    profile.translationBatchSegments,
+    profile.translationBatchTextLength,
     progress.update,
     async (item, translatedText) => {
       await chrome.scripting.executeScript({
@@ -314,6 +314,8 @@ async function translateDynamicTexts(texts: string[], tabId?: number) {
     profile,
     settings.targetLanguage,
     profile.translationConcurrency,
+    profile.translationBatchSegments,
+    profile.translationBatchTextLength,
     tabId ? createPageTranslationProgress(tabId).update : undefined,
   );
 
@@ -349,30 +351,101 @@ async function translateItems<T>(
   profile: TranslationProfile,
   targetLanguage: string,
   concurrency: number,
+  maxBatchSegments: number,
+  maxBatchTextLength: number,
   onProgress?: (progress: TranslationProgress) => Promise<void>,
   onTranslated?: (item: T, translatedText: string) => Promise<void>,
 ) {
   const translations: string[] = new Array(items.length);
   let completed = 0;
+  const entries = items.map((item, index) => ({
+    index,
+    item,
+    sourceText: getSourceText(item),
+  }));
+  const cachedTranslations = await getCachedTranslations(
+    entries.map((entry) => entry.sourceText),
+    profile,
+    targetLanguage,
+  );
+  const uncachedEntries: typeof entries = [];
+  for (const [entryIndex, entry] of entries.entries()) {
+    const cachedTranslation = cachedTranslations[entryIndex];
+    if (!cachedTranslation) {
+      uncachedEntries.push(entry);
+      continue;
+    }
+
+    translations[entry.index] = cachedTranslation;
+    await onTranslated?.(entry.item, cachedTranslation);
+    completed += 1;
+  }
+
+  const batches = createTranslationBatches(
+    uncachedEntries,
+    maxBatchSegments,
+    maxBatchTextLength,
+  );
 
   if (onProgress) {
     await onProgress({ completed, total: items.length });
   }
 
-  await runConcurrent(
-    items.map((item, index) => ({ index, item })),
-    concurrency,
-    async ({ index, item }) => {
-      const translatedText = await translateText(getSourceText(item), profile, targetLanguage);
-      translations[index] = translatedText;
-      await onTranslated?.(item, translatedText);
+  if (batches.length) {
+    await runConcurrent(
+      batches,
+      concurrency,
+      async (batch) => {
+        const translatedTexts = await translateTextBatch(
+          batch.map((entry) => entry.sourceText),
+          profile,
+          targetLanguage,
+        );
 
-      completed += 1;
-      await onProgress?.({ completed, total: items.length });
-    },
-  );
+        for (const [batchIndex, entry] of batch.entries()) {
+          const translatedText = translatedTexts[batchIndex];
+          translations[entry.index] = translatedText;
+          await onTranslated?.(entry.item, translatedText);
+        }
+
+        completed += batch.length;
+        await onProgress?.({ completed, total: items.length });
+      },
+    );
+  }
 
   return translations;
+}
+
+function createTranslationBatches<T>(
+  entries: Array<{ index: number; item: T; sourceText: string }>,
+  maxBatchSegments: number,
+  maxBatchTextLength: number,
+) {
+  const batches: Array<Array<{ index: number; item: T; sourceText: string }>> = [];
+  let batch: Array<{ index: number; item: T; sourceText: string }> = [];
+  let batchTextLength = 0;
+
+  for (const entry of entries) {
+    const nextTextLength = batchTextLength + entry.sourceText.length;
+    if (
+      batch.length &&
+      (batch.length >= maxBatchSegments || nextTextLength > maxBatchTextLength)
+    ) {
+      batches.push(batch);
+      batch = [];
+      batchTextLength = 0;
+    }
+
+    batch.push(entry);
+    batchTextLength += entry.sourceText.length;
+  }
+
+  if (batch.length) {
+    batches.push(batch);
+  }
+
+  return batches;
 }
 
 function createPageTranslationProgress(tabId: number) {
