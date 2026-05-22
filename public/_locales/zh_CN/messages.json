@@ -21,6 +21,9 @@
       }
     }
   },
+  "contextMenuShowOriginal": {
+    "message": "显示原文"
+  },
   "popupTitle": {
     "message": "选择翻译接口"
   },
@@ -258,11 +261,11 @@
   "pageTranslated": {
     "message": "整页翻译完成"
   },
+  "pageOriginalShown": {
+    "message": "已显示原文"
+  },
   "emptyTranslationResponse": {
     "message": "接口没有返回可用的翻译结果"
-  },
-  "invalidBatchResponse": {
-    "message": "接口返回的整页翻译格式不正确"
   },
   "apiRequestFailed": {
     "message": "接口请求失败：$DETAIL$",

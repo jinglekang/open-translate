@@ -65,6 +65,24 @@ declare namespace chrome {
     }
   }
 
+  namespace tabs {
+    type Tab = {
+      active?: boolean
+    }
+
+    type TabChangeInfo = {
+      status?: string
+    }
+
+    const onActivated: {
+      addListener(callback: (activeInfo: { tabId: number; windowId: number }) => void): void
+    }
+
+    const onUpdated: {
+      addListener(callback: (tabId: number, changeInfo: TabChangeInfo, tab: Tab) => void): void
+    }
+  }
+
   namespace scripting {
     type InjectionTarget = {
       tabId: number

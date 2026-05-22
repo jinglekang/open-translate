@@ -21,6 +21,9 @@
       }
     }
   },
+  "contextMenuShowOriginal": {
+    "message": "Show original"
+  },
   "popupTitle": {
     "message": "Choose Translator"
   },
@@ -258,11 +261,11 @@
   "pageTranslated": {
     "message": "Page translation complete"
   },
+  "pageOriginalShown": {
+    "message": "Original page text restored"
+  },
   "emptyTranslationResponse": {
     "message": "The API did not return a usable translation"
-  },
-  "invalidBatchResponse": {
-    "message": "The API returned an invalid full-page translation format"
   },
   "apiRequestFailed": {
     "message": "API request failed: $DETAIL$",

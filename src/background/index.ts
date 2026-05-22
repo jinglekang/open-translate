@@ -33,9 +33,19 @@ type TextReplacement = {
   text: string;
 };
 
+type PageTextTranslation = {
+  sourceText: string;
+  translatedText: string;
+};
+
 type DynamicTranslateMessage = {
   type: "open-translate:translate-texts";
   texts: string[];
+};
+
+type TranslationProgress = {
+  completed: number;
+  total: number;
 };
 
 const MAX_TEXT_NODES = 180;
@@ -60,6 +70,16 @@ chrome.runtime.onStartup.addListener(() => {
   void updateContextMenuTitles();
 });
 
+chrome.tabs.onActivated.addListener(({ tabId }) => {
+  void updatePageContextMenuTitleForTab(tabId);
+});
+
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (tab.active && changeInfo.status) {
+    void updatePageContextMenuTitleForTab(tabId);
+  }
+});
+
 chrome.storage.onChanged.addListener((changes, areaName) => {
   if (
     areaName === "sync" &&
@@ -78,6 +98,12 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   }
 
   try {
+    if (info.menuItemId === PAGE_MENU_ID && await restoreTranslatedPage(tab.id)) {
+      await updatePageContextMenuTitleForTab(tab.id);
+      await showInlineNotice(tab.id, t("pageOriginalShown"), "success");
+      return;
+    }
+
     const settings = await getCurrentSettings();
     const profile = validateProfileForUse(getActiveProfile(settings));
 
@@ -94,12 +120,13 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   }
 });
 
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (!isDynamicTranslateMessage(message)) {
     return false;
   }
 
-  void translateDynamicTexts(message.texts)
+  const tabId = sender.tab?.id;
+  void translateDynamicTexts(message.texts, tabId)
     .then((response) => sendResponse(response))
     .catch((error) => {
       sendResponse({
@@ -148,6 +175,11 @@ async function translatePage(
 ) {
   await showInlineNotice(tabId, t("collectingPageText"), "loading");
 
+  const [{ result: pageSessionId = 0 }] = await chrome.scripting.executeScript<[], number>({
+    target: { tabId },
+    func: beginPageTranslationSession,
+  });
+
   const [{ result: textNodes = [] }] = await chrome.scripting.executeScript<
     [number],
     PageTextNode[]
@@ -161,33 +193,43 @@ async function translatePage(
     throw new Error(t("pageTextNotFound"));
   }
 
-  let completed = 0;
-  await runConcurrent(textNodes, PAGE_TRANSLATION_CONCURRENCY, async (item) => {
-    const translatedText = await translateText(item.text, profile);
-    await chrome.scripting.executeScript({
-      target: { tabId },
-      func: replacePageTextNodes,
-      args: [[{
-        path: item.path,
-        sourceText: item.text,
-        text: translatedText || item.text,
-      }], displayMode],
-    });
-
-    completed += 1;
-    await showInlineNotice(
-      tabId,
-      t("translatingPageBatch", [String(completed), String(textNodes.length)]),
-      "loading",
-    );
-  });
+  const progress = createPageTranslationProgress(tabId);
+  await translateItems(
+    textNodes,
+    (item) => item.text,
+    profile,
+    progress.update,
+    async (item, translatedText) => {
+      await chrome.scripting.executeScript({
+        target: { tabId },
+        func: replacePageTextNodes,
+        args: [[{
+          path: item.path,
+          sourceText: item.text,
+          text: translatedText || item.text,
+        }], displayMode, pageSessionId],
+      });
+    },
+  );
 
   await showInlineNotice(tabId, t("pageTranslated"), "success");
+  await chrome.contextMenus.update(PAGE_MENU_ID, {
+    title: t("contextMenuShowOriginal"),
+  });
   await chrome.scripting.executeScript({
     target: { tabId },
     func: installDynamicPageTranslator,
-    args: [MAX_TEXT_NODES],
+    args: [MAX_TEXT_NODES, pageSessionId],
   });
+}
+
+async function restoreTranslatedPage(tabId: number) {
+  const [{ result: didRestore = false }] = await chrome.scripting.executeScript<[], boolean>({
+    target: { tabId },
+    func: restorePageOriginalText,
+  });
+
+  return didRestore;
 }
 
 async function getCurrentSettings(): Promise<TranslationSettings> {
@@ -209,11 +251,33 @@ async function updateContextMenuTitles() {
   ]);
 }
 
+async function updatePageContextMenuTitleForTab(tabId: number) {
+  const settings = await getCurrentSettings();
+  const targetLanguage = getActiveProfile(settings).targetLanguage || getDefaultTargetLanguage();
+  let isTranslated = false;
+
+  try {
+    const [{ result = false }] = await chrome.scripting.executeScript<[], boolean>({
+      target: { tabId },
+      func: isPageTranslationActive,
+    });
+    isTranslated = result;
+  } catch {
+    // Some browser pages do not allow extension scripts.
+  }
+
+  await chrome.contextMenus.update(PAGE_MENU_ID, {
+    title: isTranslated
+      ? t("contextMenuShowOriginal")
+      : t("contextMenuTranslateToLanguage", targetLanguage),
+  });
+}
+
 function getDefaultTargetLanguage() {
   return t("targetLanguagePlaceholder");
 }
 
-async function translateDynamicTexts(texts: string[]) {
+async function translateDynamicTexts(texts: string[], tabId?: number) {
   const settings = await getCurrentSettings();
   const profile = validateProfileForUse(getActiveProfile(settings));
   const normalizedTexts = texts.map((text) => text.trim()).filter(Boolean);
@@ -225,8 +289,15 @@ async function translateDynamicTexts(texts: string[]) {
     };
   }
 
+  const translations = await translateItems(
+    normalizedTexts,
+    (text) => text,
+    profile,
+    tabId ? createPageTranslationProgress(tabId).update : undefined,
+  );
+
   return {
-    translations: await translateTextList(normalizedTexts, profile),
+    translations,
     displayMode: settings.displayMode,
   };
 }
@@ -249,63 +320,6 @@ async function translateText(sourceText: string, profile: TranslationProfile) {
 
   await cacheTranslation(sourceText, translatedText, profile);
   return translatedText;
-}
-
-async function translateTextList(texts: string[], profile: TranslationProfile) {
-  const cachedTranslations = await getCachedTranslations(texts, profile);
-  const missingItems = cachedTranslations
-    .map((translation, index) => ({
-      index,
-      text: texts[index],
-      translation,
-    }))
-    .filter((item) => !item.translation);
-
-  if (!missingItems.length) {
-    return cachedTranslations as string[];
-  }
-
-  const payload = await requestChatCompletions(profile, [
-    {
-      role: "system",
-      content: `${getSystemPrompt(profile)}
-
-You will receive a JSON string array. Translate each item in the array and return only a JSON string array.
-Requirements:
-1. The returned array length must exactly match the input array length.
-2. Do not return Markdown or wrap the result in a code block.
-3. Preserve numbers, URLs, email addresses, code snippets, and extra whitespace.`,
-    },
-    { role: "user", content: JSON.stringify(missingItems.map((item) => item.text)) },
-  ]);
-
-  const rawContent = payload?.choices?.[0]?.message?.content?.trim();
-  if (!rawContent) {
-    throw new Error(t("emptyTranslationResponse"));
-  }
-
-  const parsed = parseJsonArray(rawContent);
-  if (!Array.isArray(parsed) || parsed.length !== missingItems.length) {
-    throw new Error(t("invalidBatchResponse"));
-  }
-
-  const translatedMissingItems = parsed.map((item) => String(item));
-  const results = [...cachedTranslations];
-
-  for (const [missingIndex, translatedText] of translatedMissingItems.entries()) {
-    const item = missingItems[missingIndex];
-    results[item.index] = translatedText;
-  }
-
-  await cacheTranslations(
-    missingItems.map((item, index) => ({
-      sourceText: item.text,
-      translatedText: translatedMissingItems[index],
-    })),
-    profile,
-  );
-
-  return results as string[];
 }
 
 async function getCachedTranslation(sourceText: string, profile: TranslationProfile) {
@@ -405,19 +419,6 @@ function getSystemPrompt(profile: TranslationProfile) {
   );
 }
 
-function parseJsonArray(content: string): unknown {
-  try {
-    return JSON.parse(content);
-  } catch {
-    const match = content.match(/\[[\s\S]*\]/);
-    if (!match) {
-      throw new Error(t("invalidBatchResponse"));
-    }
-
-    return JSON.parse(match[0]);
-  }
-}
-
 function getChatCompletionsEndpoint(apiBaseUrl: string) {
   const normalized = apiBaseUrl.trim().replace(/\/+$/, "");
   if (normalized.endsWith("/chat/completions")) {
@@ -447,6 +448,52 @@ async function runConcurrent<T>(
   );
 }
 
+async function translateItems<T>(
+  items: T[],
+  getSourceText: (item: T) => string,
+  profile: TranslationProfile,
+  onProgress?: (progress: TranslationProgress) => Promise<void>,
+  onTranslated?: (item: T, translatedText: string) => Promise<void>,
+) {
+  const translations: string[] = new Array(items.length);
+  let completed = 0;
+
+  if (onProgress) {
+    await onProgress({ completed, total: items.length });
+  }
+
+  await runConcurrent(
+    items.map((item, index) => ({ index, item })),
+    PAGE_TRANSLATION_CONCURRENCY,
+    async ({ index, item }) => {
+      const translatedText = await translateText(getSourceText(item), profile);
+      translations[index] = translatedText;
+      await onTranslated?.(item, translatedText);
+
+      completed += 1;
+      await onProgress?.({ completed, total: items.length });
+    },
+  );
+
+  return translations;
+}
+
+function createPageTranslationProgress(tabId: number) {
+  let noticeQueue = Promise.resolve();
+
+  return {
+    update(progress: TranslationProgress) {
+      noticeQueue = noticeQueue.then(() => showOptionalInlineNotice(
+        tabId,
+        t("translatingPageBatch", [String(progress.completed), String(progress.total)]),
+        progress.completed < progress.total ? "loading" : "success",
+      ));
+
+      return noticeQueue;
+    },
+  };
+}
+
 async function showInlineNotice(
   tabId: number,
   message: string,
@@ -457,6 +504,18 @@ async function showInlineNotice(
     func: renderInlineNotice,
     args: [message, status],
   });
+}
+
+async function showOptionalInlineNotice(
+  tabId: number,
+  message: string,
+  status: "loading" | "success" | "error",
+) {
+  try {
+    await showInlineNotice(tabId, message, status);
+  } catch {
+    // Dynamic page translation should continue even if a notice cannot render.
+  }
 }
 
 function collectPageTextNodes(maxNodes: number) {
@@ -554,7 +613,22 @@ function collectPageTextNodes(maxNodes: number) {
 function replacePageTextNodes(
   replacements: TextReplacement[],
   displayMode: "translation" | "bilingual",
+  pageSessionId: number,
 ) {
+  const pageWindow = window as typeof window & {
+    __openTranslatePageOriginals?: Map<Text, PageTextTranslation>;
+    __openTranslatePageSessionId?: number;
+    __openTranslatePageTranslations?: Set<string>;
+  };
+  if (pageWindow.__openTranslatePageSessionId !== pageSessionId) {
+    return;
+  }
+
+  const originals =
+    pageWindow.__openTranslatePageOriginals || new Map<Text, PageTextTranslation>();
+  const translatedTexts = pageWindow.__openTranslatePageTranslations || new Set<string>();
+  pageWindow.__openTranslatePageOriginals = originals;
+  pageWindow.__openTranslatePageTranslations = translatedTexts;
   const orderedReplacements =
     displayMode === "bilingual"
       ? [...replacements].sort((left, right) => compareNodePathDesc(left.path, right.path))
@@ -563,6 +637,12 @@ function replacePageTextNodes(
   for (const replacement of orderedReplacements) {
     const node = getReplacementTextNode(replacement);
     if (node?.nodeType === Node.TEXT_NODE) {
+      originals.set(node as Text, {
+        sourceText: replacement.sourceText,
+        translatedText: replacement.text,
+      });
+      translatedTexts.add(replacement.text);
+
       const nextSibling = node.nextSibling;
       if (
         nextSibling instanceof HTMLElement &&
@@ -646,7 +726,7 @@ function replacePageTextNodes(
   }
 }
 
-function installDynamicPageTranslator(maxNodes: number) {
+function installDynamicPageTranslator(maxNodes: number, pageSessionId: number) {
   type DynamicState = {
     observer: MutationObserver;
   };
@@ -658,7 +738,14 @@ function installDynamicPageTranslator(maxNodes: number) {
 
   const windowWithTranslator = window as typeof window & {
     __openTranslateDynamicTranslator?: DynamicState;
+    __openTranslatePageSessionId?: number;
+    __openTranslatePageOriginals?: Map<Text, PageTextTranslation>;
+    __openTranslatePageTranslations?: Set<string>;
   };
+  if (windowWithTranslator.__openTranslatePageSessionId !== pageSessionId) {
+    return;
+  }
+
   windowWithTranslator.__openTranslateDynamicTranslator?.observer.disconnect();
 
   const ignoredTags = new Set([
@@ -765,7 +852,8 @@ function installDynamicPageTranslator(maxNodes: number) {
         if (
           chrome.runtime.lastError ||
           dynamicResponse?.error ||
-          !dynamicResponse?.translations
+          !dynamicResponse?.translations ||
+          windowWithTranslator.__openTranslatePageSessionId !== pageSessionId
         ) {
           return;
         }
@@ -774,7 +862,12 @@ function installDynamicPageTranslator(maxNodes: number) {
         try {
           for (const [index, node] of nodes.entries()) {
             const translatedText = dynamicResponse.translations[index];
-            if (!translatedText || !node.parentNode || !isTranslatableTextNode(node)) {
+            if (
+              !translatedText ||
+              !node.parentNode ||
+              node.nodeValue !== sourceTexts[index] ||
+              !isTranslatableTextNode(node)
+            ) {
               continue;
             }
 
@@ -800,6 +893,18 @@ function installDynamicPageTranslator(maxNodes: number) {
     translatedText: string,
     displayMode: "translation" | "bilingual",
   ) {
+    const pageWindow = window as typeof window & {
+      __openTranslatePageOriginals?: Map<Text, PageTextTranslation>;
+      __openTranslatePageTranslations?: Set<string>;
+    };
+    const originals =
+      pageWindow.__openTranslatePageOriginals || new Map<Text, PageTextTranslation>();
+    const translatedTexts = pageWindow.__openTranslatePageTranslations || new Set<string>();
+    pageWindow.__openTranslatePageOriginals = originals;
+    pageWindow.__openTranslatePageTranslations = translatedTexts;
+    originals.set(node, { sourceText, translatedText });
+    translatedTexts.add(translatedText);
+
     const nextSibling = node.nextSibling;
     if (
       nextSibling instanceof HTMLElement &&
@@ -832,8 +937,27 @@ function installDynamicPageTranslator(maxNodes: number) {
   function isTranslatableTextNode(node: Text) {
     const parent = node.parentElement;
     const text = node.nodeValue || "";
+    const existingTranslation = windowWithTranslator.__openTranslatePageOriginals?.get(node);
 
     if (!parent || ignoredTags.has(parent.tagName)) {
+      return false;
+    }
+
+    if (
+      existingTranslation &&
+      (
+        text === existingTranslation.translatedText ||
+        (
+          text === existingTranslation.sourceText &&
+          node.nextSibling instanceof HTMLElement &&
+          node.nextSibling.dataset.openTranslateBilingual === "true"
+        )
+      )
+    ) {
+      return false;
+    }
+
+    if (windowWithTranslator.__openTranslatePageTranslations?.has(text)) {
       return false;
     }
 
@@ -859,6 +983,62 @@ function installDynamicPageTranslator(maxNodes: number) {
       Number(style.opacity) !== 0
     );
   }
+}
+
+function beginPageTranslationSession() {
+  const pageWindow = window as typeof window & {
+    __openTranslatePageOriginals?: Map<Text, PageTextTranslation>;
+    __openTranslatePageSessionId?: number;
+    __openTranslatePageTranslations?: Set<string>;
+  };
+  const pageSessionId = (pageWindow.__openTranslatePageSessionId || 0) + 1;
+
+  pageWindow.__openTranslatePageSessionId = pageSessionId;
+  pageWindow.__openTranslatePageOriginals = new Map<Text, PageTextTranslation>();
+  pageWindow.__openTranslatePageTranslations = new Set<string>();
+  return pageSessionId;
+}
+
+function isPageTranslationActive() {
+  const pageWindow = window as typeof window & {
+    __openTranslatePageOriginals?: Map<Text, PageTextTranslation>;
+  };
+
+  return !!pageWindow.__openTranslatePageOriginals?.size;
+}
+
+function restorePageOriginalText() {
+  const pageWindow = window as typeof window & {
+    __openTranslatePageOriginals?: Map<Text, PageTextTranslation>;
+    __openTranslateDynamicTranslator?: {
+      observer: MutationObserver;
+    };
+    __openTranslatePageSessionId?: number;
+    __openTranslatePageTranslations?: Set<string>;
+  };
+  const originals = pageWindow.__openTranslatePageOriginals;
+  const bilingualTexts = document.querySelectorAll("[data-open-translate-bilingual='true']");
+  const didRestore = !!originals?.size || bilingualTexts.length > 0;
+
+  pageWindow.__openTranslateDynamicTranslator?.observer.disconnect();
+  delete pageWindow.__openTranslateDynamicTranslator;
+
+  for (const translatedText of bilingualTexts) {
+    translatedText.remove();
+  }
+
+  for (const [node, translation] of originals || []) {
+    if (node.isConnected) {
+      node.nodeValue = translation.sourceText;
+    }
+  }
+
+  originals?.clear();
+  pageWindow.__openTranslatePageTranslations?.clear();
+  delete pageWindow.__openTranslatePageOriginals;
+  delete pageWindow.__openTranslatePageSessionId;
+  delete pageWindow.__openTranslatePageTranslations;
+  return didRestore;
 }
 
 function renderSelectionTranslationPanel(
