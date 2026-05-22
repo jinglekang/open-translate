@@ -6,6 +6,7 @@ import type {
   TranslationProfile,
   TranslationSettings,
 } from '../shared/settings'
+import { shouldSkipTranslation } from '../shared/whitelist'
 import { getCachedTranslations, translateText, translateTextBatch } from './translation'
 
 const PAGE_MENU_ID = "open-translate-page";
@@ -101,6 +102,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
         selectedText,
         profile,
         settings.targetLanguage,
+        settings.userWhitelist,
         settings.displayMode,
       );
       return;
@@ -112,6 +114,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       settings.targetLanguage,
       settings.displayMode,
       settings.pageTranslationScope,
+      settings.userWhitelist,
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : t("translationFailed");
@@ -150,10 +153,11 @@ async function translateSelection(
   selectedText: string,
   profile: TranslationProfile,
   targetLanguage: string,
+  userWhitelist: string[],
   displayMode: TranslationDisplayMode,
 ) {
   await showInlineNotice(tabId, t("translatingSelection"), "loading");
-  const translatedText = await translateText(selectedText, profile, targetLanguage);
+  const translatedText = await translateText(selectedText, profile, targetLanguage, userWhitelist);
 
   const [{ result: didShow }] = await chrome.scripting.executeScript({
     target: { tabId },
@@ -174,6 +178,7 @@ async function translatePage(
   targetLanguage: string,
   displayMode: TranslationDisplayMode,
   pageTranslationScope: PageTranslationScope,
+  userWhitelist: string[],
 ) {
   await showInlineNotice(tabId, t("collectingPageText"), "loading");
 
@@ -201,6 +206,7 @@ async function translatePage(
     (item) => item.text,
     profile,
     targetLanguage,
+    userWhitelist,
     profile.translationConcurrency,
     profile.translationBatchSegments,
     profile.translationBatchTextLength,
@@ -313,6 +319,7 @@ async function translateDynamicTexts(texts: string[], tabId?: number) {
     (text) => text,
     profile,
     settings.targetLanguage,
+    settings.userWhitelist,
     profile.translationConcurrency,
     profile.translationBatchSegments,
     profile.translationBatchTextLength,
@@ -350,6 +357,7 @@ async function translateItems<T>(
   getSourceText: (item: T) => string,
   profile: TranslationProfile,
   targetLanguage: string,
+  userWhitelist: string[],
   concurrency: number,
   maxBatchSegments: number,
   maxBatchTextLength: number,
@@ -363,13 +371,23 @@ async function translateItems<T>(
     item,
     sourceText: getSourceText(item),
   }));
+  const translatableEntries: typeof entries = [];
+  for (const entry of entries) {
+    if (shouldSkipTranslation(entry.sourceText, userWhitelist)) {
+      translations[entry.index] = "";
+      completed += 1;
+      continue;
+    }
+
+    translatableEntries.push(entry);
+  }
   const cachedTranslations = await getCachedTranslations(
-    entries.map((entry) => entry.sourceText),
+    translatableEntries.map((entry) => entry.sourceText),
     profile,
     targetLanguage,
   );
   const uncachedEntries: typeof entries = [];
-  for (const [entryIndex, entry] of entries.entries()) {
+  for (const [entryIndex, entry] of translatableEntries.entries()) {
     const cachedTranslation = cachedTranslations[entryIndex];
     if (!cachedTranslation) {
       uncachedEntries.push(entry);
@@ -400,6 +418,7 @@ async function translateItems<T>(
           batch.map((entry) => entry.sourceText),
           profile,
           targetLanguage,
+          userWhitelist,
         );
 
         for (const [batchIndex, entry] of batch.entries()) {

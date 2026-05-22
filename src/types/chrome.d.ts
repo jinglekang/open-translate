@@ -120,6 +120,7 @@ declare namespace chrome {
 
     namespace local {
       function get(keys: string[] | string | null): Promise<StorageItems>
+      function remove(keys: string[] | string): Promise<void>
       function set(items: StorageItems): Promise<void>
     }
 

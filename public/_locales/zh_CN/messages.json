@@ -84,6 +84,18 @@
   "optionsTitle": {
     "message": "接口配置"
   },
+  "optionsTabs": {
+    "message": "选项分类"
+  },
+  "profilesTab": {
+    "message": "接口配置"
+  },
+  "cacheTab": {
+    "message": "缓存设置"
+  },
+  "whitelistTab": {
+    "message": "白名单"
+  },
   "addProfile": {
     "message": "新增配置"
   },
@@ -113,6 +125,68 @@
   },
   "activeProfileSet": {
     "message": "已设为当前翻译接口"
+  },
+  "cacheSettings": {
+    "message": "翻译缓存"
+  },
+  "cacheDescription": {
+    "message": "缓存可复用相同配置下的已翻译文本，减少重复请求。"
+  },
+  "translationCacheCount": {
+    "message": "缓存条目数"
+  },
+  "translationCacheCleared": {
+    "message": "已清空 $COUNT$ 条翻译缓存",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "clearTranslationCache": {
+    "message": "清空缓存"
+  },
+  "refresh": {
+    "message": "刷新"
+  },
+  "whitelistSettings": {
+    "message": "不翻译白名单"
+  },
+  "whitelistDescription": {
+    "message": "每行一个完整文本。命中后保留原文，不发送翻译请求。"
+  },
+  "userWhitelist": {
+    "message": "可编辑白名单"
+  },
+  "userWhitelistPlaceholder": {
+    "message": "每行填写一个需要保留原文的文本"
+  },
+  "userWhitelistSaved": {
+    "message": "已保存白名单"
+  },
+  "userWhitelistItemTooLong": {
+    "message": "白名单单项不能超过 160 个字符"
+  },
+  "userWhitelistTooMany": {
+    "message": "白名单最多保存 200 项"
+  },
+  "builtInWhitelist": {
+    "message": "内置规则"
+  },
+  "builtInWhitelist_emptyText": {
+    "message": "空文本"
+  },
+  "builtInWhitelist_numbersAndSymbols": {
+    "message": "纯数字和符号"
+  },
+  "builtInWhitelist_emojiOnly": {
+    "message": "仅 Emoji"
+  },
+  "builtInWhitelist_urlOrEmail": {
+    "message": "独立网址或邮箱"
+  },
+  "saveWhitelist": {
+    "message": "保存白名单"
   },
   "setActive": {
     "message": "设为当前"

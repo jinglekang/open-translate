@@ -1,5 +1,7 @@
 import { t } from '../shared/i18n'
 import type { TranslationProfile } from '../shared/settings'
+import { translationCacheKeyPrefix } from '../shared/cache'
+import { shouldSkipTranslation } from '../shared/whitelist'
 
 type ChatMessage = {
   role: 'system' | 'user' | 'assistant'
@@ -18,14 +20,18 @@ type ChatCompletionsPayload = {
   message?: string
 }
 
-const CACHE_KEY_PREFIX = 'open-translate-cache'
 const BATCH_SEPARATOR = '<OPEN_TRANSLATE_SEGMENT_BREAK>'
 
 export async function translateText(
   sourceText: string,
   profile: TranslationProfile,
   targetLanguage: string,
+  userWhitelist: string[],
 ) {
+  if (shouldSkipTranslation(sourceText, userWhitelist)) {
+    return sourceText
+  }
+
   const cachedTranslation = await getCachedTranslation(sourceText, profile, targetLanguage)
   if (cachedTranslation) {
     return cachedTranslation
@@ -49,12 +55,13 @@ export async function translateTextBatch(
   sourceTexts: string[],
   profile: TranslationProfile,
   targetLanguage: string,
+  userWhitelist: string[],
 ) {
   if (sourceTexts.length === 1) {
-    return [await translateText(sourceTexts[0], profile, targetLanguage)]
+    return [await translateText(sourceTexts[0], profile, targetLanguage, userWhitelist)]
   }
 
-  return translateUncachedBatchWithFallback(sourceTexts, profile, targetLanguage)
+  return translateUncachedBatchWithFallback(sourceTexts, profile, targetLanguage, userWhitelist)
 }
 
 export function getCachedTranslations(
@@ -71,6 +78,7 @@ async function translateUncachedBatchWithFallback(
   sourceTexts: string[],
   profile: TranslationProfile,
   targetLanguage: string,
+  userWhitelist: string[],
 ) {
   try {
     const translatedTexts = await requestBatchTranslations(sourceTexts, profile, targetLanguage)
@@ -82,7 +90,9 @@ async function translateUncachedBatchWithFallback(
     return translatedTexts
   } catch {
     return Promise.all(
-      sourceTexts.map((sourceText) => translateText(sourceText, profile, targetLanguage)),
+      sourceTexts.map((sourceText) =>
+        translateText(sourceText, profile, targetLanguage, userWhitelist),
+      ),
     )
   }
 }
@@ -120,11 +130,16 @@ async function getCachedTranslation(
   profile: TranslationProfile,
   targetLanguage: string,
 ) {
-  const cacheKey = await createTranslationCacheKey(sourceText, profile, targetLanguage)
-  const cachedItems = await chrome.storage.local.get(cacheKey)
-  const cachedValue = cachedItems[cacheKey]
+  try {
+    const cacheKey = await createTranslationCacheKey(sourceText, profile, targetLanguage)
+    const cachedItems = await chrome.storage.local.get(cacheKey)
+    const cachedValue = cachedItems[cacheKey]
 
-  return typeof cachedValue === 'string' ? cachedValue : undefined
+    return typeof cachedValue === 'string' ? cachedValue : undefined
+  } catch (error) {
+    console.warn('Open Translate cache read failed', error)
+    return undefined
+  }
 }
 
 async function cacheTranslation(
@@ -133,8 +148,12 @@ async function cacheTranslation(
   profile: TranslationProfile,
   targetLanguage: string,
 ) {
-  const cacheKey = await createTranslationCacheKey(sourceText, profile, targetLanguage)
-  await chrome.storage.local.set({ [cacheKey]: translatedText })
+  try {
+    const cacheKey = await createTranslationCacheKey(sourceText, profile, targetLanguage)
+    await chrome.storage.local.set({ [cacheKey]: translatedText })
+  } catch (error) {
+    console.warn('Open Translate cache write failed', error)
+  }
 }
 
 async function createTranslationCacheKey(
@@ -157,7 +176,7 @@ async function createTranslationCacheKey(
     .map((byte) => byte.toString(16).padStart(2, '0'))
     .join('')
 
-  return `${CACHE_KEY_PREFIX}:${hash}`
+  return `${translationCacheKeyPrefix}:${hash}`
 }
 
 async function requestChatCompletions(

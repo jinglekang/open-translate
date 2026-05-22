@@ -84,6 +84,18 @@
   "optionsTitle": {
     "message": "API Profiles"
   },
+  "optionsTabs": {
+    "message": "Options sections"
+  },
+  "profilesTab": {
+    "message": "API Profiles"
+  },
+  "cacheTab": {
+    "message": "Cache"
+  },
+  "whitelistTab": {
+    "message": "Whitelist"
+  },
   "addProfile": {
     "message": "Add Profile"
   },
@@ -113,6 +125,68 @@
   },
   "activeProfileSet": {
     "message": "Set as active translator"
+  },
+  "cacheSettings": {
+    "message": "Translation cache"
+  },
+  "cacheDescription": {
+    "message": "Cached translations reduce repeated requests for text translated with the same settings."
+  },
+  "translationCacheCount": {
+    "message": "Cached entries"
+  },
+  "translationCacheCleared": {
+    "message": "Cleared $COUNT$ translation cache entries",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "clearTranslationCache": {
+    "message": "Clear Cache"
+  },
+  "refresh": {
+    "message": "Refresh"
+  },
+  "whitelistSettings": {
+    "message": "Do-not-translate whitelist"
+  },
+  "whitelistDescription": {
+    "message": "Enter one exact text per line. Matches stay original and are not sent for translation."
+  },
+  "userWhitelist": {
+    "message": "Editable whitelist"
+  },
+  "userWhitelistPlaceholder": {
+    "message": "Enter one original text per line"
+  },
+  "userWhitelistSaved": {
+    "message": "Whitelist saved"
+  },
+  "userWhitelistItemTooLong": {
+    "message": "A whitelist item must be 160 characters or fewer"
+  },
+  "userWhitelistTooMany": {
+    "message": "The whitelist can store at most 200 items"
+  },
+  "builtInWhitelist": {
+    "message": "Built-in rules"
+  },
+  "builtInWhitelist_emptyText": {
+    "message": "Empty text"
+  },
+  "builtInWhitelist_numbersAndSymbols": {
+    "message": "Numbers and symbols only"
+  },
+  "builtInWhitelist_emojiOnly": {
+    "message": "Emoji only"
+  },
+  "builtInWhitelist_urlOrEmail": {
+    "message": "Standalone URL or email"
+  },
+  "saveWhitelist": {
+    "message": "Save Whitelist"
   },
   "setActive": {
     "message": "Set Active"

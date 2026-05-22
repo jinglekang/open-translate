@@ -10,6 +10,8 @@ export const profileFieldLimits = {
   apiKey: 500,
   targetLanguage: 40,
   customPrompt: 4000,
+  userWhitelistItem: 160,
+  userWhitelistItems: 200,
 } as const
 export const translationConcurrencyLimits = {
   min: 1,
@@ -31,6 +33,19 @@ export const translationDisplayModeSchema = z.enum(['translation', 'bilingual'])
 export type TranslationDisplayMode = z.infer<typeof translationDisplayModeSchema>
 export const pageTranslationScopeSchema = z.enum(['visible-page', 'viewport'])
 export type PageTranslationScope = z.infer<typeof pageTranslationScopeSchema>
+
+export const defaultUserWhitelist = [
+  'OpenAI',
+  'ChatGPT',
+  'GitHub',
+  'GPT',
+  'API',
+  'JSON',
+  'JavaScript',
+  'TypeScript',
+  'HTML',
+  'CSS',
+] as const
 
 export const translationProfileSchema = z.object({
   id: trimmedString.min(1),
@@ -91,6 +106,14 @@ export const translationSettingsSchema = z
         t('targetLanguageTooLong', String(profileFieldLimits.targetLanguage)),
       )
       .catch('简体中文'),
+    userWhitelist: z
+      .array(
+        trimmedString
+          .min(1)
+          .max(profileFieldLimits.userWhitelistItem, t('userWhitelistItemTooLong')),
+      )
+      .max(profileFieldLimits.userWhitelistItems, t('userWhitelistTooMany'))
+      .catch([...defaultUserWhitelist]),
   })
   .transform((settings) => {
     const activeProfileId = settings.profiles.some(
@@ -105,6 +128,7 @@ export const translationSettingsSchema = z
       displayMode: settings.displayMode,
       pageTranslationScope: settings.pageTranslationScope,
       targetLanguage: settings.targetLanguage,
+      userWhitelist: [...new Set(settings.userWhitelist)],
     }
   })
 
@@ -129,6 +153,7 @@ export const defaultSettings: TranslationSettings = {
   displayMode: 'bilingual',
   pageTranslationScope: 'viewport',
   targetLanguage: '简体中文',
+  userWhitelist: [...defaultUserWhitelist],
 }
 
 const legacySettingsSchema = z.object({
@@ -178,6 +203,7 @@ export function normalizeSettings(stored: unknown): TranslationSettings {
     displayMode: 'bilingual',
     pageTranslationScope: 'viewport',
     targetLanguage: legacyResult.data.targetLanguage || defaultSettings.targetLanguage,
+    userWhitelist: [...defaultSettings.userWhitelist],
   })
 }
 

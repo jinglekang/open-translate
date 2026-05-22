@@ -1,6 +1,7 @@
 import { StrictMode, useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import { createRoot } from 'react-dom/client'
+import { clearTranslationCache, getTranslationCacheStats } from '../shared/cache'
 import { getEndpointPreview } from '../shared/endpoint'
 import { t } from '../shared/i18n'
 import {
@@ -15,13 +16,21 @@ import {
   translationConcurrencyLimits,
 } from '../shared/settings'
 import type { TranslationProfile, TranslationSettings } from '../shared/settings'
+import { builtInNoTranslateRules } from '../shared/whitelist'
 import { Button } from '../components/ui/button'
 import { StatusNotice } from '../components/status-notice'
 import '../shared/style.css'
 
+type OptionsTab = 'profiles' | 'cache' | 'whitelist'
+
 export function Options() {
   const [settings, setSettings] = useState<TranslationSettings>(defaultSettings)
   const [editingId, setEditingId] = useState(defaultSettings.activeProfileId)
+  const [activeTab, setActiveTab] = useState<OptionsTab>('profiles')
+  const [cacheCount, setCacheCount] = useState(0)
+  const [whitelistDraft, setWhitelistDraft] = useState(
+    defaultSettings.userWhitelist.join('\n'),
+  )
   const [status, setStatus] = useState(t('loadingSettings'))
 
   const editingProfile = useMemo(
@@ -36,8 +45,10 @@ export function Options() {
       const nextSettings = normalizeSettings(stored)
       setSettings(nextSettings)
       setEditingId(nextSettings.activeProfileId)
+      setWhitelistDraft(nextSettings.userWhitelist.join('\n'))
       setStatus(t('settingsSynced'))
     })
+    void refreshCacheStats()
   }, [])
 
   async function saveSettings(
@@ -70,6 +81,7 @@ export function Options() {
     }
 
     setSettings(stored)
+    setWhitelistDraft(stored.userWhitelist.join('\n'))
     setEditingId(
       stored.profiles.some((profile) => profile.id === nextEditingId)
         ? nextEditingId
@@ -140,6 +152,27 @@ export function Options() {
     await saveSettings({ ...settings, activeProfileId: profileId }, t('activeProfileSet'), profileId)
   }
 
+  async function saveWhitelist() {
+    await saveSettings(
+      {
+        ...settings,
+        userWhitelist: parseWhitelistDraft(whitelistDraft),
+      },
+      t('userWhitelistSaved'),
+    )
+  }
+
+  async function refreshCacheStats() {
+    const stats = await getTranslationCacheStats()
+    setCacheCount(stats.count)
+  }
+
+  async function clearCache() {
+    const removedCount = await clearTranslationCache()
+    setCacheCount(0)
+    setStatus(t('translationCacheCleared', String(removedCount)))
+  }
+
   function updateProfile<Key extends keyof TranslationProfile>(
     key: Key,
     value: TranslationProfile[Key],
@@ -163,17 +196,41 @@ export function Options() {
             {t('optionsTitle')}
           </h1>
         </div>
-        <Button
-          type="button"
-          size="lg"
-          className="h-9 rounded-md bg-blue-600 px-3.5 text-sm font-semibold text-white transition hover:bg-blue-700"
-          onClick={addProfile}
-        >
-          {t('addProfile')}
-        </Button>
+        {activeTab === 'profiles' && (
+          <Button
+            type="button"
+            size="lg"
+            className="h-9 rounded-md bg-blue-600 px-3.5 text-sm font-semibold text-white transition hover:bg-blue-700"
+            onClick={addProfile}
+          >
+            {t('addProfile')}
+          </Button>
+        )}
       </header>
 
-      <div className="mx-auto grid w-full max-w-260 grid-cols-[248px_minmax(0,1fr)] gap-4.5">
+      <nav
+        className="mx-auto mb-4 grid w-full max-w-260 grid-cols-3 gap-1 rounded-lg border border-slate-200 bg-white p-1"
+        aria-label={t('optionsTabs')}
+      >
+        {(['profiles', 'cache', 'whitelist'] as const).map((tab) => (
+          <Button
+            key={tab}
+            type="button"
+            variant={activeTab === tab ? 'default' : 'ghost'}
+            className={
+              activeTab === tab
+                ? 'h-9 rounded-md bg-blue-600 text-sm font-semibold text-white'
+                : 'h-9 rounded-md bg-transparent text-sm font-semibold text-slate-600 hover:bg-blue-50'
+            }
+            onClick={() => setActiveTab(tab)}
+          >
+            {t(`${tab}Tab`)}
+          </Button>
+        ))}
+      </nav>
+
+      {activeTab === 'profiles' && (
+        <div className="mx-auto grid w-full max-w-260 grid-cols-[248px_minmax(0,1fr)] gap-4.5">
         <aside className="grid content-start gap-2" aria-label={t('profileListLabel')}>
           {settings.profiles.map((profile) => (
             <Button
@@ -362,8 +419,104 @@ export function Options() {
           <StatusNotice message={status} />
         </form>
       </div>
+      )}
+
+      {activeTab === 'cache' && (
+        <section className="mx-auto grid w-full max-w-260 gap-3.5 rounded-lg border border-slate-200 bg-white p-4.5">
+          <div className="grid gap-1">
+            <h2 className="text-lg font-semibold text-slate-900">{t('cacheSettings')}</h2>
+            <p className="text-sm leading-5 text-slate-600">{t('cacheDescription')}</p>
+          </div>
+
+          <div className="flex items-center justify-between gap-4 rounded-lg border border-slate-200 bg-slate-50 p-3.5">
+            <div>
+              <span className="block text-[13px] font-semibold text-slate-600">
+                {t('translationCacheCount')}
+              </span>
+              <strong className="block text-2xl leading-tight font-semibold text-slate-900">
+                {cacheCount}
+              </strong>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="lg"
+                className="h-9 rounded-md border-slate-300 bg-white px-3.5 text-sm font-semibold text-slate-900 hover:bg-slate-50"
+                onClick={refreshCacheStats}
+              >
+                {t('refresh')}
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                size="lg"
+                className="h-9 rounded-md border border-red-200 bg-red-50 px-3.5 text-sm font-semibold text-red-700 hover:bg-red-100"
+                onClick={clearCache}
+                disabled={!cacheCount}
+              >
+                {t('clearTranslationCache')}
+              </Button>
+            </div>
+          </div>
+
+          <StatusNotice message={status} />
+        </section>
+      )}
+
+      {activeTab === 'whitelist' && (
+        <section className="mx-auto grid w-full max-w-260 gap-3.5 rounded-lg border border-slate-200 bg-white p-4.5">
+          <div className="grid gap-1">
+            <h2 className="text-lg font-semibold text-slate-900">{t('whitelistSettings')}</h2>
+            <p className="text-sm leading-5 text-slate-600">{t('whitelistDescription')}</p>
+          </div>
+
+          <label className="grid gap-1.5">
+            <span className="text-[13px] font-semibold text-slate-600">{t('userWhitelist')}</span>
+            <textarea
+              className="min-h-54 w-full resize-y rounded-md border border-slate-300 bg-white px-2.5 py-2 text-sm leading-6 text-slate-900 outline-none transition focus:border-blue-600 focus:ring-[3px] focus:ring-blue-100"
+              value={whitelistDraft}
+              onChange={(event) => setWhitelistDraft(event.target.value)}
+              placeholder={t('userWhitelistPlaceholder')}
+              rows={10}
+            />
+          </label>
+
+          <div className="grid gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
+            <span className="text-[13px] font-semibold text-slate-600">{t('builtInWhitelist')}</span>
+            <div className="flex flex-wrap gap-1.5">
+              {builtInNoTranslateRules.map((rule) => (
+                <span
+                  key={rule}
+                  className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-600"
+                >
+                  {t(`builtInWhitelist_${rule}`)}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          <Button
+            type="button"
+            size="lg"
+            className="h-9 w-fit rounded-md bg-blue-600 px-3.5 text-sm font-semibold text-white hover:bg-blue-700"
+            onClick={saveWhitelist}
+          >
+            {t('saveWhitelist')}
+          </Button>
+
+          <StatusNotice message={status} />
+        </section>
+      )}
     </main>
   )
+}
+
+function parseWhitelistDraft(value: string) {
+  return value
+    .split(/\r?\n/)
+    .map((item) => item.trim())
+    .filter(Boolean)
 }
 
 createRoot(document.getElementById('root')!).render(
