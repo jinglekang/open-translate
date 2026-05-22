@@ -8,8 +8,9 @@ import {
   SelectValue,
 } from '../components/ui/select'
 import { Button } from '../components/ui/button'
+import { StatusNotice } from '../components/status-notice'
 import { t } from '../shared/i18n'
-import { getActiveProfile, normalizeSettings } from '../shared/settings'
+import { getActiveProfile, normalizeSettings, profileFieldLimits } from '../shared/settings'
 import type {
   PageTranslationScope,
   TranslationDisplayMode,
@@ -71,6 +72,16 @@ export function Popup() {
     )
   }
 
+  async function handleTargetLanguageChange(targetLanguage: string) {
+    if (!settings) {
+      return
+    }
+
+    const nextSettings = { ...settings, targetLanguage }
+    setSettings(nextSettings)
+    await chrome.storage.sync.set({ targetLanguage })
+  }
+
   async function openOptionsPage() {
     await chrome.runtime.openOptionsPage()
   }
@@ -79,10 +90,9 @@ export function Popup() {
     <main className="w-80 bg-slate-50 p-4.5 text-slate-900">
       <header className="mb-4.5 flex items-start justify-between gap-4">
         <div>
-          <p className="mb-1 text-[11px] font-bold uppercase tracking-[0.08em] text-blue-600">
-            Open Translate
-          </p>
-          <h1 className="text-xl leading-tight font-semibold text-slate-900">{t('popupTitle')}</h1>
+          <h1 className="text-xl leading-tight font-semibold text-slate-900">
+            {t('extensionName')}
+          </h1>
         </div>
         <span
           className="mt-2 h-2.5 w-2.5 rounded-full bg-green-600 shadow-[0_0_0_4px_rgba(22,163,74,0.12)]"
@@ -142,6 +152,17 @@ export function Popup() {
               {activeProfile?.apiBaseUrl || t('endpointUnset')}
             </code>
           </div>
+
+          <label className="grid gap-1.5">
+            <span className="text-[13px] font-semibold text-slate-600">{t('targetLanguage')}</span>
+            <input
+              className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-900 outline-none transition focus:border-blue-600 focus:ring-[3px] focus:ring-blue-100"
+              value={settings.targetLanguage}
+              onChange={(event) => void handleTargetLanguageChange(event.target.value)}
+              placeholder={t('targetLanguagePlaceholder')}
+              maxLength={profileFieldLimits.targetLanguage}
+            />
+          </label>
 
           <fieldset className="grid gap-2 border-0 p-0 m-0">
             <legend className="text-[13px] font-semibold text-slate-600">{t('displayMode')}</legend>
@@ -211,7 +232,7 @@ export function Popup() {
         </section>
       )}
 
-      <p className="mt-3 min-h-5 text-[13px] text-slate-500">{status}</p>
+      <StatusNotice className="mt-3" message={status} />
     </main>
   )
 }

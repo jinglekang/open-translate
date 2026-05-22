@@ -216,6 +216,12 @@
   "endpointPreview": {
     "message": "Request endpoint"
   },
+  "translationConcurrency": {
+    "message": "Translation concurrency"
+  },
+  "translationConcurrencyInvalid": {
+    "message": "Translation concurrency must be an integer from 1 to 8"
+  },
   "saveProfile": {
     "message": "Save Profile"
   },

@@ -10,9 +10,11 @@ import {
   normalizeSettings,
   profileFieldLimits,
   sanitizeSettings,
+  translationConcurrencyLimits,
 } from '../shared/settings'
 import type { TranslationProfile, TranslationSettings } from '../shared/settings'
 import { Button } from '../components/ui/button'
+import { StatusNotice } from '../components/status-notice'
 import '../shared/style.css'
 
 export function Options() {
@@ -252,17 +254,32 @@ export function Options() {
             />
           </label>
 
-          <label className="grid gap-1.5">
-            <span className="text-[13px] font-semibold text-slate-600">{t('modelName')}</span>
-            <input
-              className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-900 outline-none transition focus:border-blue-600 focus:ring-[3px] focus:ring-blue-100"
-              value={editingProfile.model}
-              onChange={(event) => updateProfile('model', event.target.value)}
-              placeholder="gpt-4o-mini"
-              spellCheck={false}
-              maxLength={profileFieldLimits.model}
-            />
-          </label>
+          <div className="grid grid-cols-[minmax(0,1fr)_128px] gap-3">
+            <label className="grid min-w-0 gap-1.5">
+              <span className="text-[13px] font-semibold text-slate-600">{t('modelName')}</span>
+              <input
+                className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-900 outline-none transition focus:border-blue-600 focus:ring-[3px] focus:ring-blue-100"
+                value={editingProfile.model}
+                onChange={(event) => updateProfile('model', event.target.value)}
+                placeholder="gpt-4o-mini"
+                spellCheck={false}
+                maxLength={profileFieldLimits.model}
+              />
+            </label>
+
+            <label className="grid gap-1.5">
+              <span className="text-[13px] font-semibold text-slate-600">{t('translationConcurrency')}</span>
+              <input
+                className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-900 outline-none transition focus:border-blue-600 focus:ring-[3px] focus:ring-blue-100"
+                value={editingProfile.translationConcurrency}
+                onChange={(event) => updateProfile('translationConcurrency', Number(event.target.value))}
+                type="number"
+                min={translationConcurrencyLimits.min}
+                max={translationConcurrencyLimits.max}
+                step={1}
+              />
+            </label>
+          </div>
 
           <label className="grid gap-1.5">
             <span className="text-[13px] font-semibold text-slate-600">{t('apiKey')}</span>
@@ -274,17 +291,6 @@ export function Options() {
               type="password"
               spellCheck={false}
               maxLength={profileFieldLimits.apiKey}
-            />
-          </label>
-
-          <label className="grid gap-1.5">
-            <span className="text-[13px] font-semibold text-slate-600">{t('targetLanguage')}</span>
-            <input
-              className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-900 outline-none transition focus:border-blue-600 focus:ring-[3px] focus:ring-blue-100"
-              value={editingProfile.targetLanguage}
-              onChange={(event) => updateProfile('targetLanguage', event.target.value)}
-              placeholder={t('targetLanguagePlaceholder')}
-              maxLength={profileFieldLimits.targetLanguage}
             />
           </label>
 
@@ -315,7 +321,7 @@ export function Options() {
             {t('saveProfile')}
           </Button>
 
-          <p className="min-h-5 text-[13px] text-slate-500">{status}</p>
+          <StatusNotice message={status} />
         </form>
       </div>
     </main>

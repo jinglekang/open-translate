@@ -216,6 +216,12 @@
   "endpointPreview": {
     "message": "请求端点"
   },
+  "translationConcurrency": {
+    "message": "并发翻译数"
+  },
+  "translationConcurrencyInvalid": {
+    "message": "并发翻译数必须是 1 到 8 的整数"
+  },
   "saveProfile": {
     "message": "保存配置"
   },

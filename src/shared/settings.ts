@@ -11,6 +11,11 @@ export const profileFieldLimits = {
   targetLanguage: 40,
   customPrompt: 4000,
 } as const
+export const translationConcurrencyLimits = {
+  min: 1,
+  default: 4,
+  max: 8,
+} as const
 
 export const translationDisplayModeSchema = z.enum(['translation', 'bilingual'])
 export type TranslationDisplayMode = z.infer<typeof translationDisplayModeSchema>
@@ -37,13 +42,12 @@ export const translationProfileSchema = z.object({
   apiKey: trimmedString
     .max(profileFieldLimits.apiKey, t('apiKeyTooLong', String(profileFieldLimits.apiKey)))
     .catch(''),
-  targetLanguage: trimmedString
-    .min(1, t('targetLanguageRequired'))
-    .max(
-      profileFieldLimits.targetLanguage,
-      t('targetLanguageTooLong', String(profileFieldLimits.targetLanguage)),
-    )
-    .catch('简体中文'),
+  translationConcurrency: z.coerce
+    .number()
+    .int(t('translationConcurrencyInvalid'))
+    .min(translationConcurrencyLimits.min, t('translationConcurrencyInvalid'))
+    .max(translationConcurrencyLimits.max, t('translationConcurrencyInvalid'))
+    .catch(translationConcurrencyLimits.default),
   customPrompt: trimmedString
     .max(
       profileFieldLimits.customPrompt,
@@ -58,6 +62,13 @@ export const translationSettingsSchema = z
     activeProfileId: trimmedString.min(1),
     displayMode: translationDisplayModeSchema.catch('bilingual'),
     pageTranslationScope: pageTranslationScopeSchema.catch('viewport'),
+    targetLanguage: trimmedString
+      .min(1, t('targetLanguageRequired'))
+      .max(
+        profileFieldLimits.targetLanguage,
+        t('targetLanguageTooLong', String(profileFieldLimits.targetLanguage)),
+      )
+      .catch('简体中文'),
   })
   .transform((settings) => {
     const activeProfileId = settings.profiles.some(
@@ -71,6 +82,7 @@ export const translationSettingsSchema = z
       activeProfileId,
       displayMode: settings.displayMode,
       pageTranslationScope: settings.pageTranslationScope,
+      targetLanguage: settings.targetLanguage,
     }
   })
 
@@ -83,7 +95,7 @@ export const defaultProfile: TranslationProfile = {
   apiBaseUrl: 'https://api.openai.com/v1',
   model: 'gpt-4o-mini',
   apiKey: '',
-  targetLanguage: '简体中文',
+  translationConcurrency: translationConcurrencyLimits.default,
   customPrompt: '',
 }
 
@@ -92,6 +104,7 @@ export const defaultSettings: TranslationSettings = {
   activeProfileId: defaultProfile.id,
   displayMode: 'bilingual',
   pageTranslationScope: 'viewport',
+  targetLanguage: '简体中文',
 }
 
 const legacySettingsSchema = z.object({
@@ -134,13 +147,13 @@ export function normalizeSettings(stored: unknown): TranslationSettings {
         apiBaseUrl: legacyResult.data.apiBaseUrl || defaultProfile.apiBaseUrl,
         model: legacyResult.data.model || defaultProfile.model,
         apiKey: legacyResult.data.apiKey || defaultProfile.apiKey,
-        targetLanguage: legacyResult.data.targetLanguage || defaultProfile.targetLanguage,
         customPrompt: legacyResult.data.customPrompt || defaultProfile.customPrompt,
       },
     ],
     activeProfileId: defaultProfile.id,
     displayMode: 'bilingual',
     pageTranslationScope: 'viewport',
+    targetLanguage: legacyResult.data.targetLanguage || defaultSettings.targetLanguage,
   })
 }
 

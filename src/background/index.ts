@@ -38,7 +38,6 @@ type TranslationProgress = {
 };
 
 const MAX_TEXT_NODES = 180;
-const PAGE_TRANSLATION_CONCURRENCY = 4;
 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
@@ -97,11 +96,24 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 
     const selectedText = (info.selectionText || "").trim();
     if (selectedText) {
-      await translateSelection(tab.id, selectedText, profile, settings.displayMode);
+      await translateSelection(
+        tab.id,
+        selectedText,
+        profile,
+        settings.targetLanguage,
+        settings.displayMode,
+      );
       return;
     }
 
-    await translatePage(tab.id, profile, settings.displayMode, settings.pageTranslationScope);
+    await translatePage(
+      tab.id,
+      profile,
+      settings.targetLanguage,
+      settings.displayMode,
+      settings.pageTranslationScope,
+      profile.translationConcurrency,
+    );
   } catch (error) {
     const message = error instanceof Error ? error.message : t("translationFailed");
     await showInlineNotice(tab.id, message, "error");
@@ -138,10 +150,11 @@ async function translateSelection(
   tabId: number,
   selectedText: string,
   profile: TranslationProfile,
+  targetLanguage: string,
   displayMode: TranslationDisplayMode,
 ) {
   await showInlineNotice(tabId, t("translatingSelection"), "loading");
-  const translatedText = await translateText(selectedText, profile);
+  const translatedText = await translateText(selectedText, profile, targetLanguage);
 
   const [{ result: didShow }] = await chrome.scripting.executeScript({
     target: { tabId },
@@ -159,8 +172,10 @@ async function translateSelection(
 async function translatePage(
   tabId: number,
   profile: TranslationProfile,
+  targetLanguage: string,
   displayMode: TranslationDisplayMode,
   pageTranslationScope: PageTranslationScope,
+  translationConcurrency: number,
 ) {
   await showInlineNotice(tabId, t("collectingPageText"), "loading");
 
@@ -187,6 +202,8 @@ async function translatePage(
     textNodes,
     (item) => item.text,
     profile,
+    targetLanguage,
+    translationConcurrency,
     progress.update,
     async (item, translatedText) => {
       await chrome.scripting.executeScript({
@@ -241,7 +258,7 @@ async function getCurrentSettings(): Promise<TranslationSettings> {
 
 async function updateContextMenuTitles() {
   const settings = await getCurrentSettings();
-  const targetLanguage = getActiveProfile(settings).targetLanguage || getDefaultTargetLanguage();
+  const targetLanguage = settings.targetLanguage || getDefaultTargetLanguage();
 
   await Promise.allSettled([
     chrome.contextMenus.update(PAGE_MENU_ID, {
@@ -255,7 +272,7 @@ async function updateContextMenuTitles() {
 
 async function updatePageContextMenuTitleForTab(tabId: number) {
   const settings = await getCurrentSettings();
-  const targetLanguage = getActiveProfile(settings).targetLanguage || getDefaultTargetLanguage();
+  const targetLanguage = settings.targetLanguage || getDefaultTargetLanguage();
   let isTranslated = false;
 
   try {
@@ -295,6 +312,8 @@ async function translateDynamicTexts(texts: string[], tabId?: number) {
     normalizedTexts,
     (text) => text,
     profile,
+    settings.targetLanguage,
+    profile.translationConcurrency,
     tabId ? createPageTranslationProgress(tabId).update : undefined,
   );
 
@@ -328,6 +347,8 @@ async function translateItems<T>(
   items: T[],
   getSourceText: (item: T) => string,
   profile: TranslationProfile,
+  targetLanguage: string,
+  concurrency: number,
   onProgress?: (progress: TranslationProgress) => Promise<void>,
   onTranslated?: (item: T, translatedText: string) => Promise<void>,
 ) {
@@ -340,9 +361,9 @@ async function translateItems<T>(
 
   await runConcurrent(
     items.map((item, index) => ({ index, item })),
-    PAGE_TRANSLATION_CONCURRENCY,
+    concurrency,
     async ({ index, item }) => {
-      const translatedText = await translateText(getSourceText(item), profile);
+      const translatedText = await translateText(getSourceText(item), profile, targetLanguage);
       translations[index] = translatedText;
       await onTranslated?.(item, translatedText);
 

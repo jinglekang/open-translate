@@ -20,14 +20,18 @@ type ChatCompletionsPayload = {
 
 const CACHE_KEY_PREFIX = 'open-translate-cache'
 
-export async function translateText(sourceText: string, profile: TranslationProfile) {
-  const cachedTranslation = await getCachedTranslation(sourceText, profile)
+export async function translateText(
+  sourceText: string,
+  profile: TranslationProfile,
+  targetLanguage: string,
+) {
+  const cachedTranslation = await getCachedTranslation(sourceText, profile, targetLanguage)
   if (cachedTranslation) {
     return cachedTranslation
   }
 
   const payload = await requestChatCompletions(profile, [
-    { role: 'system', content: getSystemPrompt(profile) },
+    { role: 'system', content: getSystemPrompt(profile, targetLanguage) },
     { role: 'user', content: sourceText },
   ])
 
@@ -36,12 +40,16 @@ export async function translateText(sourceText: string, profile: TranslationProf
     throw new Error(t('emptyTranslationResponse'))
   }
 
-  await cacheTranslation(sourceText, translatedText, profile)
+  await cacheTranslation(sourceText, translatedText, profile, targetLanguage)
   return translatedText
 }
 
-async function getCachedTranslation(sourceText: string, profile: TranslationProfile) {
-  const cacheKey = await createTranslationCacheKey(sourceText, profile)
+async function getCachedTranslation(
+  sourceText: string,
+  profile: TranslationProfile,
+  targetLanguage: string,
+) {
+  const cacheKey = await createTranslationCacheKey(sourceText, profile, targetLanguage)
   const cachedItems = await chrome.storage.local.get(cacheKey)
   const cachedValue = cachedItems[cacheKey]
 
@@ -52,18 +60,23 @@ async function cacheTranslation(
   sourceText: string,
   translatedText: string,
   profile: TranslationProfile,
+  targetLanguage: string,
 ) {
-  const cacheKey = await createTranslationCacheKey(sourceText, profile)
+  const cacheKey = await createTranslationCacheKey(sourceText, profile, targetLanguage)
   await chrome.storage.local.set({ [cacheKey]: translatedText })
 }
 
-async function createTranslationCacheKey(sourceText: string, profile: TranslationProfile) {
+async function createTranslationCacheKey(
+  sourceText: string,
+  profile: TranslationProfile,
+  targetLanguage: string,
+) {
   const cacheInput = JSON.stringify({
     version: 1,
     profile: {
       endpoint: getChatCompletionsEndpoint(profile.apiBaseUrl),
       model: profile.model,
-      targetLanguage: profile.targetLanguage,
+      targetLanguage,
       customPrompt: profile.customPrompt,
     },
     sourceText,
@@ -106,10 +119,10 @@ async function requestChatCompletions(
   return payload
 }
 
-function getSystemPrompt(profile: TranslationProfile) {
+function getSystemPrompt(profile: TranslationProfile, targetLanguage: string) {
   return (
     profile.customPrompt.trim() ||
-    `You are a professional translation assistant. Translate the user's text into ${profile.targetLanguage}. Preserve the original formatting, proper nouns, and code blocks. Output only the translation without explanations.`
+    `You are a professional translation assistant. Translate the user's text into ${targetLanguage}. Preserve the original formatting, proper nouns, and code blocks. Output only the translation without explanations.`
   )
 }
 
