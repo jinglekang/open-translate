@@ -205,11 +205,7 @@ async function translatePage(
   await chrome.contextMenus.update(PAGE_MENU_ID, {
     title: t("contextMenuShowOriginal"),
   });
-  await chrome.scripting.executeScript({
-    target: { tabId },
-    func: installDynamicPageTranslator,
-    args: [MAX_TEXT_NODES, pageSessionId, pageTranslationScope],
-  });
+  await startDynamicPageTranslator(tabId, pageSessionId, pageTranslationScope);
 }
 
 async function restoreTranslatedPage(tabId: number) {
@@ -219,6 +215,23 @@ async function restoreTranslatedPage(tabId: number) {
   });
 
   return didRestore;
+}
+
+async function startDynamicPageTranslator(
+  tabId: number,
+  pageSessionId: number,
+  pageTranslationScope: PageTranslationScope,
+) {
+  await chrome.scripting.executeScript({
+    target: { tabId },
+    files: ["page-runtime.js"],
+  });
+  await chrome.tabs.sendMessage(tabId, {
+    type: "open-translate:start-dynamic-page-translator",
+    maxNodes: MAX_TEXT_NODES,
+    pageSessionId,
+    pageTranslationScope,
+  });
 }
 
 async function getCurrentSettings(): Promise<TranslationSettings> {
@@ -599,316 +612,6 @@ function replacePageTextNodes(
     });
 
     return walker.nextNode();
-  }
-}
-
-function installDynamicPageTranslator(
-  maxNodes: number,
-  pageSessionId: number,
-  pageTranslationScope: "visible-page" | "viewport",
-) {
-  type DynamicState = {
-    observer: MutationObserver;
-    removeScrollListener?: () => void;
-  };
-  type DynamicResponse = {
-    translations?: string[];
-    displayMode?: "translation" | "bilingual";
-    error?: string;
-  };
-
-  const windowWithTranslator = window as typeof window & {
-    __openTranslateDynamicTranslator?: DynamicState;
-    __openTranslatePageSessionId?: number;
-    __openTranslatePageOriginals?: Map<Text, PageTextTranslation>;
-    __openTranslatePageTranslations?: Set<string>;
-  };
-  if (windowWithTranslator.__openTranslatePageSessionId !== pageSessionId) {
-    return;
-  }
-
-  windowWithTranslator.__openTranslateDynamicTranslator?.observer.disconnect();
-  windowWithTranslator.__openTranslateDynamicTranslator?.removeScrollListener?.();
-
-  const ignoredTags = new Set([
-    "SCRIPT",
-    "STYLE",
-    "NOSCRIPT",
-    "IFRAME",
-    "SVG",
-    "CANVAS",
-    "TEXTAREA",
-    "INPUT",
-    "SELECT",
-    "OPTION",
-  ]);
-  const pendingNodes = new Set<Text>();
-  const inFlightNodes = new Set<Text>();
-  let isApplyingTranslation = false;
-  let debounceTimer = 0;
-
-  const observer = new MutationObserver((mutations) => {
-    if (isApplyingTranslation) {
-      return;
-    }
-
-    for (const mutation of mutations) {
-      if (mutation.type === "characterData" && mutation.target.nodeType === Node.TEXT_NODE) {
-        enqueueTextNode(mutation.target as Text);
-      }
-
-      for (const node of mutation.addedNodes) {
-        collectTextNodes(node);
-      }
-    }
-
-    scheduleFlush();
-  });
-
-  observer.observe(document.body, {
-    childList: true,
-    characterData: true,
-    subtree: true,
-  });
-  const handleScroll = () => {
-    scheduleViewportFlush();
-  };
-
-  if (pageTranslationScope === "viewport") {
-    window.addEventListener("scroll", handleScroll, { passive: true });
-  }
-
-  windowWithTranslator.__openTranslateDynamicTranslator = {
-    observer,
-    removeScrollListener:
-      pageTranslationScope === "viewport"
-        ? () => window.removeEventListener("scroll", handleScroll)
-        : undefined,
-  };
-
-  function collectTextNodes(node: Node) {
-    if (pendingNodes.size >= maxNodes) {
-      return;
-    }
-
-    if (node.nodeType === Node.TEXT_NODE) {
-      enqueueTextNode(node as Text);
-      return;
-    }
-
-    if (!(node instanceof Element) || ignoredTags.has(node.tagName)) {
-      return;
-    }
-
-    if (node.closest("[data-open-translate-ui], [data-open-translate-bilingual]")) {
-      return;
-    }
-
-    const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT, {
-      acceptNode(textNode) {
-        return isTranslatableTextNode(textNode as Text)
-          ? NodeFilter.FILTER_ACCEPT
-          : NodeFilter.FILTER_REJECT;
-      },
-    });
-
-    while (pendingNodes.size < maxNodes) {
-      const textNode = walker.nextNode();
-      if (!textNode) {
-        break;
-      }
-
-      enqueueTextNode(textNode as Text);
-    }
-  }
-
-  function enqueueTextNode(node: Text) {
-    if (!inFlightNodes.has(node) && isTranslatableTextNode(node)) {
-      pendingNodes.add(node);
-    }
-  }
-
-  function scheduleFlush() {
-    window.clearTimeout(debounceTimer);
-    debounceTimer = window.setTimeout(flushPendingNodes, 650);
-  }
-
-  function scheduleViewportFlush() {
-    window.clearTimeout(debounceTimer);
-    debounceTimer = window.setTimeout(() => {
-      collectTextNodes(document.body);
-      flushPendingNodes();
-    }, 220);
-  }
-
-  function flushPendingNodes() {
-    const nodes = [...pendingNodes]
-      .filter((node) => !inFlightNodes.has(node) && isTranslatableTextNode(node))
-      .slice(0, maxNodes);
-    pendingNodes.clear();
-
-    if (!nodes.length) {
-      return;
-    }
-
-    for (const node of nodes) {
-      inFlightNodes.add(node);
-    }
-
-    const sourceTexts = nodes.map((node) => node.nodeValue || "");
-    chrome.runtime.sendMessage(
-      { type: "open-translate:translate-texts", texts: sourceTexts },
-      (response) => {
-        const dynamicResponse = response as DynamicResponse | undefined;
-        try {
-          if (
-            chrome.runtime.lastError ||
-            dynamicResponse?.error ||
-            !dynamicResponse?.translations ||
-            windowWithTranslator.__openTranslatePageSessionId !== pageSessionId
-          ) {
-            return;
-          }
-
-          isApplyingTranslation = true;
-          try {
-            for (const [index, node] of nodes.entries()) {
-              const translatedText = dynamicResponse.translations[index];
-              if (
-                !translatedText ||
-                !node.parentNode ||
-                node.nodeValue !== sourceTexts[index] ||
-                !isTranslatableTextNode(node)
-              ) {
-                continue;
-              }
-
-              applyDynamicTranslation(
-                node,
-                sourceTexts[index],
-                translatedText,
-                dynamicResponse.displayMode || "translation",
-              );
-            }
-          } finally {
-            window.setTimeout(() => {
-              isApplyingTranslation = false;
-            }, 0);
-          }
-        } finally {
-          for (const node of nodes) {
-            inFlightNodes.delete(node);
-          }
-        }
-      },
-    );
-  }
-
-  function applyDynamicTranslation(
-    node: Text,
-    sourceText: string,
-    translatedText: string,
-    displayMode: "translation" | "bilingual",
-  ) {
-    const pageWindow = window as typeof window & {
-      __openTranslatePageOriginals?: Map<Text, PageTextTranslation>;
-      __openTranslatePageTranslations?: Set<string>;
-    };
-    const originals =
-      pageWindow.__openTranslatePageOriginals || new Map<Text, PageTextTranslation>();
-    const translatedTexts = pageWindow.__openTranslatePageTranslations || new Set<string>();
-    pageWindow.__openTranslatePageOriginals = originals;
-    pageWindow.__openTranslatePageTranslations = translatedTexts;
-    originals.set(node, { sourceText, translatedText });
-    translatedTexts.add(translatedText);
-
-    const nextSibling = node.nextSibling;
-    if (
-      nextSibling instanceof HTMLElement &&
-      nextSibling.dataset.openTranslateBilingual === "true"
-    ) {
-      nextSibling.remove();
-    }
-
-    if (displayMode === "translation") {
-      node.nodeValue = translatedText;
-      return;
-    }
-
-    node.nodeValue = sourceText;
-    node.parentNode?.insertBefore(createDynamicBilingualText(translatedText), node.nextSibling);
-  }
-
-  function createDynamicBilingualText(translatedText: string) {
-    const wrapper = document.createElement("font");
-    wrapper.dataset.openTranslateBilingual = "true";
-    wrapper.textContent = translatedText;
-    wrapper.style.cssText = `
-      display: inline;
-      margin-left: 0.35em;
-    `;
-
-    return wrapper;
-  }
-
-  function isTranslatableTextNode(node: Text) {
-    const parent = node.parentElement;
-    const text = node.nodeValue || "";
-    const existingTranslation = windowWithTranslator.__openTranslatePageOriginals?.get(node);
-
-    if (!parent || ignoredTags.has(parent.tagName)) {
-      return false;
-    }
-
-    if (
-      existingTranslation &&
-      (
-        text === existingTranslation.translatedText ||
-        (
-          text === existingTranslation.sourceText &&
-          node.nextSibling instanceof HTMLElement &&
-          node.nextSibling.dataset.openTranslateBilingual === "true"
-        )
-      )
-    ) {
-      return false;
-    }
-
-    if (windowWithTranslator.__openTranslatePageTranslations?.has(text)) {
-      return false;
-    }
-
-    if (
-      parent.closest(
-        "[contenteditable='true'], [data-open-translate-ui], [data-open-translate-selection-panel], [data-open-translate-bilingual]",
-      )
-    ) {
-      return false;
-    }
-
-    if (!text.trim() || /^[\d\s()[\]{}.,:;'"!?+\-*/\\|_=<>@#$%^&~`]+$/.test(text.trim())) {
-      return false;
-    }
-
-    const rect = parent.getBoundingClientRect();
-    const style = getComputedStyle(parent);
-    return (
-      rect.width > 0 &&
-      rect.height > 0 &&
-      (pageTranslationScope !== "viewport" || isRectInViewport(rect)) &&
-      style.visibility !== "hidden" &&
-      style.display !== "none" &&
-      Number(style.opacity) !== 0
-    );
-  }
-
-  function isRectInViewport(rect: DOMRect) {
-    return (
-      rect.bottom > 0 &&
-      rect.right > 0 &&
-      rect.top < window.innerHeight &&
-      rect.left < window.innerWidth
-    );
   }
 }
 

@@ -20,10 +20,15 @@ export default defineConfig({
         popup: resolve(__dirname, 'src/popup/index.html'),
         options: resolve(__dirname, 'src/options/index.html'),
         background: resolve(__dirname, 'src/background/index.ts'),
+        pageRuntime: resolve(__dirname, 'src/page/runtime.ts'),
       },
       output: {
         entryFileNames: (chunkInfo) =>
-          chunkInfo.name === 'background' ? 'service-worker.js' : 'assets/[name]-[hash].js',
+          chunkInfo.name === 'background'
+            ? 'service-worker.js'
+            : chunkInfo.name === 'pageRuntime'
+              ? 'page-runtime.js'
+              : 'assets/[name]-[hash].js',
       },
     },
   },

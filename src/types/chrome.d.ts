@@ -81,6 +81,8 @@ declare namespace chrome {
     const onUpdated: {
       addListener(callback: (tabId: number, changeInfo: TabChangeInfo, tab: Tab) => void): void
     }
+
+    function sendMessage<T>(tabId: number, message: unknown): Promise<T>
   }
 
   namespace scripting {
@@ -96,6 +98,11 @@ declare namespace chrome {
       target: InjectionTarget
       func: (...args: Args) => Result
       args?: Args
+    }): Promise<Array<InjectionResult<Awaited<Result>>>>
+
+    function executeScript<Result>(injection: {
+      target: InjectionTarget
+      files: string[]
     }): Promise<Array<InjectionResult<Awaited<Result>>>>
   }
 

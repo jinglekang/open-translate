@@ -150,7 +150,7 @@ export function Options() {
 
   return (
     <main className="min-h-screen bg-slate-50 px-7 py-7 text-slate-900">
-      <header className="mx-auto mb-5 flex w-full max-w-[1040px] items-center justify-between gap-[18px]">
+      <header className="mx-auto mb-5 flex w-full max-w-260 items-center justify-between gap-4.5">
         <div>
           <p className="mb-1 text-[11px] font-bold uppercase tracking-[0.08em] text-blue-600">
             Open Translate
@@ -169,7 +169,7 @@ export function Options() {
         </Button>
       </header>
 
-      <div className="mx-auto grid w-full max-w-[1040px] grid-cols-[248px_minmax(0,1fr)] gap-[18px]">
+      <div className="mx-auto grid w-full max-w-260 grid-cols-[248px_minmax(0,1fr)] gap-4.5">
         <aside className="grid content-start gap-2" aria-label={t('profileListLabel')}>
           {settings.profiles.map((profile) => (
             <Button
@@ -177,7 +177,7 @@ export function Options() {
               variant={profile.id === editingProfile.id ? 'default' : 'outline'}
               size="lg"
               key={profile.id}
-              className={`relative grid h-auto min-h-[68px] w-full min-w-0 grid-cols-[minmax(0,1fr)] gap-1 overflow-hidden rounded-lg px-3 py-2.5 text-left transition before:absolute before:inset-y-[9px] before:left-0 before:w-[3px] before:rounded-r-full before:content-[''] ${profile.id === editingProfile.id
+              className={`relative grid h-auto min-h-17 w-full min-w-0 grid-cols-[minmax(0,1fr)] gap-1 overflow-hidden rounded-lg px-3 py-2.5 text-left transition before:absolute before:inset-y-2.25 before:left-0 before:w-0.75 before:rounded-r-full before:content-[''] ${profile.id === editingProfile.id
                 ? 'border-blue-600 bg-blue-50 shadow-[0_0_0_3px_rgba(37,99,235,0.12)] before:bg-blue-600'
                 : 'border-slate-200 bg-white before:bg-transparent hover:border-slate-300 hover:bg-slate-50'
                 }`}
@@ -195,7 +195,7 @@ export function Options() {
         </aside>
 
         <form
-          className="grid gap-3.5 rounded-lg border border-slate-200 bg-white p-[18px]"
+          className="grid gap-3.5 rounded-lg border border-slate-200 bg-white p-4.5"
           onSubmit={handleSubmit}
         >
           <div className="flex justify-end gap-2">

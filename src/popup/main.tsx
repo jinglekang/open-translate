@@ -77,8 +77,8 @@ export function Popup() {
   }
 
   return (
-    <main className="w-80 bg-slate-50 p-[18px] text-slate-900">
-      <header className="mb-[18px] flex items-start justify-between gap-4">
+    <main className="w-80 bg-slate-50 p-4.5 text-slate-900">
+      <header className="mb-4.5 flex items-start justify-between gap-4">
         <div>
           <p className="mb-1 text-[11px] font-bold uppercase tracking-[0.08em] text-blue-600">
             Open Translate
