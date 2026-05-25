@@ -1,5 +1,6 @@
 import { StrictMode, useEffect, useMemo, useState } from 'react'
 import { createRoot } from 'react-dom/client'
+import { SettingsIcon } from 'lucide-react'
 import {
   Select,
   SelectContent,
@@ -99,8 +100,8 @@ export function Popup() {
   }
 
   return (
-    <main className="w-[328px] bg-slate-50 p-4 text-slate-900">
-      <header className="mb-3.5 flex items-center justify-between gap-3">
+    <main className="w-[328px] bg-slate-50 text-slate-900">
+      <header className="flex items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3">
         <div className="flex min-w-0 items-center gap-2.5">
           <span
             className="h-2.5 w-2.5 shrink-0 rounded-full bg-green-600 shadow-[0_0_0_4px_rgba(22,163,74,0.12)]"
@@ -114,15 +115,16 @@ export function Popup() {
           type="button"
           size="sm"
           variant="outline"
-          className="h-8 shrink-0 rounded-md border-slate-300 bg-white px-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+          className="h-8 shrink-0 gap-1.5 rounded-md border-emerald-200 bg-emerald-50 px-2.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 hover:text-emerald-800"
           onClick={openOptionsPage}
         >
+          <SettingsIcon className="size-3.5" aria-hidden="true" />
           {t('openOptions')}
         </Button>
       </header>
 
       {settings && (
-        <section className="grid gap-2.5">
+        <section className="grid gap-2.5 p-4 pb-0">
           <label className="grid gap-1.5">
             <span className="text-[13px] font-semibold text-slate-600">{t('currentProfile')}</span>
             <Select
@@ -150,18 +152,15 @@ export function Popup() {
 
           <div className="grid min-w-0 gap-1.5 rounded-lg border border-slate-200 bg-white p-3">
             <div className="flex min-w-0 items-center gap-2">
-              <strong className="block min-w-0 truncate text-sm font-semibold text-slate-900">
-                {activeProfile?.name}
-              </strong>
-              <span className="rounded-md bg-blue-50 px-1.5 py-0.5 text-[11px] font-semibold text-blue-700">
+              <span className="block min-w-0 truncate text-[13px] font-semibold text-slate-700">
+                {activeProfile?.provider === 'chrome-built-in'
+                  ? t('chromeBuiltInProvider')
+                  : activeProfile?.model || t('modelUnset')}
+              </span>
+              <span className="shrink-0 rounded-md bg-blue-50 px-1.5 py-0.5 text-[11px] font-semibold text-blue-700">
                 {settings.activeProfileId === activeProfile?.id ? t('activeProfile') : ''}
               </span>
             </div>
-            <span className="block truncate text-[13px] text-slate-600">
-              {activeProfile?.provider === 'chrome-built-in'
-                ? t('chromeBuiltInProvider')
-                : activeProfile?.model || t('modelUnset')}
-            </span>
             {activeProfile?.provider !== 'chrome-built-in' && (
               <code
                 className="block max-w-full break-all whitespace-normal font-mono text-xs leading-relaxed text-slate-700"
@@ -287,7 +286,9 @@ export function Popup() {
         </section>
       )}
 
-      <StatusNotice className="mt-3" message={status} />
+      <div className="p-4 pt-3">
+        <StatusNotice message={status} />
+      </div>
     </main>
   )
 }

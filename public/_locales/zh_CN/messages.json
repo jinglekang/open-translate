@@ -159,7 +159,7 @@
     "message": "翻译设置"
   },
   "translationSettingsDescription": {
-    "message": "控制页面文本进入翻译流程前的基础过滤规则。"
+    "message": "控制页面翻译的展示、范围、处理方式和基础过滤规则。"
   },
   "minTranslationTextLength": {
     "message": "最小翻译字数"

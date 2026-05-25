@@ -538,9 +538,77 @@ export function Options() {
 
           <fieldset className="grid gap-2 border-0 p-0 m-0">
             <legend className="text-[13px] font-semibold text-slate-600">
+              {t('displayMode')}
+            </legend>
+            <div className="grid max-w-96 grid-cols-2 gap-1.5 rounded-lg border border-slate-200 bg-white p-1">
+              <Button
+                type="button"
+                size="default"
+                variant={settings.displayMode === 'bilingual' ? 'default' : 'ghost'}
+                className={
+                  settings.displayMode === 'bilingual'
+                    ? 'h-8 rounded-md bg-blue-600 text-sm font-semibold text-white'
+                    : 'h-8 rounded-md bg-transparent text-sm font-semibold text-slate-600 transition hover:bg-blue-50'
+                }
+                onClick={() => updateSetting('displayMode', 'bilingual')}
+              >
+                {t('bilingual')}
+              </Button>
+              <Button
+                type="button"
+                size="default"
+                variant={settings.displayMode === 'translation' ? 'default' : 'ghost'}
+                className={
+                  settings.displayMode === 'translation'
+                    ? 'h-8 rounded-md bg-blue-600 text-sm font-semibold text-white'
+                    : 'h-8 rounded-md bg-transparent text-sm font-semibold text-slate-600 transition hover:bg-blue-50'
+                }
+                onClick={() => updateSetting('displayMode', 'translation')}
+              >
+                {t('translationOnly')}
+              </Button>
+            </div>
+          </fieldset>
+
+          <fieldset className="grid gap-2 border-0 p-0 m-0">
+            <legend className="text-[13px] font-semibold text-slate-600">
+              {t('translationScope')}
+            </legend>
+            <div className="grid max-w-96 grid-cols-2 gap-1.5 rounded-lg border border-slate-200 bg-white p-1">
+              <Button
+                type="button"
+                size="default"
+                variant={settings.translationScope === 'viewport' ? 'default' : 'ghost'}
+                className={
+                  settings.translationScope === 'viewport'
+                    ? 'h-8 rounded-md bg-blue-600 text-sm font-semibold text-white'
+                    : 'h-8 rounded-md bg-transparent text-sm font-semibold text-slate-600 transition hover:bg-blue-50'
+                }
+                onClick={() => updateSetting('translationScope', 'viewport')}
+              >
+                {t('viewport')}
+              </Button>
+              <Button
+                type="button"
+                size="default"
+                variant={settings.translationScope === 'visible-page' ? 'default' : 'ghost'}
+                className={
+                  settings.translationScope === 'visible-page'
+                    ? 'h-8 rounded-md bg-blue-600 text-sm font-semibold text-white'
+                    : 'h-8 rounded-md bg-transparent text-sm font-semibold text-slate-600 transition hover:bg-blue-50'
+                }
+                onClick={() => updateSetting('translationScope', 'visible-page')}
+              >
+                {t('visiblePage')}
+              </Button>
+            </div>
+          </fieldset>
+
+          <fieldset className="grid gap-2 border-0 p-0 m-0">
+            <legend className="text-[13px] font-semibold text-slate-600">
               {t('translationMode')}
             </legend>
-            <div className="grid grid-cols-2 gap-1.5 rounded-lg border border-slate-200 bg-white p-1">
+            <div className="grid max-w-96 grid-cols-2 gap-1.5 rounded-lg border border-slate-200 bg-white p-1">
               <Button
                 type="button"
                 size="default"

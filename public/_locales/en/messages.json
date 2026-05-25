@@ -159,7 +159,7 @@
     "message": "Translation settings"
   },
   "translationSettingsDescription": {
-    "message": "Control basic filtering before page text enters the translation flow."
+    "message": "Control page translation display, scope, mode, and basic filtering."
   },
   "minTranslationTextLength": {
     "message": "Minimum text length"
