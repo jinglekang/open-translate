@@ -220,6 +220,18 @@
   "apiBaseUrl": {
     "message": "API base URL"
   },
+  "translationProvider": {
+    "message": "Translation engine"
+  },
+  "openAICompatibleProvider": {
+    "message": "OpenAI-compatible API"
+  },
+  "chromeBuiltInProvider": {
+    "message": "Chrome Built-in AI"
+  },
+  "chromeBuiltInDescription": {
+    "message": "Use Chrome's built-in Translator API. This mode does not require an API base URL, model name, or API Key, but requires Chrome 138+ on desktop with the relevant language pack available."
+  },
   "apiBaseUrlRequired": {
     "message": "Please enter an API base URL"
   },
@@ -381,6 +393,12 @@
         "content": "$1"
       }
     }
+  },
+  "builtInAiUnavailable": {
+    "message": "Chrome Built-in AI Translator is not available. Use Chrome 138+ on desktop and enable the built-in translation capability."
+  },
+  "builtInAiRunsInPage": {
+    "message": "Chrome Built-in AI must run in the page context"
   },
   "missingApiBaseUrl": {
     "message": "Please enter an API base URL in Options first"

@@ -39,6 +39,7 @@ export function Options() {
       getActiveProfile(settings),
     [editingId, settings],
   )
+  const isChromeBuiltInProfile = editingProfile.provider === 'chrome-built-in'
 
   useEffect(() => {
     chrome.storage.sync.get(null).then((stored) => {
@@ -243,13 +244,19 @@ export function Options() {
                 : 'border-slate-200 bg-white before:bg-transparent hover:border-slate-300 hover:bg-slate-50'
                 }`}
               onClick={() => setEditingId(profile.id)}
-              title={`${profile.name} · ${profile.model || t('modelUnset')}`}
+              title={`${profile.name} · ${
+                profile.provider === 'chrome-built-in'
+                  ? t('chromeBuiltInProvider')
+                  : profile.model || t('modelUnset')
+              }`}
             >
               <strong className="block max-w-full truncate text-sm leading-[1.35] font-semibold text-slate-900">
                 {profile.name}
               </strong>
               <span className="block max-w-full truncate text-xs leading-[1.35] font-medium text-slate-500">
-                {t('modelPrefix', profile.model || t('modelUnset'))}
+                {profile.provider === 'chrome-built-in'
+                  ? t('chromeBuiltInProvider')
+                  : t('modelPrefix', profile.model || t('modelUnset'))}
               </span>
             </Button>
           ))}
@@ -302,6 +309,37 @@ export function Options() {
           </label>
 
           <label className="grid gap-1.5">
+            <span className="text-[13px] font-semibold text-slate-600">
+              {t('translationProvider')}
+            </span>
+            <select
+              className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-900 outline-none transition focus:border-blue-600 focus:ring-[3px] focus:ring-blue-100"
+              value={editingProfile.provider}
+              onChange={(event) =>
+                updateProfile(
+                  'provider',
+                  event.target.value as TranslationProfile['provider'],
+                )
+              }
+            >
+              <option value="openai-compatible">{t('openAICompatibleProvider')}</option>
+              <option value="chrome-built-in">{t('chromeBuiltInProvider')}</option>
+            </select>
+          </label>
+
+          {isChromeBuiltInProfile && (
+            <div className="grid gap-1.5 rounded-lg border border-slate-200 bg-slate-50 p-2.5">
+              <span className="text-[13px] font-semibold text-slate-600">
+                {t('chromeBuiltInProvider')}
+              </span>
+              <p className="m-0 text-sm leading-5 text-slate-600">
+                {t('chromeBuiltInDescription')}
+              </p>
+            </div>
+          )}
+
+          {!isChromeBuiltInProfile && (
+          <label className="grid gap-1.5">
             <span className="text-[13px] font-semibold text-slate-600">{t('apiBaseUrl')}</span>
             <input
               className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-900 outline-none transition focus:border-blue-600 focus:ring-[3px] focus:ring-blue-100"
@@ -312,7 +350,26 @@ export function Options() {
               maxLength={profileFieldLimits.apiBaseUrl}
             />
           </label>
+          )}
 
+          {isChromeBuiltInProfile ? (
+            <label className="grid gap-1.5">
+              <span className="text-[13px] font-semibold text-slate-600">
+                {t('translationConcurrency')}
+              </span>
+              <input
+                className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-900 outline-none transition focus:border-blue-600 focus:ring-[3px] focus:ring-blue-100"
+                value={editingProfile.translationConcurrency}
+                onChange={(event) =>
+                  updateProfile('translationConcurrency', Number(event.target.value))
+                }
+                type="number"
+                min={translationConcurrencyLimits.min}
+                max={translationConcurrencyLimits.max}
+                step={1}
+              />
+            </label>
+          ) : (
           <div className="grid grid-cols-[minmax(0,1fr)_128px] gap-3">
             <label className="grid min-w-0 gap-1.5">
               <span className="text-[13px] font-semibold text-slate-600">{t('modelName')}</span>
@@ -339,6 +396,7 @@ export function Options() {
               />
             </label>
           </div>
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             <label className="grid gap-1.5">
@@ -376,6 +434,7 @@ export function Options() {
             </label>
           </div>
 
+          {!isChromeBuiltInProfile && (
           <label className="grid gap-1.5">
             <span className="text-[13px] font-semibold text-slate-600">{t('apiKey')}</span>
             <input
@@ -388,7 +447,9 @@ export function Options() {
               maxLength={profileFieldLimits.apiKey}
             />
           </label>
+          )}
 
+          {!isChromeBuiltInProfile && (
           <label className="grid gap-1.5">
             <span className="text-[13px] font-semibold text-slate-600">{t('customPrompt')}</span>
             <textarea
@@ -400,13 +461,16 @@ export function Options() {
               maxLength={profileFieldLimits.customPrompt}
             />
           </label>
+          )}
 
+          {!isChromeBuiltInProfile && (
           <div className="grid gap-1.5 rounded-lg border border-slate-200 bg-slate-50 p-2.5">
             <span className="text-[13px] font-semibold text-slate-600">{t('endpointPreview')}</span>
             <code className="break-all font-mono text-xs leading-relaxed text-slate-700">
               {getEndpointPreview(editingProfile.apiBaseUrl)}
             </code>
           </div>
+          )}
 
           <Button
             type="submit"

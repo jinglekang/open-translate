@@ -7,6 +7,13 @@ type PageRuntimeMessage = {
   type: 'open-translate:start-page-translator'
   maxNodes: number
   pageTranslationScope: 'visible-page' | 'viewport'
+  translationProvider: 'openai-compatible' | 'chrome-built-in'
+  targetLanguage: string
+  displayMode: 'translation' | 'bilingual'
+  userWhitelist: string[]
+  translationConcurrency: number
+  translationBatchSegments: number
+  translationBatchTextLength: number
 }
 
 type PartialTranslationMessage = {
@@ -38,6 +45,13 @@ if (!runtimeWindow.__openTranslatePageRuntimeInstalled) {
     sendResponse(installPageTranslator(
       message.maxNodes,
       message.pageTranslationScope,
+      message.translationProvider,
+      message.targetLanguage,
+      message.displayMode,
+      message.userWhitelist,
+      message.translationConcurrency,
+      message.translationBatchSegments,
+      message.translationBatchTextLength,
     ))
     return false
   })
@@ -64,13 +78,33 @@ function isStartPageTranslatorMessage(message: unknown): message is PageRuntimeM
     (
       (message as PageRuntimeMessage).pageTranslationScope === 'visible-page' ||
       (message as PageRuntimeMessage).pageTranslationScope === 'viewport'
-    )
+    ) &&
+    (
+      (message as PageRuntimeMessage).translationProvider === 'openai-compatible' ||
+      (message as PageRuntimeMessage).translationProvider === 'chrome-built-in'
+    ) &&
+    typeof (message as PageRuntimeMessage).targetLanguage === 'string' &&
+    (
+      (message as PageRuntimeMessage).displayMode === 'translation' ||
+      (message as PageRuntimeMessage).displayMode === 'bilingual'
+    ) &&
+    Array.isArray((message as PageRuntimeMessage).userWhitelist) &&
+    typeof (message as PageRuntimeMessage).translationConcurrency === 'number' &&
+    typeof (message as PageRuntimeMessage).translationBatchSegments === 'number' &&
+    typeof (message as PageRuntimeMessage).translationBatchTextLength === 'number'
   )
 }
 
 function installPageTranslator(
   maxNodes: number,
   pageTranslationScope: 'visible-page' | 'viewport',
+  translationProvider: 'openai-compatible' | 'chrome-built-in',
+  targetLanguage: string,
+  displayMode: 'translation' | 'bilingual',
+  userWhitelist: string[],
+  translationConcurrency: number,
+  translationBatchSegments: number,
+  translationBatchTextLength: number,
 ) {
   type PageTranslatorState = {
     observer: MutationObserver
@@ -110,6 +144,8 @@ function installPageTranslator(
     pendingNodes: new Set<Text>(),
     inFlightNodes: new Set<Text>(),
     translationRequests: new Map<string, { nodes: Text[]; sourceTexts: string[] }>(),
+    builtInTranslators: new Map<string, Promise<BuiltInTranslator>>(),
+    builtInLanguageDetector: undefined as Promise<BuiltInLanguageDetector | undefined> | undefined,
     isApplyingTranslation: false,
     debounceTimer: 0,
   }
@@ -161,6 +197,7 @@ function installPageTranslator(
 
   void requestTranslations(initialNodes, initialNodes.map((node) => node.nodeValue || ''))
     .then(notifyInitialTranslationComplete)
+    .catch(notifyPageTranslationError)
   return { collected: true }
 
   function collectTextNodes(node: Node) {
@@ -225,7 +262,7 @@ function installPageTranslator(
     }
 
     const sourceTexts = nodes.map((node) => node.nodeValue || '')
-    void requestTranslations(nodes, sourceTexts)
+    void requestTranslations(nodes, sourceTexts).catch(notifyPageTranslationError)
   }
 
   function takePendingNodes() {
@@ -242,6 +279,10 @@ function installPageTranslator(
   }
 
   function requestTranslations(nodes: Text[], sourceTexts: string[]) {
+    if (translationProvider === 'chrome-built-in') {
+      return requestBuiltInTranslations(nodes, sourceTexts)
+    }
+
     const requestId = createTranslationRequestId()
     state.translationRequests.set(requestId, { nodes, sourceTexts })
 
@@ -264,6 +305,221 @@ function installPageTranslator(
         },
       )
     })
+  }
+
+  async function requestBuiltInTranslations(nodes: Text[], sourceTexts: string[]) {
+    const entries = sourceTexts.map((sourceText, index) => ({ index, sourceText }))
+      .filter((entry) => (
+        entry.sourceText.trim() &&
+        !userWhitelist.includes(entry.sourceText.trim())
+      ))
+    let completed = sourceTexts.length - entries.length
+
+    try {
+      await notifyPageTranslationProgress(completed, sourceTexts.length)
+      await runConcurrent(
+        createBuiltInTranslationBatches(
+          entries,
+          translationBatchSegments,
+          translationBatchTextLength,
+        ),
+        translationConcurrency,
+        async (batch) => {
+          const translatedEntries: Array<{
+            node?: Text
+            sourceText?: string
+            translatedText?: string
+          }> = []
+
+          for (const entry of batch) {
+            translatedEntries.push({
+              node: nodes[entry.index],
+              sourceText: entry.sourceText,
+              translatedText: await translateWithBuiltInAI(entry.sourceText),
+            })
+          }
+
+          applyPageTranslationEntries(translatedEntries, displayMode)
+          completed += batch.length
+          await notifyPageTranslationProgress(completed, sourceTexts.length)
+        },
+      )
+    } finally {
+      releaseInFlightNodes(nodes)
+    }
+  }
+
+  async function translateWithBuiltInAI(sourceText: string) {
+    const sourceLanguage = await detectBuiltInSourceLanguage(sourceText)
+    const targetLanguageCode = normalizeBuiltInTargetLanguageCode(targetLanguage)
+    if (sourceLanguage === targetLanguageCode) {
+      return sourceText
+    }
+
+    const translator = await getBuiltInTranslator(sourceLanguage, targetLanguageCode)
+    return translator.translate(sourceText)
+  }
+
+  function normalizeBuiltInTargetLanguageCode(language: string) {
+    const normalized = language.trim()
+    const alias = new Map<string, string>([
+      ['简体中文', 'zh'],
+      ['中文', 'zh'],
+      ['繁体中文', 'zh-Hant'],
+      ['英文', 'en'],
+      ['英语', 'en'],
+      ['日文', 'ja'],
+      ['日语', 'ja'],
+      ['韩文', 'ko'],
+      ['韩语', 'ko'],
+      ['simplified chinese', 'zh'],
+      ['chinese', 'zh'],
+      ['traditional chinese', 'zh-Hant'],
+      ['english', 'en'],
+      ['japanese', 'ja'],
+      ['korean', 'ko'],
+    ]).get(normalized.toLowerCase())
+
+    return alias || normalized || 'zh'
+  }
+
+  async function getBuiltInTranslator(sourceLanguage: string, targetLanguageCode: string) {
+    const apiWindow = window as Window & {
+      Translator?: BuiltInTranslatorConstructor
+    }
+    if (!apiWindow.Translator) {
+      throw new Error('Chrome Built-in AI Translator is not available')
+    }
+
+    const cacheKey = `${sourceLanguage}:${targetLanguageCode}`
+    const existingTranslator = state.builtInTranslators.get(cacheKey)
+    if (existingTranslator) {
+      return existingTranslator
+    }
+
+    const translatorPromise = apiWindow.Translator.availability({
+      sourceLanguage,
+      targetLanguage: targetLanguageCode,
+    }).then((availability) => {
+      if (availability === 'unavailable') {
+        throw new Error('Chrome Built-in AI Translator does not support this language pair')
+      }
+
+      return apiWindow.Translator!.create({
+        sourceLanguage,
+        targetLanguage: targetLanguageCode,
+      })
+    })
+
+    state.builtInTranslators.set(cacheKey, translatorPromise)
+    return translatorPromise
+  }
+
+  async function detectBuiltInSourceLanguage(sourceText: string) {
+    const documentLanguage = normalizeBuiltInSourceLanguageCode(
+      document.documentElement.lang || navigator.language || 'en',
+    )
+    if (sourceText.trim().length < 20) {
+      return documentLanguage
+    }
+
+    const detector = await getBuiltInLanguageDetector()
+    if (!detector) {
+      return documentLanguage
+    }
+
+    try {
+      const [result] = await detector.detect(sourceText)
+      return result?.confidence > 0.55
+        ? normalizeBuiltInSourceLanguageCode(result.detectedLanguage)
+        : documentLanguage
+    } catch {
+      return documentLanguage
+    }
+  }
+
+  async function getBuiltInLanguageDetector() {
+    const apiWindow = window as Window & {
+      LanguageDetector?: BuiltInLanguageDetectorConstructor
+    }
+    if (!apiWindow.LanguageDetector) {
+      return undefined
+    }
+
+    state.builtInLanguageDetector ||= apiWindow.LanguageDetector.availability()
+      .then((availability) => {
+        if (availability === 'unavailable') {
+          return undefined
+        }
+
+        return apiWindow.LanguageDetector!.create()
+      })
+      .catch(() => undefined)
+
+    return state.builtInLanguageDetector
+  }
+
+  function normalizeBuiltInSourceLanguageCode(language: string) {
+    const normalized = language.trim() || 'en'
+    if (/^zh-(tw|hk|mo|hant)/i.test(normalized)) {
+      return 'zh-Hant'
+    }
+    if (/^zh/i.test(normalized)) {
+      return 'zh'
+    }
+
+    return normalized.split('-')[0].toLowerCase()
+  }
+
+  async function runConcurrent<T>(
+    items: T[],
+    concurrency: number,
+    worker: (item: T) => Promise<void>,
+  ) {
+    let nextIndex = 0
+
+    async function runWorker() {
+      while (nextIndex < items.length) {
+        const item = items[nextIndex]
+        nextIndex += 1
+        await worker(item)
+      }
+    }
+
+    await Promise.all(
+      Array.from({ length: Math.min(Math.max(1, concurrency), items.length) }, () => runWorker()),
+    )
+  }
+
+  function createBuiltInTranslationBatches<T extends { sourceText: string }>(
+    entries: T[],
+    maxBatchSegments: number,
+    maxBatchTextLength: number,
+  ) {
+    const batches: T[][] = []
+    let batch: T[] = []
+    let batchTextLength = 0
+
+    for (const entry of entries) {
+      const nextTextLength = batchTextLength + entry.sourceText.length
+      if (
+        batch.length &&
+        (batch.length >= maxBatchSegments || nextTextLength > maxBatchTextLength)
+      ) {
+        batches.push(batch)
+        batch = []
+        batchTextLength = 0
+      }
+
+      batch.push(entry)
+      batchTextLength += entry.sourceText.length
+    }
+
+    if (batch.length) {
+      batches.push(batch)
+    }
+
+    return batches
   }
 
   function applyPartialTranslations(message: PartialTranslationMessage) {
@@ -469,6 +725,21 @@ function installPageTranslator(
 
   function notifyInitialTranslationComplete() {
     chrome.runtime.sendMessage({ type: 'open-translate:initial-page-translation-complete' })
+  }
+
+  function notifyPageTranslationProgress(completed: number, total: number) {
+    return chrome.runtime.sendMessage({
+      type: 'open-translate:page-translation-progress',
+      completed,
+      total,
+    })
+  }
+
+  function notifyPageTranslationError(error: unknown) {
+    chrome.runtime.sendMessage({
+      type: 'open-translate:page-translation-error',
+      message: error instanceof Error ? error.message : String(error),
+    })
   }
 
   function createTranslationRequestId() {

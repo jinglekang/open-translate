@@ -220,6 +220,18 @@
   "apiBaseUrl": {
     "message": "接口地址"
   },
+  "translationProvider": {
+    "message": "翻译引擎"
+  },
+  "openAICompatibleProvider": {
+    "message": "OpenAI 兼容接口"
+  },
+  "chromeBuiltInProvider": {
+    "message": "Chrome Built-in AI"
+  },
+  "chromeBuiltInDescription": {
+    "message": "使用 Chrome 内置 Translator API。本模式不需要接口地址、模型名称或 API Key，但需要 Chrome 138+ 桌面端支持对应语言包。"
+  },
   "apiBaseUrlRequired": {
     "message": "请填写接口地址"
   },
@@ -381,6 +393,12 @@
         "content": "$1"
       }
     }
+  },
+  "builtInAiUnavailable": {
+    "message": "Chrome Built-in AI Translator 当前不可用，请确认使用 Chrome 138+ 桌面端并启用内置翻译能力"
+  },
+  "builtInAiRunsInPage": {
+    "message": "Chrome Built-in AI 需要在页面环境中运行"
   },
   "missingApiBaseUrl": {
     "message": "请先在选项页填写接口地址"

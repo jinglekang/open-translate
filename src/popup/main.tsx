@@ -143,14 +143,18 @@ export function Popup() {
               </Button>
             </div>
             <span className="block truncate text-[13px] text-slate-600">
-              {activeProfile?.model || t('modelUnset')}
+              {activeProfile?.provider === 'chrome-built-in'
+                ? t('chromeBuiltInProvider')
+                : activeProfile?.model || t('modelUnset')}
             </span>
-            <code
-              className="block max-w-full break-all whitespace-normal font-mono text-xs leading-relaxed text-slate-700"
-              title={activeProfile?.apiBaseUrl || t('endpointUnset')}
-            >
-              {activeProfile?.apiBaseUrl || t('endpointUnset')}
-            </code>
+            {activeProfile?.provider !== 'chrome-built-in' && (
+              <code
+                className="block max-w-full break-all whitespace-normal font-mono text-xs leading-relaxed text-slate-700"
+                title={activeProfile?.apiBaseUrl || t('endpointUnset')}
+              >
+                {activeProfile?.apiBaseUrl || t('endpointUnset')}
+              </code>
+            )}
           </div>
 
           <label className="grid gap-1.5">

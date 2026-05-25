@@ -1,9 +1,11 @@
 import { t } from '../shared/i18n'
+import { normalizeBuiltInTargetLanguageCode } from '../shared/languages'
 import { getActiveProfile, normalizeSettings, validateProfileForUse } from '../shared/settings'
 import type {
   PageTranslationScope,
   TranslationDisplayMode,
   TranslationProfile,
+  TranslationProvider,
   TranslationSettings,
 } from '../shared/settings'
 import { shouldSkipTranslation } from '../shared/whitelist'
@@ -25,6 +27,17 @@ type PageTranslateMessage = {
 
 type InitialPageTranslationCompleteMessage = {
   type: "open-translate:initial-page-translation-complete";
+};
+
+type PageTranslationProgressMessage = {
+  type: "open-translate:page-translation-progress";
+  completed: number;
+  total: number;
+};
+
+type PageTranslationErrorMessage = {
+  type: "open-translate:page-translation-error";
+  message: string;
 };
 
 type TranslationProgress = {
@@ -113,6 +126,20 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 });
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (isPageTranslationErrorMessage(message)) {
+    if (sender.tab?.id) {
+      void showInlineNotice(sender.tab.id, message.message || t("translationFailed"), "error");
+    }
+    return false;
+  }
+
+  if (isPageTranslationProgressMessage(message)) {
+    if (sender.tab?.id) {
+      void showPageTranslationProgress(sender.tab.id, message);
+    }
+    return false;
+  }
+
   if (isInitialPageTranslationCompleteMessage(message)) {
     if (sender.tab?.id) {
       void showPageTranslationComplete(sender.tab.id);
@@ -147,6 +174,31 @@ function isInitialPageTranslationCompleteMessage(
   );
 }
 
+function isPageTranslationErrorMessage(
+  message: unknown,
+): message is PageTranslationErrorMessage {
+  return (
+    !!message &&
+    typeof message === "object" &&
+    (message as PageTranslationErrorMessage).type ===
+      "open-translate:page-translation-error" &&
+    typeof (message as PageTranslationErrorMessage).message === "string"
+  );
+}
+
+function isPageTranslationProgressMessage(
+  message: unknown,
+): message is PageTranslationProgressMessage {
+  return (
+    !!message &&
+    typeof message === "object" &&
+    (message as PageTranslationProgressMessage).type ===
+      "open-translate:page-translation-progress" &&
+    typeof (message as PageTranslationProgressMessage).completed === "number" &&
+    typeof (message as PageTranslationProgressMessage).total === "number"
+  );
+}
+
 function isPageTranslateMessage(message: unknown): message is PageTranslateMessage {
   return (
     !!message &&
@@ -165,7 +217,12 @@ async function translateSelection(
   displayMode: TranslationDisplayMode,
 ) {
   await showInlineNotice(tabId, t("translatingSelection"), "loading");
-  const translatedText = await translateText(selectedText, profile, targetLanguage, userWhitelist);
+  const translatedText =
+    shouldSkipTranslation(selectedText, userWhitelist)
+      ? selectedText
+      : profile.provider === "chrome-built-in"
+        ? await translateSelectionWithChromeBuiltInAI(tabId, selectedText, targetLanguage)
+        : await translateText(selectedText, profile, targetLanguage, userWhitelist);
 
   const [{ result: didShow }] = await chrome.scripting.executeScript({
     target: { tabId },
@@ -180,16 +237,123 @@ async function translateSelection(
   );
 }
 
+async function translateSelectionWithChromeBuiltInAI(
+  tabId: number,
+  selectedText: string,
+  targetLanguage: string,
+) {
+  const targetLanguageCode = normalizeBuiltInTargetLanguageCode(targetLanguage);
+  const [{ result }] = await chrome.scripting.executeScript({
+    target: { tabId },
+    func: translateTextWithChromeBuiltInAI,
+    args: [selectedText, targetLanguageCode, t("builtInAiUnavailable")],
+  });
+
+  if (!result) {
+    throw new Error(t("emptyTranslationResponse"));
+  }
+
+  return result;
+}
+
 async function translatePage(
   tabId: number,
   pageTranslationScope: PageTranslationScope,
 ) {
   await showInlineNotice(tabId, t("collectingPageText"), "loading");
 
-  const runtimeResult = await startPageTranslator(tabId, pageTranslationScope);
+  const settings = await getCurrentSettings();
+  const profile = validateProfileForUse(getActiveProfile(settings));
+  const runtimeResult = await startPageTranslator(
+    tabId,
+    pageTranslationScope,
+    profile.provider,
+    settings.targetLanguage,
+    settings.displayMode,
+    settings.userWhitelist,
+    profile.translationConcurrency,
+    profile.translationBatchSegments,
+    profile.translationBatchTextLength,
+  );
   if (!runtimeResult?.collected) {
     throw new Error(t("pageTextNotFound"));
   }
+}
+
+async function translateTextWithChromeBuiltInAI(
+  sourceText: string,
+  targetLanguage: string,
+  unavailableMessage: string,
+) {
+  function normalizeLanguageCode(language: string) {
+    const normalized = language.trim() || "en";
+    if (/^zh-(tw|hk|mo|hant)/i.test(normalized)) {
+      return "zh-Hant";
+    }
+    if (/^zh/i.test(normalized)) {
+      return "zh";
+    }
+
+    return normalized.split("-")[0].toLowerCase();
+  }
+
+  async function detectSourceLanguage(
+    text: string,
+    apiWindow: Window & {
+      LanguageDetector?: BuiltInLanguageDetectorConstructor;
+    },
+  ) {
+    const documentLanguage = normalizeLanguageCode(
+      document.documentElement.lang || navigator.language || "en",
+    );
+    if (!apiWindow.LanguageDetector || text.trim().length < 20) {
+      return documentLanguage;
+    }
+
+    try {
+      const availability = await apiWindow.LanguageDetector.availability();
+      if (availability === "unavailable") {
+        return documentLanguage;
+      }
+
+      const detector = await apiWindow.LanguageDetector.create();
+      const [result] = await detector.detect(text);
+      return result?.confidence > 0.55
+        ? normalizeLanguageCode(result.detectedLanguage)
+        : documentLanguage;
+    } catch {
+      return documentLanguage;
+    }
+  }
+
+  const aiWindow = window as Window & {
+    Translator?: BuiltInTranslatorConstructor;
+    LanguageDetector?: BuiltInLanguageDetectorConstructor;
+  };
+
+  if (!aiWindow.Translator) {
+    throw new Error(unavailableMessage);
+  }
+
+  const sourceLanguage = await detectSourceLanguage(sourceText, aiWindow);
+  if (sourceLanguage === targetLanguage) {
+    return sourceText;
+  }
+
+  const availability = await aiWindow.Translator.availability({
+    sourceLanguage,
+    targetLanguage,
+  });
+  if (availability === "unavailable") {
+    throw new Error(unavailableMessage);
+  }
+
+  const translator = await aiWindow.Translator.create({
+    sourceLanguage,
+    targetLanguage,
+  });
+
+  return translator.translate(sourceText);
 }
 
 async function restoreTranslatedPage(tabId: number) {
@@ -204,6 +368,13 @@ async function restoreTranslatedPage(tabId: number) {
 async function startPageTranslator(
   tabId: number,
   pageTranslationScope: PageTranslationScope,
+  translationProvider: TranslationProvider,
+  targetLanguage: string,
+  displayMode: TranslationDisplayMode,
+  userWhitelist: string[],
+  translationConcurrency: number,
+  translationBatchSegments: number,
+  translationBatchTextLength: number,
 ) {
   await chrome.scripting.executeScript({
     target: { tabId },
@@ -213,7 +384,22 @@ async function startPageTranslator(
     type: "open-translate:start-page-translator",
     maxNodes: MAX_TEXT_NODES,
     pageTranslationScope,
+    translationProvider,
+    targetLanguage,
+    displayMode,
+    userWhitelist,
+    translationConcurrency,
+    translationBatchSegments,
+    translationBatchTextLength,
   });
+}
+
+async function showPageTranslationProgress(tabId: number, progress: TranslationProgress) {
+  await showOptionalInlineNotice(
+    tabId,
+    t("translatingPageBatch", [String(progress.completed), String(progress.total)]),
+    progress.completed < progress.total ? "loading" : "success",
+  );
 }
 
 async function showPageTranslationComplete(tabId: number) {
@@ -271,6 +457,11 @@ function getDefaultTargetLanguage() {
 async function translatePageTexts(texts: string[], tabId?: number, requestId?: string) {
   const settings = await getCurrentSettings();
   const profile = validateProfileForUse(getActiveProfile(settings));
+  if (profile.provider === "chrome-built-in") {
+    return {
+      error: t("builtInAiRunsInPage"),
+    };
+  }
   const textItems = texts.map((text, index) => ({ index, text: text.trim() }))
     .filter((item) => item.text);
 
