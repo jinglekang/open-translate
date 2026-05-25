@@ -100,6 +100,7 @@ function installPageTranslator(
     'SVG',
     'CANVAS',
     'PRE',
+    'CODE',
     'TEXTAREA',
     'INPUT',
     'SELECT',
@@ -435,7 +436,7 @@ function installPageTranslator(
 
     if (
       parent.closest(
-        "pre, [contenteditable='true'], [data-open-translate-ui], [data-open-translate-selection-panel], [data-open-translate-bilingual]",
+        "pre, code, [contenteditable='true'], [data-open-translate-ui], [data-open-translate-selection-panel], [data-open-translate-bilingual]",
       )
     ) {
       return false
