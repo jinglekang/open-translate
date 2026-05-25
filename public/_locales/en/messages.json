@@ -102,6 +102,36 @@
   "rulesTab": {
     "message": "Rules"
   },
+  "appTheme": {
+    "message": "Theme"
+  },
+  "themeSystem": {
+    "message": "System"
+  },
+  "themeLight": {
+    "message": "Light"
+  },
+  "themeDark": {
+    "message": "Dark"
+  },
+  "appLanguage": {
+    "message": "Language"
+  },
+  "languageSystem": {
+    "message": "Browser"
+  },
+  "languageZhCn": {
+    "message": "中文"
+  },
+  "languageEn": {
+    "message": "English"
+  },
+  "appearanceSaved": {
+    "message": "Theme preference saved"
+  },
+  "languageSaved": {
+    "message": "Language preference saved"
+  },
   "addProfile": {
     "message": "Add Profile"
   },

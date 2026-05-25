@@ -45,6 +45,10 @@ export const translationModeSchema = z.enum(['text-node', 'element-context'])
 export type TranslationMode = z.infer<typeof translationModeSchema>
 export const translationProviderSchema = z.enum(['chrome-built-in', 'openai-compatible'])
 export type TranslationProvider = z.infer<typeof translationProviderSchema>
+export const appThemeSchema = z.enum(['system', 'light', 'dark'])
+export type AppTheme = z.infer<typeof appThemeSchema>
+export const appLanguageSchema = z.enum(['system', 'zh_CN', 'en'])
+export type AppLanguage = z.infer<typeof appLanguageSchema>
 
 export const defaultUserWhitelist = [
   'OpenAI',
@@ -119,6 +123,8 @@ export const translationSettingsSchema = z
     displayMode: translationDisplayModeSchema.catch('bilingual'),
     translationScope: translationScopeSchema.catch('viewport'),
     translationMode: translationModeSchema.catch('element-context'),
+    appTheme: appThemeSchema.catch('system'),
+    appLanguage: appLanguageSchema.catch('system'),
     targetLanguage: targetLanguageSchema.catch(defaultTargetLanguage),
     userWhitelist: z
       .array(
@@ -156,6 +162,8 @@ export const translationSettingsSchema = z
       displayMode: settings.displayMode,
       translationScope: settings.translationScope,
       translationMode: settings.translationMode,
+      appTheme: settings.appTheme,
+      appLanguage: settings.appLanguage,
       targetLanguage: settings.targetLanguage,
       userWhitelist: [...new Set(settings.userWhitelist)],
       noTranslateSelectors: [...new Set(settings.noTranslateSelectors)],
@@ -185,6 +193,8 @@ export const defaultSettings: TranslationSettings = {
   displayMode: 'bilingual',
   translationScope: 'viewport',
   translationMode: 'element-context',
+  appTheme: 'system',
+  appLanguage: 'system',
   targetLanguage: defaultTargetLanguage,
   userWhitelist: [...defaultUserWhitelist],
   noTranslateSelectors: [...defaultNoTranslateSelectors],
@@ -238,6 +248,8 @@ export function normalizeSettings(stored: unknown): TranslationSettings {
     displayMode: 'bilingual',
     translationScope: 'viewport',
     translationMode: defaultSettings.translationMode,
+    appTheme: defaultSettings.appTheme,
+    appLanguage: defaultSettings.appLanguage,
     targetLanguage: legacyResult.data.targetLanguage || defaultSettings.targetLanguage,
     userWhitelist: [...defaultSettings.userWhitelist],
     noTranslateSelectors: [...defaultSettings.noTranslateSelectors],

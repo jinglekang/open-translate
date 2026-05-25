@@ -102,6 +102,36 @@
   "rulesTab": {
     "message": "规则设置"
   },
+  "appTheme": {
+    "message": "主题"
+  },
+  "themeSystem": {
+    "message": "跟随系统"
+  },
+  "themeLight": {
+    "message": "浅色"
+  },
+  "themeDark": {
+    "message": "深色"
+  },
+  "appLanguage": {
+    "message": "语言"
+  },
+  "languageSystem": {
+    "message": "跟随浏览器"
+  },
+  "languageZhCn": {
+    "message": "中文"
+  },
+  "languageEn": {
+    "message": "English"
+  },
+  "appearanceSaved": {
+    "message": "已保存主题偏好"
+  },
+  "languageSaved": {
+    "message": "已保存语言偏好"
+  },
   "addProfile": {
     "message": "新增配置"
   },

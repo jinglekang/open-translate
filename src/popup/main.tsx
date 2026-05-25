@@ -10,7 +10,8 @@ import {
 } from '../components/ui/select'
 import { Button } from '../components/ui/button'
 import { StatusNotice } from '../components/status-notice'
-import { t } from '../shared/i18n'
+import { applyAppTheme } from '../shared/appearance'
+import { setAppLanguage, t } from '../shared/i18n'
 import { targetLanguageOptions } from '../shared/languages'
 import { getActiveProfile, normalizeSettings } from '../shared/settings'
 import type {
@@ -33,6 +34,8 @@ export function Popup() {
   useEffect(() => {
     chrome.storage.sync.get(null).then((stored) => {
       const nextSettings = normalizeSettings(stored)
+      setAppLanguage(nextSettings.appLanguage)
+      applyAppTheme(nextSettings.appTheme)
       setSettings(nextSettings)
       setStatus(t('chooseCurrentProfile'))
     })

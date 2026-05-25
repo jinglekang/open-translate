@@ -1,9 +1,11 @@
 import { StrictMode, useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import { createRoot } from 'react-dom/client'
+import { LanguagesIcon, MonitorIcon, MoonIcon, SunIcon } from 'lucide-react'
+import { applyAppTheme } from '../shared/appearance'
 import { clearTranslationCache, getTranslationCacheStats } from '../shared/cache'
 import { getEndpointPreview } from '../shared/endpoint'
-import { t } from '../shared/i18n'
+import { setAppLanguage, t } from '../shared/i18n'
 import { targetLanguageOptions } from '../shared/languages'
 import {
   createProfile,
@@ -17,9 +19,15 @@ import {
   translationBatchTextLengthLimits,
   translationConcurrencyLimits,
 } from '../shared/settings'
-import type { TranslationProfile, TranslationSettings } from '../shared/settings'
+import type { AppLanguage, AppTheme, TranslationProfile, TranslationSettings } from '../shared/settings'
 import { builtInNoTranslateRules } from '../shared/whitelist'
 import { Button } from '../components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from '../components/ui/dropdown-menu'
 import { StatusNotice } from '../components/status-notice'
 import {
   Select,
@@ -56,6 +64,8 @@ export function Options() {
   useEffect(() => {
     chrome.storage.sync.get(null).then((stored) => {
       const nextSettings = normalizeSettings(stored)
+      setAppLanguage(nextSettings.appLanguage)
+      applyAppTheme(nextSettings.appTheme)
       setSettings(nextSettings)
       setEditingId(nextSettings.activeProfileId)
       setWhitelistDraft(formatCommaList(nextSettings.userWhitelist))
@@ -95,6 +105,8 @@ export function Options() {
     }
 
     setSettings(stored)
+    setAppLanguage(stored.appLanguage)
+    applyAppTheme(stored.appTheme)
     setWhitelistDraft(formatCommaList(stored.userWhitelist))
     setNoTranslateSelectorsDraft(formatCommaList(stored.noTranslateSelectors))
     setEditingId(
@@ -182,6 +194,30 @@ export function Options() {
     await saveSettings(settings, t('translationSettingsSaved'))
   }
 
+  async function updateAppTheme(appTheme: AppTheme) {
+    applyAppTheme(appTheme)
+    setSettings((current) => ({ ...current, appTheme }))
+
+    try {
+      await chrome.storage.sync.set({ appTheme })
+      setStatus(t('appearanceSaved'))
+    } catch {
+      setStatus(t('saveFailed'))
+    }
+  }
+
+  async function updateAppLanguage(appLanguage: AppLanguage) {
+    setAppLanguage(appLanguage)
+    setSettings((current) => ({ ...current, appLanguage }))
+
+    try {
+      await chrome.storage.sync.set({ appLanguage })
+      setStatus(t('languageSaved'))
+    } catch {
+      setStatus(t('saveFailed'))
+    }
+  }
+
   function updateSetting<Key extends keyof TranslationSettings>(
     key: Key,
     value: TranslationSettings[Key],
@@ -226,16 +262,84 @@ export function Options() {
             {t('optionsTitle')}
           </h1>
         </div>
-        {activeTab === 'translators' && (
-          <Button
-            type="button"
-            size="lg"
-            className="h-9 rounded-md bg-slate-800 px-3.5 text-sm font-semibold text-white transition hover:bg-slate-700"
-            onClick={addProfile}
-          >
-            {t('addProfile')}
-          </Button>
-        )}
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="size-9 rounded-full border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                  aria-label={`${t('appLanguage')}: ${getAppLanguageLabel(settings.appLanguage)}`}
+                  title={getAppLanguageLabel(settings.appLanguage)}
+                />
+              }
+            >
+              {getAppLanguageIcon(settings.appLanguage)}
+              <span className="sr-only">{t('appLanguage')}</span>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {(['system', 'zh_CN', 'en'] as const).map((language) => (
+                <DropdownMenuCheckboxItem
+                  key={language}
+                  checked={settings.appLanguage === language}
+                  onCheckedChange={(checked) => {
+                    if (checked) {
+                      void updateAppLanguage(language)
+                    }
+                  }}
+                >
+                  {getAppLanguageLabel(language)}
+                </DropdownMenuCheckboxItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="relative size-9 rounded-full border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                  aria-label={`${t('appTheme')}: ${getAppThemeLabel(settings.appTheme)}`}
+                  title={getAppThemeLabel(settings.appTheme)}
+                />
+              }
+            >
+              {getAppThemeIcon(settings.appTheme)}
+              <span className="sr-only">{t('appTheme')}</span>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {(['system', 'light', 'dark'] as const).map((theme) => (
+                <DropdownMenuCheckboxItem
+                  key={theme}
+                  checked={settings.appTheme === theme}
+                  onCheckedChange={(checked) => {
+                    if (checked) {
+                      void updateAppTheme(theme)
+                    }
+                  }}
+                >
+                  {getAppThemeLabel(theme)}
+                </DropdownMenuCheckboxItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {activeTab === 'translators' && (
+            <Button
+              type="button"
+              size="lg"
+              className="h-9 rounded-md bg-slate-800 px-3.5 text-sm font-semibold text-white transition hover:bg-slate-700"
+              onClick={addProfile}
+            >
+              {t('addProfile')}
+            </Button>
+          )}
+        </div>
       </header>
 
       <div className="mx-auto grid w-full max-w-300 grid-cols-[220px_minmax(0,1fr)] items-start gap-5">
@@ -804,6 +908,54 @@ function parseCommaListDraft(value: string) {
 
 function formatCommaList(items: readonly string[]) {
   return items.join(', ')
+}
+
+function getAppLanguageLabel(language: AppLanguage) {
+  if (language === 'zh_CN') {
+    return t('languageZhCn')
+  }
+
+  if (language === 'en') {
+    return t('languageEn')
+  }
+
+  return t('languageSystem')
+}
+
+function getAppLanguageIcon(language: AppLanguage) {
+  if (language === 'system') {
+    return <LanguagesIcon className="size-4.5" aria-hidden="true" />
+  }
+
+  return (
+    <span className="text-sm leading-none font-semibold" aria-hidden="true">
+      {language === 'zh_CN' ? '中' : 'E'}
+    </span>
+  )
+}
+
+function getAppThemeLabel(theme: AppTheme) {
+  if (theme === 'light') {
+    return t('themeLight')
+  }
+
+  if (theme === 'dark') {
+    return t('themeDark')
+  }
+
+  return t('themeSystem')
+}
+
+function getAppThemeIcon(theme: AppTheme) {
+  if (theme === 'light') {
+    return <SunIcon className="size-4.5" aria-hidden="true" />
+  }
+
+  if (theme === 'dark') {
+    return <MoonIcon className="size-4.5" aria-hidden="true" />
+  }
+
+  return <MonitorIcon className="size-4.5" aria-hidden="true" />
 }
 
 createRoot(document.getElementById('root')!).render(

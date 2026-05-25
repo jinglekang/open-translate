@@ -1,4 +1,4 @@
-import { t } from '../shared/i18n'
+import { setAppLanguage, t } from '../shared/i18n'
 import { defaultTargetLanguage, normalizeBuiltInTargetLanguageCode } from '../shared/languages'
 import { getActiveProfile, normalizeSettings, validateProfileForUse } from '../shared/settings'
 import type {
@@ -79,7 +79,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 chrome.storage.onChanged.addListener((changes, areaName) => {
   if (
     areaName === "sync" &&
-    (changes.profiles || changes.activeProfileId || changes.targetLanguage)
+    (changes.profiles || changes.activeProfileId || changes.targetLanguage || changes.appLanguage)
   ) {
     void updateContextMenuTitles();
   }
@@ -429,7 +429,9 @@ async function showPageTranslationComplete(tabId: number) {
 
 async function getCurrentSettings(): Promise<TranslationSettings> {
   const stored = await chrome.storage.sync.get(null);
-  return normalizeSettings(stored);
+  const settings = normalizeSettings(stored);
+  setAppLanguage(settings.appLanguage);
+  return settings;
 }
 
 async function updateContextMenuTitles() {
