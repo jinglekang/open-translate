@@ -283,6 +283,9 @@
   "chromeBuiltInDescription": {
     "message": "Use Chrome's built-in Translator API. This mode does not require an API base URL, model name, or API Key, but requires Chrome 138+ on desktop with the relevant language pack available."
   },
+  "chromeBuiltInFirstUseNotice": {
+    "message": "First use may be slower while language support loads."
+  },
   "apiBaseUrlRequired": {
     "message": "Please enter an API base URL"
   },

@@ -283,6 +283,9 @@
   "chromeBuiltInDescription": {
     "message": "使用 Chrome 内置 Translator API。本模式不需要接口地址、模型名称或 API Key，但需要 Chrome 138+ 桌面端支持对应语言包。"
   },
+  "chromeBuiltInFirstUseNotice": {
+    "message": "首次使用需准备语言能力，可能稍慢。"
+  },
   "apiBaseUrlRequired": {
     "message": "请填写接口地址"
   },

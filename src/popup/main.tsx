@@ -161,7 +161,11 @@ export function Popup() {
                 {settings.activeProfileId === activeProfile?.id ? t('activeProfile') : ''}
               </span>
             </div>
-            {activeProfile?.provider !== 'chrome-built-in' && (
+            {activeProfile?.provider === 'chrome-built-in' ? (
+              <p className="m-0 text-xs leading-5 text-slate-600">
+                {t('chromeBuiltInFirstUseNotice')}
+              </p>
+            ) : (
               <code
                 className="block max-w-full break-all whitespace-normal font-mono text-xs leading-relaxed text-slate-700"
                 title={activeProfile?.apiBaseUrl || t('endpointUnset')}
