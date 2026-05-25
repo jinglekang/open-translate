@@ -12,7 +12,8 @@ import { StatusNotice } from '../components/status-notice'
 import { t } from '../shared/i18n'
 import { getActiveProfile, normalizeSettings, profileFieldLimits } from '../shared/settings'
 import type {
-  PageTranslationScope,
+  TranslationMode,
+  TranslationScope,
   TranslationDisplayMode,
   TranslationSettings,
 } from '../shared/settings'
@@ -57,19 +58,30 @@ export function Popup() {
     setStatus(displayMode === 'translation' ? t('translationOnlyEnabled') : t('bilingualEnabled'))
   }
 
-  async function handlePageScopeChange(pageTranslationScope: PageTranslationScope) {
+  async function handleTranslationScopeChange(translationScope: TranslationScope) {
     if (!settings) {
       return
     }
 
-    const nextSettings = { ...settings, pageTranslationScope }
+    const nextSettings = { ...settings, translationScope }
     setSettings(nextSettings)
-    await chrome.storage.sync.set({ pageTranslationScope })
+    await chrome.storage.sync.set({ translationScope })
     setStatus(
-      pageTranslationScope === 'viewport'
+      translationScope === 'viewport'
         ? t('viewportTranslationEnabled')
         : t('visiblePageTranslationEnabled'),
     )
+  }
+
+  async function handleTranslationModeChange(translationMode: TranslationMode) {
+    if (!settings) {
+      return
+    }
+
+    const nextSettings = { ...settings, translationMode }
+    setSettings(nextSettings)
+    await chrome.storage.sync.set({ translationMode })
+    setStatus(t('translationSettingsSaved'))
   }
 
   async function handleTargetLanguageChange(targetLanguage: string) {
@@ -87,21 +99,30 @@ export function Popup() {
   }
 
   return (
-    <main className="w-80 bg-slate-50 p-4.5 text-slate-900">
-      <header className="mb-4.5 flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-xl leading-tight font-semibold text-slate-900">
-            {t('extensionName')}
+    <main className="w-[328px] bg-slate-50 p-4 text-slate-900">
+      <header className="mb-3.5 flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <span
+            className="h-2.5 w-2.5 shrink-0 rounded-full bg-green-600 shadow-[0_0_0_4px_rgba(22,163,74,0.12)]"
+            aria-label={t('extensionEnabled')}
+          />
+          <h1 className="truncate text-base leading-tight font-semibold text-slate-900">
+            {t('popupTitle')}
           </h1>
         </div>
-        <span
-          className="mt-2 h-2.5 w-2.5 rounded-full bg-green-600 shadow-[0_0_0_4px_rgba(22,163,74,0.12)]"
-          aria-label={t('extensionEnabled')}
-        />
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="h-8 shrink-0 rounded-md border-slate-300 bg-white px-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+          onClick={openOptionsPage}
+        >
+          {t('openOptions')}
+        </Button>
       </header>
 
       {settings && (
-        <section className="grid gap-3">
+        <section className="grid gap-2.5">
           <label className="grid gap-1.5">
             <span className="text-[13px] font-semibold text-slate-600">{t('currentProfile')}</span>
             <Select
@@ -127,20 +148,14 @@ export function Popup() {
             </Select>
           </label>
 
-          <div className="grid min-w-0 gap-2 rounded-lg border border-slate-200 bg-white p-3">
-            <div className="flex min-w-0 items-center justify-between gap-2">
+          <div className="grid min-w-0 gap-1.5 rounded-lg border border-slate-200 bg-white p-3">
+            <div className="flex min-w-0 items-center gap-2">
               <strong className="block min-w-0 truncate text-sm font-semibold text-slate-900">
                 {activeProfile?.name}
               </strong>
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                className="h-7 shrink-0 rounded-md px-2 text-xs font-semibold text-blue-600 hover:bg-blue-50 hover:text-blue-700"
-                onClick={openOptionsPage}
-              >
-                {t('manageProfiles')}
-              </Button>
+              <span className="rounded-md bg-blue-50 px-1.5 py-0.5 text-[11px] font-semibold text-blue-700">
+                {settings.activeProfileId === activeProfile?.id ? t('activeProfile') : ''}
+              </span>
             </div>
             <span className="block truncate text-[13px] text-slate-600">
               {activeProfile?.provider === 'chrome-built-in'
@@ -157,8 +172,10 @@ export function Popup() {
             )}
           </div>
 
-          <label className="grid gap-1.5">
-            <span className="text-[13px] font-semibold text-slate-600">{t('targetLanguage')}</span>
+          <label className="grid grid-cols-[104px_minmax(0,1fr)] items-center gap-2">
+            <span className="text-[13px] font-semibold text-slate-600">
+              {t('targetLanguage')}
+            </span>
             <input
               className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-900 outline-none transition focus:border-blue-600 focus:ring-[3px] focus:ring-blue-100"
               value={settings.targetLanguage}
@@ -168,9 +185,9 @@ export function Popup() {
             />
           </label>
 
-          <fieldset className="grid gap-2 border-0 p-0 m-0">
-            <legend className="text-[13px] font-semibold text-slate-600">{t('displayMode')}</legend>
-            <div className="grid grid-cols-2 gap-1.5 rounded-lg border border-slate-200 bg-white p-1">
+          <div className="grid grid-cols-[104px_minmax(0,1fr)] items-center gap-2">
+            <span className="text-[13px] font-semibold text-slate-600">{t('displayMode')}</span>
+            <div className="grid min-w-0 grid-cols-2 gap-1 rounded-lg border border-slate-200 bg-white p-1">
               <Button
                 type="button"
                 size="default"
@@ -198,41 +215,75 @@ export function Popup() {
                 {t('translationOnly')}
               </Button>
             </div>
-          </fieldset>
+          </div>
 
-          <fieldset className="grid gap-2 border-0 p-0 m-0">
-            <legend className="text-[13px] font-semibold text-slate-600">
-              {t('pageTranslationScope')}
-            </legend>
-            <div className="grid grid-cols-2 gap-1.5 rounded-lg border border-slate-200 bg-white p-1">
+          <div className="grid grid-cols-[104px_minmax(0,1fr)] items-center gap-2">
+            <span className="text-[13px] font-semibold text-slate-600">
+              {t('translationScope')}
+            </span>
+            <div className="grid min-w-0 grid-cols-2 gap-1 rounded-lg border border-slate-200 bg-white p-1">
               <Button
                 type="button"
                 size="default"
-                variant={settings.pageTranslationScope === 'viewport' ? 'default' : 'ghost'}
+                variant={settings.translationScope === 'viewport' ? 'default' : 'ghost'}
                 className={
-                  settings.pageTranslationScope === 'viewport'
+                  settings.translationScope === 'viewport'
                     ? 'h-8 rounded-md bg-blue-600 text-sm font-semibold text-white'
                     : 'h-8 rounded-md bg-transparent text-sm font-semibold text-slate-600 transition hover:bg-blue-50'
                 }
-                onClick={() => handlePageScopeChange('viewport')}
+                onClick={() => handleTranslationScopeChange('viewport')}
               >
                 {t('viewport')}
               </Button>
               <Button
                 type="button"
                 size="default"
-                variant={settings.pageTranslationScope === 'visible-page' ? 'default' : 'ghost'}
+                variant={settings.translationScope === 'visible-page' ? 'default' : 'ghost'}
                 className={
-                  settings.pageTranslationScope === 'visible-page'
+                  settings.translationScope === 'visible-page'
                     ? 'h-8 rounded-md bg-blue-600 text-sm font-semibold text-white'
                     : 'h-8 rounded-md bg-transparent text-sm font-semibold text-slate-600 transition hover:bg-blue-50'
                 }
-                onClick={() => handlePageScopeChange('visible-page')}
+                onClick={() => handleTranslationScopeChange('visible-page')}
               >
                 {t('visiblePage')}
               </Button>
             </div>
-          </fieldset>
+          </div>
+
+          <div className="grid grid-cols-[104px_minmax(0,1fr)] items-center gap-2">
+            <span className="text-[13px] font-semibold text-slate-600">
+              {t('translationMode')}
+            </span>
+            <div className="grid min-w-0 grid-cols-2 gap-1 rounded-lg border border-slate-200 bg-white p-1">
+              <Button
+                type="button"
+                size="default"
+                variant={settings.translationMode === 'element-context' ? 'default' : 'ghost'}
+                className={
+                  settings.translationMode === 'element-context'
+                    ? 'h-8 rounded-md bg-blue-600 text-sm font-semibold text-white'
+                    : 'h-8 rounded-md bg-transparent text-sm font-semibold text-slate-600 transition hover:bg-blue-50'
+                }
+                onClick={() => handleTranslationModeChange('element-context')}
+              >
+                {t('wholeParagraphTranslationMode')}
+              </Button>
+              <Button
+                type="button"
+                size="default"
+                variant={settings.translationMode === 'text-node' ? 'default' : 'ghost'}
+                className={
+                  settings.translationMode === 'text-node'
+                    ? 'h-8 rounded-md bg-blue-600 text-sm font-semibold text-white'
+                    : 'h-8 rounded-md bg-transparent text-sm font-semibold text-slate-600 transition hover:bg-blue-50'
+                }
+                onClick={() => handleTranslationModeChange('text-node')}
+              >
+                {t('textNodeTranslationMode')}
+              </Button>
+            </div>
+          </div>
         </section>
       )}
 

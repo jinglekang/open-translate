@@ -25,7 +25,7 @@
     "message": "显示原文"
   },
   "popupTitle": {
-    "message": "选择翻译接口"
+    "message": "快速设置"
   },
   "loadingSettings": {
     "message": "正在读取配置..."
@@ -54,8 +54,8 @@
   "bilingualEnabled": {
     "message": "已切换为双语对照"
   },
-  "pageTranslationScope": {
-    "message": "整页翻译范围"
+  "translationScope": {
+    "message": "翻译范围"
   },
   "visiblePage": {
     "message": "可见页面"
@@ -69,8 +69,11 @@
   "viewportTranslationEnabled": {
     "message": "整页翻译将仅处理当前视窗文本"
   },
-  "manageProfiles": {
-    "message": "管理接口配置"
+  "openOptions": {
+    "message": "选项"
+  },
+  "activeProfile": {
+    "message": "当前"
   },
   "extensionEnabled": {
     "message": "扩展已启用"
@@ -82,13 +85,13 @@
     "message": "未设置接口地址"
   },
   "optionsTitle": {
-    "message": "接口配置"
+    "message": "扩展设置"
   },
   "optionsTabs": {
     "message": "选项分类"
   },
-  "profilesTab": {
-    "message": "接口配置"
+  "translatorsTab": {
+    "message": "翻译接口"
   },
   "translationTab": {
     "message": "翻译设置"
@@ -161,13 +164,13 @@
   "minTranslationTextLength": {
     "message": "最小翻译字数"
   },
-  "pageTextProcessingMode": {
-    "message": "页面文本处理方式"
+  "translationMode": {
+    "message": "翻译方式"
   },
-  "textNodeProcessingMode": {
+  "textNodeTranslationMode": {
     "message": "逐文本节点"
   },
-  "elementContextProcessingMode": {
+  "wholeParagraphTranslationMode": {
     "message": "段落整体"
   },
   "minTranslationTextLengthInvalid": {

@@ -22,12 +22,12 @@ import { Button } from '../components/ui/button'
 import { StatusNotice } from '../components/status-notice'
 import '../shared/style.css'
 
-type OptionsTab = 'profiles' | 'translation' | 'cache' | 'rules'
+type OptionsTab = 'translators' | 'translation' | 'cache' | 'rules'
 
 export function Options() {
   const [settings, setSettings] = useState<TranslationSettings>(defaultSettings)
   const [editingId, setEditingId] = useState(defaultSettings.activeProfileId)
-  const [activeTab, setActiveTab] = useState<OptionsTab>('profiles')
+  const [activeTab, setActiveTab] = useState<OptionsTab>('translators')
   const [cacheCount, setCacheCount] = useState(0)
   const [whitelistDraft, setWhitelistDraft] = useState(
     formatCommaList(defaultSettings.userWhitelist),
@@ -209,7 +209,7 @@ export function Options() {
 
   return (
     <main className="min-h-screen bg-slate-50 px-7 py-7 text-slate-900">
-      <header className="mx-auto mb-5 flex w-full max-w-260 items-center justify-between gap-4.5">
+      <header className="mx-auto mb-5 flex w-full max-w-300 items-center justify-between gap-4.5">
         <div>
           <p className="mb-1 text-[11px] font-bold uppercase tracking-[0.08em] text-blue-600">
             Open Translate
@@ -218,7 +218,7 @@ export function Options() {
             {t('optionsTitle')}
           </h1>
         </div>
-        {activeTab === 'profiles' && (
+        {activeTab === 'translators' && (
           <Button
             type="button"
             size="lg"
@@ -230,29 +230,31 @@ export function Options() {
         )}
       </header>
 
-      <nav
-        className="mx-auto mb-4 grid w-full max-w-260 grid-cols-4 gap-1 rounded-lg border border-slate-200 bg-white p-1"
-        aria-label={t('optionsTabs')}
-      >
-        {(['profiles', 'translation', 'cache', 'rules'] as const).map((tab) => (
-          <Button
-            key={tab}
-            type="button"
-            variant={activeTab === tab ? 'default' : 'ghost'}
-            className={
-              activeTab === tab
-                ? 'h-9 rounded-md bg-blue-600 text-sm font-semibold text-white'
-                : 'h-9 rounded-md bg-transparent text-sm font-semibold text-slate-600 hover:bg-blue-50'
-            }
-            onClick={() => setActiveTab(tab)}
-          >
-            {t(`${tab}Tab`)}
-          </Button>
-        ))}
-      </nav>
+      <div className="mx-auto grid w-full max-w-300 grid-cols-[220px_minmax(0,1fr)] items-start gap-5">
+        <nav
+          className="sticky top-7 grid gap-1 rounded-lg border border-slate-200 bg-white p-2"
+          aria-label={t('optionsTabs')}
+        >
+          {(['translators', 'translation', 'rules', 'cache'] as const).map((tab) => (
+            <Button
+              key={tab}
+              type="button"
+              variant={activeTab === tab ? 'default' : 'ghost'}
+              className={
+                activeTab === tab
+                  ? 'h-10 justify-start rounded-md bg-blue-600 px-3 text-sm font-semibold text-white'
+                  : 'h-10 justify-start rounded-md bg-transparent px-3 text-sm font-semibold text-slate-600 hover:bg-blue-50'
+              }
+              onClick={() => setActiveTab(tab)}
+            >
+              {t(`${tab}Tab`)}
+            </Button>
+          ))}
+        </nav>
 
-      {activeTab === 'profiles' && (
-        <div className="mx-auto grid w-full max-w-260 grid-cols-[248px_minmax(0,1fr)] gap-4.5">
+        <div className="min-w-0">
+      {activeTab === 'translators' && (
+        <div className="grid w-full grid-cols-[248px_minmax(0,1fr)] gap-4.5">
         <aside className="grid content-start gap-2" aria-label={t('profileListLabel')}>
           {settings.profiles.map((profile) => (
             <Button
@@ -496,7 +498,7 @@ export function Options() {
           <Button
             type="submit"
             size="lg"
-            className="h-9 rounded-md bg-blue-600 px-3.5 text-sm font-semibold text-white transition hover:bg-blue-700"
+            className="h-9 w-fit rounded-md bg-blue-600 px-3.5 text-sm font-semibold text-white transition hover:bg-blue-700"
           >
             {t('saveProfile')}
           </Button>
@@ -507,7 +509,7 @@ export function Options() {
       )}
 
       {activeTab === 'translation' && (
-        <section className="mx-auto grid w-full max-w-260 gap-3.5 rounded-lg border border-slate-200 bg-white p-4.5">
+        <section className="grid w-full gap-3.5 rounded-lg border border-slate-200 bg-white p-4.5">
           <div className="grid gap-1">
             <h2 className="text-lg font-semibold text-slate-900">
               {t('translationSettings')}
@@ -536,36 +538,36 @@ export function Options() {
 
           <fieldset className="grid gap-2 border-0 p-0 m-0">
             <legend className="text-[13px] font-semibold text-slate-600">
-              {t('pageTextProcessingMode')}
+              {t('translationMode')}
             </legend>
             <div className="grid grid-cols-2 gap-1.5 rounded-lg border border-slate-200 bg-white p-1">
               <Button
                 type="button"
                 size="default"
-                variant={settings.pageTextProcessingMode === 'text-node' ? 'default' : 'ghost'}
+                variant={
+                  settings.translationMode === 'element-context' ? 'default' : 'ghost'
+                }
                 className={
-                  settings.pageTextProcessingMode === 'text-node'
+                  settings.translationMode === 'element-context'
                     ? 'h-8 rounded-md bg-blue-600 text-sm font-semibold text-white'
                     : 'h-8 rounded-md bg-transparent text-sm font-semibold text-slate-600 transition hover:bg-blue-50'
                 }
-                onClick={() => updateSetting('pageTextProcessingMode', 'text-node')}
+                onClick={() => updateSetting('translationMode', 'element-context')}
               >
-                {t('textNodeProcessingMode')}
+                {t('wholeParagraphTranslationMode')}
               </Button>
               <Button
                 type="button"
                 size="default"
-                variant={
-                  settings.pageTextProcessingMode === 'element-context' ? 'default' : 'ghost'
-                }
+                variant={settings.translationMode === 'text-node' ? 'default' : 'ghost'}
                 className={
-                  settings.pageTextProcessingMode === 'element-context'
+                  settings.translationMode === 'text-node'
                     ? 'h-8 rounded-md bg-blue-600 text-sm font-semibold text-white'
                     : 'h-8 rounded-md bg-transparent text-sm font-semibold text-slate-600 transition hover:bg-blue-50'
                 }
-                onClick={() => updateSetting('pageTextProcessingMode', 'element-context')}
+                onClick={() => updateSetting('translationMode', 'text-node')}
               >
-                {t('elementContextProcessingMode')}
+                {t('textNodeTranslationMode')}
               </Button>
             </div>
           </fieldset>
@@ -584,7 +586,7 @@ export function Options() {
       )}
 
       {activeTab === 'cache' && (
-        <section className="mx-auto grid w-full max-w-260 gap-3.5 rounded-lg border border-slate-200 bg-white p-4.5">
+        <section className="grid w-full gap-3.5 rounded-lg border border-slate-200 bg-white p-4.5">
           <div className="grid gap-1">
             <h2 className="text-lg font-semibold text-slate-900">{t('cacheSettings')}</h2>
             <p className="text-sm leading-5 text-slate-600">{t('cacheDescription')}</p>
@@ -627,7 +629,7 @@ export function Options() {
       )}
 
       {activeTab === 'rules' && (
-        <section className="mx-auto grid w-full max-w-260 gap-3.5 rounded-lg border border-slate-200 bg-white p-4.5">
+        <section className="grid w-full gap-3.5 rounded-lg border border-slate-200 bg-white p-4.5">
           <div className="grid gap-1">
             <h2 className="text-lg font-semibold text-slate-900">{t('rulesSettings')}</h2>
             <p className="text-sm leading-5 text-slate-600">{t('rulesDescription')}</p>
@@ -684,6 +686,8 @@ export function Options() {
           <StatusNotice message={status} />
         </section>
       )}
+        </div>
+      </div>
     </main>
   )
 }

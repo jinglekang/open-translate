@@ -2,11 +2,11 @@ import { t } from '../shared/i18n'
 import { normalizeBuiltInTargetLanguageCode } from '../shared/languages'
 import { getActiveProfile, normalizeSettings, validateProfileForUse } from '../shared/settings'
 import type {
-  PageTranslationScope,
-  PageTextProcessingMode,
   TranslationDisplayMode,
+  TranslationMode,
   TranslationProfile,
   TranslationProvider,
+  TranslationScope,
   TranslationSettings,
 } from '../shared/settings'
 import { shouldSkipTranslation } from '../shared/whitelist'
@@ -119,7 +119,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 
     await translatePage(
       tab.id,
-      settings.pageTranslationScope,
+      settings.translationScope,
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : t("translationFailed");
@@ -267,7 +267,7 @@ async function translateSelectionWithChromeBuiltInAI(
 
 async function translatePage(
   tabId: number,
-  pageTranslationScope: PageTranslationScope,
+  translationScope: TranslationScope,
 ) {
   await showInlineNotice(tabId, t("collectingPageText"), "loading");
 
@@ -275,11 +275,11 @@ async function translatePage(
   const profile = validateProfileForUse(getActiveProfile(settings));
   const runtimeResult = await startPageTranslator(
     tabId,
-    pageTranslationScope,
+    translationScope,
     profile.provider,
     settings.targetLanguage,
     settings.displayMode,
-    settings.pageTextProcessingMode,
+    settings.translationMode,
     settings.userWhitelist,
     settings.noTranslateSelectors,
     settings.minTranslationTextLength,
@@ -379,11 +379,11 @@ async function restoreTranslatedPage(tabId: number) {
 
 async function startPageTranslator(
   tabId: number,
-  pageTranslationScope: PageTranslationScope,
+  translationScope: TranslationScope,
   translationProvider: TranslationProvider,
   targetLanguage: string,
   displayMode: TranslationDisplayMode,
-  pageTextProcessingMode: PageTextProcessingMode,
+  translationMode: TranslationMode,
   userWhitelist: string[],
   noTranslateSelectors: string[],
   minTranslationTextLength: number,
@@ -398,11 +398,11 @@ async function startPageTranslator(
   return chrome.tabs.sendMessage<{ collected?: boolean }>(tabId, {
     type: "open-translate:start-page-translator",
     maxNodes: MAX_TEXT_NODES,
-    pageTranslationScope,
+    translationScope,
     translationProvider,
     targetLanguage,
     displayMode,
-    pageTextProcessingMode,
+    translationMode,
     userWhitelist,
     noTranslateSelectors,
     minTranslationTextLength,
@@ -497,7 +497,7 @@ async function translatePageTexts(texts: string[], tabId?: number, requestId?: s
     settings.targetLanguage,
     settings.userWhitelist,
     settings.minTranslationTextLength,
-    settings.pageTextProcessingMode,
+    settings.translationMode,
     profile.translationConcurrency,
     profile.translationBatchSegments,
     profile.translationBatchTextLength,
@@ -567,7 +567,7 @@ async function translateItems<T>(
   targetLanguage: string,
   userWhitelist: string[],
   minTranslationTextLength: number,
-  pageTextProcessingMode: PageTextProcessingMode,
+  translationMode: TranslationMode,
   concurrency: number,
   maxBatchSegments: number,
   maxBatchTextLength: number,
@@ -612,7 +612,7 @@ async function translateItems<T>(
           batch.map((entry) => entry.sourceText),
           profile,
           targetLanguage,
-          pageTextProcessingMode,
+          translationMode,
         );
         const cachedItems: Array<{ item: T; translatedText: string }> = [];
         const uncachedEntries: typeof entries = [];
@@ -643,7 +643,7 @@ async function translateItems<T>(
           targetLanguage,
           userWhitelist,
           minTranslationTextLength,
-          pageTextProcessingMode,
+          translationMode,
         );
 
         const translatedItems: Array<{ item: T; translatedText: string }> = [];

@@ -25,7 +25,7 @@
     "message": "Show original"
   },
   "popupTitle": {
-    "message": "Choose Translator"
+    "message": "Quick Settings"
   },
   "loadingSettings": {
     "message": "Loading settings..."
@@ -54,8 +54,8 @@
   "bilingualEnabled": {
     "message": "Switched to bilingual"
   },
-  "pageTranslationScope": {
-    "message": "Page translation scope"
+  "translationScope": {
+    "message": "Translation scope"
   },
   "visiblePage": {
     "message": "Visible page"
@@ -69,8 +69,11 @@
   "viewportTranslationEnabled": {
     "message": "Page translation will use viewport text only"
   },
-  "manageProfiles": {
-    "message": "Manage API profiles"
+  "openOptions": {
+    "message": "Options"
+  },
+  "activeProfile": {
+    "message": "Active"
   },
   "extensionEnabled": {
     "message": "Extension enabled"
@@ -82,13 +85,13 @@
     "message": "Endpoint not set"
   },
   "optionsTitle": {
-    "message": "API Profiles"
+    "message": "Extension Settings"
   },
   "optionsTabs": {
     "message": "Options sections"
   },
-  "profilesTab": {
-    "message": "API Profiles"
+  "translatorsTab": {
+    "message": "Translators"
   },
   "translationTab": {
     "message": "Translation"
@@ -161,13 +164,13 @@
   "minTranslationTextLength": {
     "message": "Minimum text length"
   },
-  "pageTextProcessingMode": {
-    "message": "Page text processing"
+  "translationMode": {
+    "message": "Translation mode"
   },
-  "textNodeProcessingMode": {
+  "textNodeTranslationMode": {
     "message": "Text nodes"
   },
-  "elementContextProcessingMode": {
+  "wholeParagraphTranslationMode": {
     "message": "Whole paragraph"
   },
   "minTranslationTextLengthInvalid": {

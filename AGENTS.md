@@ -1,61 +1,160 @@
-# open-translate — AGENTS.md
+# open-translate — Project Notes for Agents
 
-**Chrome MV3 translation extension** — an open-source Chrome extension using OpenAI-compatible large model APIs. Built with Vite 8, React 19, Tailwind v4, shadcn/ui (base-nova style with `@base-ui/react`), TypeScript ~6.0, Zod v4, ESLint v10 (flat config).
+Open Translate is an open-source Chrome MV3 translation extension. It is built with Vite, React, Tailwind v4, shadcn/ui style components, TypeScript, Zod, and ESLint.
 
-## Quick commands
+This file records project-specific requirements and decisions so future sessions can continue without rediscovering them.
+
+## Commands
 
 ```bash
-pnpm dev          # Start Vite dev server
-pnpm build        # tsc -b && vite build (typecheck + build)
-pnpm lint         # ESLint flat config on src/
+pnpm dev
+pnpm build
+pnpm lint
 ```
 
-- **No test framework** — the repo has zero tests. No formatter configured either.
-- No CI, no pre-commit hooks.
+- `pnpm build` runs `tsc -b` and then Vite, so type errors fail the build.
+- There is currently no test framework and no formatter.
+- After code changes, run `pnpm build`, `pnpm lint`, and `git diff --check`.
 
-## Build quirks
+## Extension Entries
 
-- `tsc -b` is part of `build` (project references mode), so type errors will fail the build.
-- The `vite.config.ts` has a custom `moveExtensionPages()` plugin that moves `dist/src/{popup,options}/index.html` → `dist/{popup,options}/index.html`, then deletes `dist/src/`. This is needed because Vite preserves the source directory tree for multi-entry HTML builds.
-- Four Vite entries → four output files:
-  | source | output |
-  |---|---|
-  | `src/popup/index.html` | `dist/popup/index.html` |
-  | `src/options/index.html` | `dist/options/index.html` |
-  | `src/background/index.ts` | `dist/service-worker.js` |
-  | `src/page/runtime.ts` | `dist/page-runtime.js` |
+- `src/background/index.ts`: MV3 service worker. Owns context menus, settings lookup, page runtime injection, selected-text translation, API translation, cache-aware batch pipeline, and page progress notices.
+- `src/page/runtime.ts`: injected page runtime. Owns initial collection, mutation collection, scroll collection, node state, applying translations, restoring original text, and Chrome Built-in AI page translation.
+- `src/popup/main.tsx`: quick settings popup. Keep it compact. It should expose current translator, target language, display mode, translation scope, translation mode, and an Options entry.
+- `src/options/main.tsx`: full settings page. It uses left navigation and right content, with menu order: translators, translation, rules, cache.
+- `src/shared/settings.ts`: Zod schemas, defaults, validation, and settings normalization.
+- `src/background/translation.ts`: OpenAI-compatible request logic, batching, prompt construction, cache keys, and cache reads/writes.
+- `public/_locales/{zh_CN,en}/messages.json`: all user-visible strings.
 
-## Extension architecture (4 entry points)
+Vite outputs fixed extension files:
 
-1. **Service worker** (`src/background/index.ts`) — MV3 background, sets up context menus, handles translation requests, injects page-runtime.js into web pages.
-2. **Page runtime** (`src/page/runtime.ts`) — injected into web pages via `chrome.scripting.executeScript`. Uses `MutationObserver` + `TreeWalker` to translate visible text nodes.
-3. **Popup** (`src/popup/main.tsx`) — React 19 app for the extension popup (profile selector, target language, display mode toggle).
-4. **Options** (`src/options/main.tsx`) — React 19 app with 3 tabs: API Profiles, Cache, Whitelist.
+| Source | Output |
+|---|---|
+| `src/background/index.ts` | `dist/service-worker.js` |
+| `src/page/runtime.ts` | `dist/page-runtime.js` |
+| `src/popup/index.html` | `dist/popup/index.html` |
+| `src/options/index.html` | `dist/options/index.html` |
 
-All pages share the `public/manifest.json` (MV3, `default_locale: "zh_CN"`).
+`dist/page-runtime.js` must remain self-contained because it is injected with `chrome.scripting.executeScript({ files: ["page-runtime.js"] })`.
 
-## Key patterns and conventions
+## Product Requirements
 
-- **Settings** live in `chrome.storage.sync`, validated with Zod v4 schemas in `src/shared/settings.ts`. There is a `normalizeSettings()` function that migrates legacy flat config to the current profile-based model.
-- **Translation API**: OpenAI-compatible `/chat/completions`. Text segments are joined with `<OPEN_TRANSLATE_SEGMENT_BREAK>` separator and split on response. Concurrent request pool with configurable concurrency (1–8). Default temperature 0.2.
-- **Cache**: SHA-256 keyed, stored in `chrome.storage.session`.
-- **`@` path alias** → `src/`, configured in both `tsconfig.json` and `vite.config.ts`.
-- **shadcn/ui** uses `@base-ui/react` primitives (not Radix). Installed via `shadcn` CLI with `base-nova` style.
-- **`src/shared/whitelist.ts`** has built-in no-translate rules and user-definable whitelist. Defaults include common tech terms (OpenAI, GitHub, JSON, etc.).
+- Default target language is Simplified Chinese.
+- Default display mode is bilingual.
+- Default translation scope is viewport.
+- Default translation mode is whole paragraph.
+- Popup labels use left-label/right-control rows.
+- Popup title is "Quick Settings" / "快速设置", not the product name.
+- Options title is "Extension Settings" / "扩展设置", not "API Profiles" / "接口配置".
+- Options left nav order is:
+  1. Translators / 翻译接口
+  2. Translation / 翻译设置
+  3. Rules / 规则设置
+  4. Cache / 缓存设置
+- Avoid UI copy that says the whole Options page is only API configuration. The page now includes translation, rules, and cache settings.
 
-## Directory layout
+## Translation Behavior
 
-```
-src/
-  background/index.ts   — Service worker (696 lines)
-  page/runtime.ts       — Page content script (491 lines)
-  popup/main.tsx        — Popup UI (244 lines)
-  options/main.tsx      — Options page (526 lines)
-  shared/               — Settings, cache, i18n, whitelist, utility types, CSS
-  types/chrome.d.ts     — Chrome API type declarations
-  components/           — shadcn/ui components + custom components
-public/
-  manifest.json
-  _locales/{en,zh_CN}/messages.json
-  images/
-```
+- Selected-text translation is single-request translation. Do not batch selected text.
+- Page translation and dynamic page translation may batch multiple segments.
+- Page translation pipeline should filter cache hits before sending uncached text to the model.
+- Concurrency is per translator profile and means concurrent page translation batches.
+- Default concurrency is 4; valid range is 1-8.
+- Default max segments per request is 4; max is 8.
+- Default max text length per request is 1200; max is 4000.
+- Batch translation uses a separator protocol and must validate the returned segment count.
+- If batch translation fails, fall back to single-segment translation.
+- Cache failures must not block translation. Log them and continue.
+- Progress notices should be tied to real translation progress, not only right-click menu flow.
+- Cache hits should be applied promptly in batches, not one text node at a time and not only after all cache checks finish.
+
+## Page Runtime Ownership
+
+The page runtime is the owner of page translation state:
+
+- initial collection
+- dynamic mutation collection
+- scroll collection
+- visible/viewport filtering
+- translated-node bookkeeping
+- duplicate prevention
+- applying partial and final translations
+- restoring original page text
+
+The background service worker should start the runtime and process translation requests, but should not duplicate DOM collection logic.
+
+Use `Page*` naming for page runtime behavior. Do not introduce new `Dynamic*` names for page translation features.
+
+## Translation Modes
+
+The internal setting is `translationMode`.
+
+- `element-context`: UI label "Whole paragraph" / "段落整体". This is the default.
+- `text-node`: UI label "Text nodes" / "逐文本节点".
+
+Whole paragraph mode translates an element-sized inline fragment and protects inline nodes with placeholders such as `__OPEN_TRANSLATE_KEEP_0__`.
+
+Requirements for whole paragraph mode:
+
+- Keep protected placeholders in the prompt and tell the model not to translate, lowercase, split, wrap, or explain them.
+- Placeholder replacement in runtime should tolerate lowercased tokens from the model.
+- Protected fragments such as `code`, `pre`, and user no-translate selectors must be restored as DOM nodes.
+- If the model drops placeholders, fail safely so protected fragments are not lost.
+
+`translationMode` must participate in cache key generation because prompts and input shape differ between modes.
+
+## Rules And Filtering
+
+- `minTranslationTextLength` lives in translation settings. Default is 2.
+- User whitelist is comma-separated text in Options.
+- No-translate selectors are comma-separated text in Options.
+- Default no-translate selectors include `pre`, `code`, and `[contenteditable="true"]`.
+- Built-in no-translate rules are in `src/shared/whitelist.ts` and are not user-editable.
+- The runtime should skip extension UI, form controls, SVG/canvas/iframe/script/style/noscript, `pre`, `code`, contenteditable, and no-translate selectors.
+- Inline code should usually be preserved, not translated. Whole paragraph mode is preferred for quality around inline code because it preserves context with placeholders.
+
+## Cache
+
+- Translation cache uses `chrome.storage.local`.
+- Do not add a cache version field. The project has not shipped yet, so compatibility migrations are not needed unless explicitly requested.
+- Cache key should include settings that affect output, including endpoint, model, target language, custom prompt, `translationMode`, and source text.
+- Cache key should not include unrelated UI state such as display mode.
+- Options cache page should show cache count and provide clear-cache.
+
+## Providers
+
+Supported providers:
+
+- OpenAI-compatible API through `/chat/completions`.
+- Chrome Built-in AI Translator API.
+
+Chrome Built-in AI requirements:
+
+- It must run in the page context, not the MV3 service worker.
+- Hide endpoint, model, API key, and custom prompt fields for Chrome Built-in profiles.
+- Keep concurrency and batch settings per profile because different providers/models have different limits.
+
+## Naming
+
+Use the current names:
+
+- `translationScope`, not `pageTranslationScope`.
+- `TranslationScope`, not `PageTranslationScope`.
+- `translationMode`, not `pageTextProcessingMode`.
+- `TranslationMode`, not `PageTextProcessingMode`.
+- `translators` tab, not `profiles` tab.
+- `translatePageTexts`, not `translateDynamicTexts`.
+
+`TranslationProfile` and `profile` are still acceptable for the internal model representing a saved translator configuration.
+
+## Chrome Extension Notes
+
+- The extension currently needs broad host access for page translation across arbitrary websites.
+- `activeTab` alone is usually not enough for automatic dynamic/scroll/runtime page behavior unless the product scope is changed.
+- The extension should support Chrome-compatible Chromium browsers such as Edge as long as used APIs are available. Chrome Built-in AI remains Chrome-dependent.
+
+## Build And Release Notes
+
+- `minify` can stay enabled because sourcemaps preserve debugging for this open-source project.
+- Do not bundle custom web fonts unless explicitly requested.
+- Keep i18n strings in both `zh_CN` and `en`.

@@ -1,5 +1,5 @@
 import { t } from '../shared/i18n'
-import type { PageTextProcessingMode, TranslationProfile } from '../shared/settings'
+import type { TranslationMode, TranslationProfile } from '../shared/settings'
 import { translationCacheKeyPrefix } from '../shared/cache'
 import { shouldSkipTranslation } from '../shared/whitelist'
 
@@ -28,7 +28,7 @@ export async function translateText(
   targetLanguage: string,
   userWhitelist: string[],
   minTranslationTextLength: number,
-  pageTextProcessingMode: PageTextProcessingMode = 'text-node',
+  translationMode: TranslationMode = 'text-node',
 ) {
   if (shouldSkipTranslation(sourceText, userWhitelist, minTranslationTextLength)) {
     return sourceText
@@ -38,14 +38,14 @@ export async function translateText(
     sourceText,
     profile,
     targetLanguage,
-    pageTextProcessingMode,
+    translationMode,
   )
   if (cachedTranslation) {
     return cachedTranslation
   }
 
   const payload = await requestChatCompletions(profile, [
-    { role: 'system', content: getSystemPrompt(profile, targetLanguage, pageTextProcessingMode) },
+    { role: 'system', content: getSystemPrompt(profile, targetLanguage, translationMode) },
     { role: 'user', content: sourceText },
   ])
 
@@ -54,7 +54,7 @@ export async function translateText(
     throw new Error(t('emptyTranslationResponse'))
   }
 
-  await cacheTranslation(sourceText, translatedText, profile, targetLanguage, pageTextProcessingMode)
+  await cacheTranslation(sourceText, translatedText, profile, targetLanguage, translationMode)
   return translatedText
 }
 
@@ -64,7 +64,7 @@ export async function translateTextBatch(
   targetLanguage: string,
   userWhitelist: string[],
   minTranslationTextLength: number,
-  pageTextProcessingMode: PageTextProcessingMode = 'text-node',
+  translationMode: TranslationMode = 'text-node',
 ) {
   if (sourceTexts.length === 1) {
     return [await translateText(
@@ -73,7 +73,7 @@ export async function translateTextBatch(
       targetLanguage,
       userWhitelist,
       minTranslationTextLength,
-      pageTextProcessingMode,
+      translationMode,
     )]
   }
 
@@ -83,7 +83,7 @@ export async function translateTextBatch(
     targetLanguage,
     userWhitelist,
     minTranslationTextLength,
-    pageTextProcessingMode,
+    translationMode,
   )
 }
 
@@ -91,12 +91,12 @@ export async function getCachedTranslations(
   sourceTexts: string[],
   profile: TranslationProfile,
   targetLanguage: string,
-  pageTextProcessingMode: PageTextProcessingMode = 'text-node',
+  translationMode: TranslationMode = 'text-node',
 ) {
   try {
     const cacheKeys = await Promise.all(
       sourceTexts.map((sourceText) =>
-        createTranslationCacheKey(sourceText, profile, targetLanguage, pageTextProcessingMode),
+        createTranslationCacheKey(sourceText, profile, targetLanguage, translationMode),
       ),
     )
     const cachedItems = await chrome.storage.local.get(cacheKeys)
@@ -117,14 +117,14 @@ async function translateUncachedBatchWithFallback(
   targetLanguage: string,
   userWhitelist: string[],
   minTranslationTextLength: number,
-  pageTextProcessingMode: PageTextProcessingMode,
+  translationMode: TranslationMode,
 ) {
   try {
     const translatedTexts = await requestBatchTranslations(
       sourceTexts,
       profile,
       targetLanguage,
-      pageTextProcessingMode,
+      translationMode,
     )
     await Promise.all(
       sourceTexts.map((sourceText, index) =>
@@ -133,7 +133,7 @@ async function translateUncachedBatchWithFallback(
           translatedTexts[index],
           profile,
           targetLanguage,
-          pageTextProcessingMode,
+          translationMode,
         ),
       ),
     )
@@ -147,7 +147,7 @@ async function translateUncachedBatchWithFallback(
           targetLanguage,
           userWhitelist,
           minTranslationTextLength,
-          pageTextProcessingMode,
+          translationMode,
         ),
       ),
     )
@@ -158,12 +158,12 @@ async function requestBatchTranslations(
   sourceTexts: string[],
   profile: TranslationProfile,
   targetLanguage: string,
-  pageTextProcessingMode: PageTextProcessingMode,
+  translationMode: TranslationMode,
 ) {
   const payload = await requestChatCompletions(profile, [
     {
       role: 'system',
-      content: getBatchSystemPrompt(profile, targetLanguage, pageTextProcessingMode),
+      content: getBatchSystemPrompt(profile, targetLanguage, translationMode),
     },
     { role: 'user', content: sourceTexts.join(`\n\n${BATCH_SEPARATOR}\n\n`) },
   ])
@@ -190,14 +190,14 @@ async function getCachedTranslation(
   sourceText: string,
   profile: TranslationProfile,
   targetLanguage: string,
-  pageTextProcessingMode: PageTextProcessingMode = 'text-node',
+  translationMode: TranslationMode = 'text-node',
 ) {
   try {
     const cacheKey = await createTranslationCacheKey(
       sourceText,
       profile,
       targetLanguage,
-      pageTextProcessingMode,
+      translationMode,
     )
     const cachedItems = await chrome.storage.local.get(cacheKey)
     const cachedValue = cachedItems[cacheKey]
@@ -214,14 +214,14 @@ async function cacheTranslation(
   translatedText: string,
   profile: TranslationProfile,
   targetLanguage: string,
-  pageTextProcessingMode: PageTextProcessingMode,
+  translationMode: TranslationMode,
 ) {
   try {
     const cacheKey = await createTranslationCacheKey(
       sourceText,
       profile,
       targetLanguage,
-      pageTextProcessingMode,
+      translationMode,
     )
     await chrome.storage.local.set({ [cacheKey]: translatedText })
   } catch (error) {
@@ -233,7 +233,7 @@ async function createTranslationCacheKey(
   sourceText: string,
   profile: TranslationProfile,
   targetLanguage: string,
-  pageTextProcessingMode: PageTextProcessingMode,
+  translationMode: TranslationMode,
 ) {
   const cacheInput = JSON.stringify({
     profile: {
@@ -241,7 +241,7 @@ async function createTranslationCacheKey(
       model: profile.model,
       targetLanguage,
       customPrompt: profile.customPrompt,
-      pageTextProcessingMode,
+      translationMode,
     },
     sourceText,
   })
@@ -286,13 +286,13 @@ async function requestChatCompletions(
 function getSystemPrompt(
   profile: TranslationProfile,
   targetLanguage: string,
-  pageTextProcessingMode: PageTextProcessingMode,
+  translationMode: TranslationMode,
 ) {
   const basePrompt =
     profile.customPrompt.trim() ||
     `You are a professional translation assistant. Translate the user's text into ${targetLanguage}. Preserve the original formatting, proper nouns, and code blocks. Output only the translation without explanations.`
 
-  if (pageTextProcessingMode !== 'element-context') {
+  if (translationMode !== 'element-context') {
     return basePrompt
   }
 
@@ -311,9 +311,9 @@ Rules for protected placeholders:
 function getBatchSystemPrompt(
   profile: TranslationProfile,
   targetLanguage: string,
-  pageTextProcessingMode: PageTextProcessingMode,
+  translationMode: TranslationMode,
 ) {
-  return `${getSystemPrompt(profile, targetLanguage, pageTextProcessingMode)}
+  return `${getSystemPrompt(profile, targetLanguage, translationMode)}
 
 The user input contains multiple text segments separated by ${BATCH_SEPARATOR}.
 Translate every segment independently and keep the segment order unchanged.

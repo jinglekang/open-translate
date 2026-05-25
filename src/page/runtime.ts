@@ -33,11 +33,11 @@ type ProtectedFragment = {
 type PageRuntimeMessage = {
   type: 'open-translate:start-page-translator'
   maxNodes: number
-  pageTranslationScope: 'visible-page' | 'viewport'
+  translationScope: 'visible-page' | 'viewport'
   translationProvider: 'openai-compatible' | 'chrome-built-in'
   targetLanguage: string
   displayMode: 'translation' | 'bilingual'
-  pageTextProcessingMode: 'text-node' | 'element-context'
+  translationMode: 'text-node' | 'element-context'
   userWhitelist: string[]
   noTranslateSelectors: string[]
   minTranslationTextLength: number
@@ -74,11 +74,11 @@ if (!runtimeWindow.__openTranslatePageRuntimeInstalled) {
 
     sendResponse(installPageTranslator(
       message.maxNodes,
-      message.pageTranslationScope,
+      message.translationScope,
       message.translationProvider,
       message.targetLanguage,
       message.displayMode,
-      message.pageTextProcessingMode,
+      message.translationMode,
       message.userWhitelist,
       message.noTranslateSelectors,
       message.minTranslationTextLength,
@@ -109,8 +109,8 @@ function isStartPageTranslatorMessage(message: unknown): message is PageRuntimeM
     (message as PageRuntimeMessage).type === 'open-translate:start-page-translator' &&
     typeof (message as PageRuntimeMessage).maxNodes === 'number' &&
     (
-      (message as PageRuntimeMessage).pageTranslationScope === 'visible-page' ||
-      (message as PageRuntimeMessage).pageTranslationScope === 'viewport'
+      (message as PageRuntimeMessage).translationScope === 'visible-page' ||
+      (message as PageRuntimeMessage).translationScope === 'viewport'
     ) &&
     (
       (message as PageRuntimeMessage).translationProvider === 'openai-compatible' ||
@@ -122,8 +122,8 @@ function isStartPageTranslatorMessage(message: unknown): message is PageRuntimeM
       (message as PageRuntimeMessage).displayMode === 'bilingual'
     ) &&
     (
-      (message as PageRuntimeMessage).pageTextProcessingMode === 'text-node' ||
-      (message as PageRuntimeMessage).pageTextProcessingMode === 'element-context'
+      (message as PageRuntimeMessage).translationMode === 'text-node' ||
+      (message as PageRuntimeMessage).translationMode === 'element-context'
     ) &&
     Array.isArray((message as PageRuntimeMessage).userWhitelist) &&
     Array.isArray((message as PageRuntimeMessage).noTranslateSelectors) &&
@@ -136,11 +136,11 @@ function isStartPageTranslatorMessage(message: unknown): message is PageRuntimeM
 
 function installPageTranslator(
   maxNodes: number,
-  pageTranslationScope: 'visible-page' | 'viewport',
+  translationScope: 'visible-page' | 'viewport',
   translationProvider: 'openai-compatible' | 'chrome-built-in',
   targetLanguage: string,
   displayMode: 'translation' | 'bilingual',
-  pageTextProcessingMode: 'text-node' | 'element-context',
+  translationMode: 'text-node' | 'element-context',
   userWhitelist: string[],
   noTranslateSelectors: string[],
   minTranslationTextLength: number,
@@ -222,14 +222,14 @@ function installPageTranslator(
   const handleScroll = () => {
     scheduleViewportFlush()
   }
-  if (pageTranslationScope === 'viewport') {
+  if (translationScope === 'viewport') {
     window.addEventListener('scroll', handleScroll, { passive: true })
   }
 
   windowWithTranslator.__openTranslatePageTranslator = {
     observer,
     removeScrollListener:
-      pageTranslationScope === 'viewport'
+      translationScope === 'viewport'
         ? () => window.removeEventListener('scroll', handleScroll)
         : undefined,
   }
@@ -322,7 +322,7 @@ function installPageTranslator(
       .slice(0, maxNodes)
     state.pendingNodes.clear()
 
-    if (pageTextProcessingMode === 'element-context') {
+    if (translationMode === 'element-context') {
       return createElementContextUnits(nodes).slice(0, maxNodes)
     }
 
@@ -987,7 +987,7 @@ function installPageTranslator(
     return (
       rect.width > 0 &&
       rect.height > 0 &&
-      (pageTranslationScope !== 'viewport' || isRectInViewport(rect)) &&
+      (translationScope !== 'viewport' || isRectInViewport(rect)) &&
       style.visibility !== 'hidden' &&
       style.display !== 'none' &&
       Number(style.opacity) !== 0
@@ -1010,7 +1010,7 @@ function installPageTranslator(
     return (
       rect.width > 0 &&
       rect.height > 0 &&
-      (pageTranslationScope !== 'viewport' || isRectInViewport(rect)) &&
+      (translationScope !== 'viewport' || isRectInViewport(rect)) &&
       style.visibility !== 'hidden' &&
       style.display !== 'none' &&
       Number(style.opacity) !== 0

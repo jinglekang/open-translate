@@ -38,10 +38,10 @@ export const translationBatchTextLengthLimits = {
 
 export const translationDisplayModeSchema = z.enum(['translation', 'bilingual'])
 export type TranslationDisplayMode = z.infer<typeof translationDisplayModeSchema>
-export const pageTranslationScopeSchema = z.enum(['visible-page', 'viewport'])
-export type PageTranslationScope = z.infer<typeof pageTranslationScopeSchema>
-export const pageTextProcessingModeSchema = z.enum(['text-node', 'element-context'])
-export type PageTextProcessingMode = z.infer<typeof pageTextProcessingModeSchema>
+export const translationScopeSchema = z.enum(['visible-page', 'viewport'])
+export type TranslationScope = z.infer<typeof translationScopeSchema>
+export const translationModeSchema = z.enum(['text-node', 'element-context'])
+export type TranslationMode = z.infer<typeof translationModeSchema>
 export const translationProviderSchema = z.enum(['openai-compatible', 'chrome-built-in'])
 export type TranslationProvider = z.infer<typeof translationProviderSchema>
 
@@ -116,8 +116,8 @@ export const translationSettingsSchema = z
     profiles: z.array(translationProfileSchema).min(1),
     activeProfileId: trimmedString.min(1),
     displayMode: translationDisplayModeSchema.catch('bilingual'),
-    pageTranslationScope: pageTranslationScopeSchema.catch('viewport'),
-    pageTextProcessingMode: pageTextProcessingModeSchema.catch('text-node'),
+    translationScope: translationScopeSchema.catch('viewport'),
+    translationMode: translationModeSchema.catch('element-context'),
     targetLanguage: trimmedString
       .min(1, t('targetLanguageRequired'))
       .max(
@@ -159,8 +159,8 @@ export const translationSettingsSchema = z
       profiles: settings.profiles,
       activeProfileId,
       displayMode: settings.displayMode,
-      pageTranslationScope: settings.pageTranslationScope,
-      pageTextProcessingMode: settings.pageTextProcessingMode,
+      translationScope: settings.translationScope,
+      translationMode: settings.translationMode,
       targetLanguage: settings.targetLanguage,
       userWhitelist: [...new Set(settings.userWhitelist)],
       noTranslateSelectors: [...new Set(settings.noTranslateSelectors)],
@@ -188,8 +188,8 @@ export const defaultSettings: TranslationSettings = {
   profiles: [defaultProfile],
   activeProfileId: defaultProfile.id,
   displayMode: 'bilingual',
-  pageTranslationScope: 'viewport',
-  pageTextProcessingMode: 'text-node',
+  translationScope: 'viewport',
+  translationMode: 'element-context',
   targetLanguage: '简体中文',
   userWhitelist: [...defaultUserWhitelist],
   noTranslateSelectors: [...defaultNoTranslateSelectors],
@@ -241,8 +241,8 @@ export function normalizeSettings(stored: unknown): TranslationSettings {
     ],
     activeProfileId: defaultProfile.id,
     displayMode: 'bilingual',
-    pageTranslationScope: 'viewport',
-    pageTextProcessingMode: defaultSettings.pageTextProcessingMode,
+    translationScope: 'viewport',
+    translationMode: defaultSettings.translationMode,
     targetLanguage: legacyResult.data.targetLanguage || defaultSettings.targetLanguage,
     userWhitelist: [...defaultSettings.userWhitelist],
     noTranslateSelectors: [...defaultSettings.noTranslateSelectors],
