@@ -221,19 +221,19 @@
   "saveRules": {
     "message": "Save Rules"
   },
-  "builtInWhitelist": {
-    "message": "Built-in rules"
+  "builtInRules": {
+    "message": "Built-in filtering rules"
   },
-  "builtInWhitelist_emptyText": {
+  "builtInRule_emptyText": {
     "message": "Empty text"
   },
-  "builtInWhitelist_numbersAndSymbols": {
+  "builtInRule_numbersAndSymbols": {
     "message": "Numbers and symbols only"
   },
-  "builtInWhitelist_emojiOnly": {
+  "builtInRule_emojiOnly": {
     "message": "Emoji only"
   },
-  "builtInWhitelist_urlOrEmail": {
+  "builtInRule_urlOrEmail": {
     "message": "Standalone URL or email"
   },
   "saveWhitelist": {

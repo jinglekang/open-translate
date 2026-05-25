@@ -661,14 +661,14 @@ export function Options() {
           </label>
 
           <div className="grid gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
-            <span className="text-[13px] font-semibold text-slate-600">{t('builtInWhitelist')}</span>
+            <span className="text-[13px] font-semibold text-slate-600">{t('builtInRules')}</span>
             <div className="flex flex-wrap gap-1.5">
               {builtInNoTranslateRules.map((rule) => (
                 <span
                   key={rule}
                   className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-600"
                 >
-                  {t(`builtInWhitelist_${rule}`)}
+                  {t(`builtInRule_${rule}`)}
                 </span>
               ))}
             </div>

@@ -176,8 +176,6 @@ function installPageTranslator(
     'IFRAME',
     'SVG',
     'CANVAS',
-    'PRE',
-    'CODE',
     'TEXTAREA',
     'INPUT',
     'SELECT',
@@ -1046,7 +1044,7 @@ function installPageTranslator(
   function isInNoTranslateElement(element: Element) {
     return !!(
       element.closest(
-        "pre, code, [contenteditable='true'], [data-open-translate-ui], [data-open-translate-selection-panel], [data-open-translate-bilingual], [data-open-translate-element='true']",
+        "[data-open-translate-ui], [data-open-translate-selection-panel], [data-open-translate-bilingual], [data-open-translate-element='true']",
       ) ||
       noTranslateSelectors.some((selector) => matchesClosestSelector(element, selector))
     )

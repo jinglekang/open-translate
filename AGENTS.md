@@ -107,10 +107,13 @@ Requirements for whole paragraph mode:
 
 - `minTranslationTextLength` lives in translation settings. Default is 2.
 - User whitelist is comma-separated text in Options.
+- Default user whitelist terms are user-editable defaults, not forced rules. If the user removes them, they should stop being skipped by whitelist matching.
 - No-translate selectors are comma-separated text in Options.
 - Default no-translate selectors include `pre`, `code`, and `[contenteditable="true"]`.
-- Built-in no-translate rules are in `src/shared/whitelist.ts` and are not user-editable.
-- The runtime should skip extension UI, form controls, SVG/canvas/iframe/script/style/noscript, `pre`, `code`, contenteditable, and no-translate selectors.
+- These three defaults are user rules, not forced runtime rules. If the user removes them, the runtime should stop treating those nodes as no-translate nodes.
+- Built-in filtering rules are in `src/shared/whitelist.ts` and are not user-editable. They are basic text filters, not whitelist entries.
+- The runtime should always skip extension UI and non-content technical nodes such as form controls, SVG/canvas/iframe/script/style/noscript.
+- The runtime should skip `pre`, `code`, contenteditable, and similar content only through `noTranslateSelectors`, so the user can opt out by editing rules.
 - Inline code should usually be preserved, not translated. Whole paragraph mode is preferred for quality around inline code because it preserves context with placeholders.
 
 ## Cache

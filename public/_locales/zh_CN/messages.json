@@ -221,19 +221,19 @@
   "saveRules": {
     "message": "保存规则"
   },
-  "builtInWhitelist": {
-    "message": "内置规则"
+  "builtInRules": {
+    "message": "内置过滤规则"
   },
-  "builtInWhitelist_emptyText": {
+  "builtInRule_emptyText": {
     "message": "空文本"
   },
-  "builtInWhitelist_numbersAndSymbols": {
+  "builtInRule_numbersAndSymbols": {
     "message": "纯数字和符号"
   },
-  "builtInWhitelist_emojiOnly": {
+  "builtInRule_emojiOnly": {
     "message": "仅 Emoji"
   },
-  "builtInWhitelist_urlOrEmail": {
+  "builtInRule_urlOrEmail": {
     "message": "独立网址或邮箱"
   },
   "saveWhitelist": {
