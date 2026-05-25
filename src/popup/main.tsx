@@ -9,6 +9,7 @@ import {
   SelectValue,
 } from '../components/ui/select'
 import { Button } from '../components/ui/button'
+import { AppThemeControl } from '../components/app-theme-control'
 import { StatusNotice } from '../components/status-notice'
 import { applyAppTheme } from '../shared/appearance'
 import { setAppLanguage, t } from '../shared/i18n'
@@ -114,16 +115,35 @@ export function Popup() {
             {t('popupTitle')}
           </h1>
         </div>
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          className="h-8 shrink-0 gap-1.5 rounded-md border-slate-300 bg-slate-100 px-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-200"
-          onClick={openOptionsPage}
-        >
-          <SettingsIcon className="size-3.5" aria-hidden="true" />
-          {t('openOptions')}
-        </Button>
+        <div className="flex shrink-0 items-center gap-1.5">
+          {settings && (
+            <>
+              <AppThemeControl
+                appTheme={settings.appTheme}
+                onThemeApplied={(appTheme) =>
+                  setSettings((current) =>
+                    current ? { ...current, appTheme } : current,
+                  )
+                }
+                onThemeSaved={() => setStatus(t('appearanceSaved'))}
+                onThemeSaveFailed={() => setStatus(t('saveFailed'))}
+                buttonClassName="size-8 rounded-md bg-slate-100 hover:bg-slate-200"
+                iconClassName="size-4"
+              />
+            </>
+          )}
+
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-8 gap-1.5 rounded-md border-slate-300 bg-slate-100 px-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-200"
+            onClick={openOptionsPage}
+          >
+            <SettingsIcon className="size-3.5" aria-hidden="true" />
+            {t('openOptions')}
+          </Button>
+        </div>
       </header>
 
       {settings && (
@@ -178,7 +198,7 @@ export function Popup() {
             )}
           </div>
 
-          <div className="grid grid-cols-[104px_minmax(0,1fr)] items-center gap-2">
+          <div className="grid grid-cols-2 items-center gap-2">
             <span className="text-[13px] font-semibold text-slate-600">
               {t('targetLanguage')}
             </span>
@@ -205,104 +225,82 @@ export function Popup() {
             </Select>
           </div>
 
-          <div className="grid grid-cols-[104px_minmax(0,1fr)] items-center gap-2">
+          <div className="grid grid-cols-2 items-center gap-2">
             <span className="text-[13px] font-semibold text-slate-600">{t('displayMode')}</span>
-            <div className="grid min-w-0 grid-cols-2 gap-1 rounded-lg border border-slate-200 bg-white p-1">
-              <Button
-                type="button"
-                size="default"
-                variant={settings.displayMode === 'bilingual' ? 'default' : 'ghost'}
-                className={
-                  settings.displayMode === 'bilingual'
-                    ? 'h-8 rounded-md bg-slate-800 text-sm font-semibold text-white'
-                    : 'h-8 rounded-md bg-transparent text-sm font-semibold text-slate-600 transition hover:bg-slate-100'
+            <Select
+              value={settings.displayMode}
+              onValueChange={(value) => {
+                if (!value) {
+                  return
                 }
-                onClick={() => handleDisplayModeChange('bilingual')}
-              >
-                {t('bilingual')}
-              </Button>
-              <Button
-                type="button"
-                size="default"
-                variant={settings.displayMode === 'translation' ? 'default' : 'ghost'}
-                className={
-                  settings.displayMode === 'translation'
-                    ? 'h-8 rounded-md bg-slate-800 text-sm font-semibold text-white'
-                    : 'h-8 rounded-md bg-transparent text-sm font-semibold text-slate-600 transition hover:bg-slate-100'
-                }
-                onClick={() => handleDisplayModeChange('translation')}
-              >
-                {t('translationOnly')}
-              </Button>
-            </div>
+
+                void handleDisplayModeChange(value as TranslationDisplayMode)
+              }}
+            >
+              <SelectTrigger className="h-9 w-full rounded-md border-slate-300 bg-white px-2.5 text-sm text-slate-900">
+                <SelectValue>
+                  {settings.displayMode === 'bilingual' ? t('bilingual') : t('translationOnly')}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="bilingual">{t('bilingual')}</SelectItem>
+                <SelectItem value="translation">{t('translationOnly')}</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
-          <div className="grid grid-cols-[104px_minmax(0,1fr)] items-center gap-2">
+          <div className="grid grid-cols-2 items-center gap-2">
             <span className="text-[13px] font-semibold text-slate-600">
               {t('translationScope')}
             </span>
-            <div className="grid min-w-0 grid-cols-2 gap-1 rounded-lg border border-slate-200 bg-white p-1">
-              <Button
-                type="button"
-                size="default"
-                variant={settings.translationScope === 'viewport' ? 'default' : 'ghost'}
-                className={
-                  settings.translationScope === 'viewport'
-                    ? 'h-8 rounded-md bg-slate-800 text-sm font-semibold text-white'
-                    : 'h-8 rounded-md bg-transparent text-sm font-semibold text-slate-600 transition hover:bg-slate-100'
+            <Select
+              value={settings.translationScope}
+              onValueChange={(value) => {
+                if (!value) {
+                  return
                 }
-                onClick={() => handleTranslationScopeChange('viewport')}
-              >
-                {t('viewport')}
-              </Button>
-              <Button
-                type="button"
-                size="default"
-                variant={settings.translationScope === 'visible-page' ? 'default' : 'ghost'}
-                className={
-                  settings.translationScope === 'visible-page'
-                    ? 'h-8 rounded-md bg-slate-800 text-sm font-semibold text-white'
-                    : 'h-8 rounded-md bg-transparent text-sm font-semibold text-slate-600 transition hover:bg-slate-100'
-                }
-                onClick={() => handleTranslationScopeChange('visible-page')}
-              >
-                {t('visiblePage')}
-              </Button>
-            </div>
+
+                void handleTranslationScopeChange(value as TranslationScope)
+              }}
+            >
+              <SelectTrigger className="h-9 w-full rounded-md border-slate-300 bg-white px-2.5 text-sm text-slate-900">
+                <SelectValue>
+                  {settings.translationScope === 'viewport' ? t('viewport') : t('visiblePage')}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="viewport">{t('viewport')}</SelectItem>
+                <SelectItem value="visible-page">{t('visiblePage')}</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
-          <div className="grid grid-cols-[104px_minmax(0,1fr)] items-center gap-2">
+          <div className="grid grid-cols-2 items-center gap-2">
             <span className="text-[13px] font-semibold text-slate-600">
               {t('translationMode')}
             </span>
-            <div className="grid min-w-0 grid-cols-2 gap-1 rounded-lg border border-slate-200 bg-white p-1">
-              <Button
-                type="button"
-                size="default"
-                variant={settings.translationMode === 'element-context' ? 'default' : 'ghost'}
-                className={
-                  settings.translationMode === 'element-context'
-                    ? 'h-8 rounded-md bg-slate-800 text-sm font-semibold text-white'
-                    : 'h-8 rounded-md bg-transparent text-sm font-semibold text-slate-600 transition hover:bg-slate-100'
+            <Select
+              value={settings.translationMode}
+              onValueChange={(value) => {
+                if (!value) {
+                  return
                 }
-                onClick={() => handleTranslationModeChange('element-context')}
-              >
-                {t('wholeParagraphTranslationMode')}
-              </Button>
-              <Button
-                type="button"
-                size="default"
-                variant={settings.translationMode === 'text-node' ? 'default' : 'ghost'}
-                className={
-                  settings.translationMode === 'text-node'
-                    ? 'h-8 rounded-md bg-slate-800 text-sm font-semibold text-white'
-                    : 'h-8 rounded-md bg-transparent text-sm font-semibold text-slate-600 transition hover:bg-slate-100'
-                }
-                onClick={() => handleTranslationModeChange('text-node')}
-              >
-                {t('textNodeTranslationMode')}
-              </Button>
-            </div>
+
+                void handleTranslationModeChange(value as TranslationMode)
+              }}
+            >
+              <SelectTrigger className="h-9 w-full rounded-md border-slate-300 bg-white px-2.5 text-sm text-slate-900">
+                <SelectValue>
+                  {settings.translationMode === 'element-context'
+                    ? t('wholeParagraphTranslationMode')
+                    : t('textNodeTranslationMode')}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="element-context">{t('wholeParagraphTranslationMode')}</SelectItem>
+                <SelectItem value="text-node">{t('textNodeTranslationMode')}</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </section>
       )}

@@ -96,7 +96,7 @@ function isPartialTranslationMessage(message: unknown): message is PartialTransl
     !!message &&
     typeof message === 'object' &&
     (message as PartialTranslationMessage).type ===
-      'open-translate:partial-page-translations' &&
+    'open-translate:partial-page-translations' &&
     typeof (message as PartialTranslationMessage).requestId === 'string' &&
     Array.isArray((message as PartialTranslationMessage).translations)
   )
@@ -595,7 +595,7 @@ function installPageTranslator(
       return 'zh-Hant'
     }
     if (/^zh/i.test(normalized)) {
-      return 'zh'
+      return 'zh-Hans'
     }
 
     return normalized.split('-')[0].toLowerCase()

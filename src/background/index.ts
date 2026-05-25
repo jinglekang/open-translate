@@ -107,13 +107,13 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     if (selectedText) {
       await translateSelection(
         tab.id,
-    selectedText,
-    profile,
-    settings.targetLanguage,
-    settings.userWhitelist,
-    settings.minTranslationTextLength,
-    settings.displayMode,
-  );
+        selectedText,
+        profile,
+        settings.targetLanguage,
+        settings.userWhitelist,
+        settings.minTranslationTextLength,
+        settings.displayMode,
+      );
       return;
     }
 
@@ -172,7 +172,7 @@ function isInitialPageTranslationCompleteMessage(
     !!message &&
     typeof message === "object" &&
     (message as InitialPageTranslationCompleteMessage).type ===
-      "open-translate:initial-page-translation-complete"
+    "open-translate:initial-page-translation-complete"
   );
 }
 
@@ -183,7 +183,7 @@ function isPageTranslationErrorMessage(
     !!message &&
     typeof message === "object" &&
     (message as PageTranslationErrorMessage).type ===
-      "open-translate:page-translation-error" &&
+    "open-translate:page-translation-error" &&
     typeof (message as PageTranslationErrorMessage).message === "string"
   );
 }
@@ -195,7 +195,7 @@ function isPageTranslationProgressMessage(
     !!message &&
     typeof message === "object" &&
     (message as PageTranslationProgressMessage).type ===
-      "open-translate:page-translation-progress" &&
+    "open-translate:page-translation-progress" &&
     typeof (message as PageTranslationProgressMessage).completed === "number" &&
     typeof (message as PageTranslationProgressMessage).total === "number"
   );
@@ -303,7 +303,7 @@ async function translateTextWithChromeBuiltInAI(
       return "zh-Hant";
     }
     if (/^zh/i.test(normalized)) {
-      return "zh";
+      return "zh-Hans";
     }
 
     return normalized.split("-")[0].toLowerCase();

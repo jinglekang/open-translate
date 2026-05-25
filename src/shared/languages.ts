@@ -6,7 +6,7 @@ export type TargetLanguageOption = {
 export const targetLanguageOptions = [
   {
     value: '简体中文',
-    builtInCode: 'zh',
+    builtInCode: 'zh-Hans',
   },
   {
     value: '繁體中文',
@@ -61,5 +61,5 @@ const builtInLanguageCodes = new Map<string, string>(
 )
 
 export function normalizeBuiltInTargetLanguageCode(targetLanguage: string) {
-  return builtInLanguageCodes.get(targetLanguage) || 'zh'
+  return builtInLanguageCodes.get(targetLanguage) || 'zh-Hans'
 }

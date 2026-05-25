@@ -1,7 +1,6 @@
 import { StrictMode, useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import { createRoot } from 'react-dom/client'
-import { LanguagesIcon, MonitorIcon, MoonIcon, SunIcon } from 'lucide-react'
 import { applyAppTheme } from '../shared/appearance'
 import { clearTranslationCache, getTranslationCacheStats } from '../shared/cache'
 import { getEndpointPreview } from '../shared/endpoint'
@@ -19,15 +18,11 @@ import {
   translationBatchTextLengthLimits,
   translationConcurrencyLimits,
 } from '../shared/settings'
-import type { AppLanguage, AppTheme, TranslationProfile, TranslationSettings } from '../shared/settings'
+import type { TranslationProfile, TranslationSettings } from '../shared/settings'
 import { builtInNoTranslateRules } from '../shared/whitelist'
+import { AppLanguageControl } from '../components/app-language-control'
+import { AppThemeControl } from '../components/app-theme-control'
 import { Button } from '../components/ui/button'
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-} from '../components/ui/dropdown-menu'
 import { StatusNotice } from '../components/status-notice'
 import {
   Select,
@@ -194,30 +189,6 @@ export function Options() {
     await saveSettings(settings, t('translationSettingsSaved'))
   }
 
-  async function updateAppTheme(appTheme: AppTheme) {
-    applyAppTheme(appTheme)
-    setSettings((current) => ({ ...current, appTheme }))
-
-    try {
-      await chrome.storage.sync.set({ appTheme })
-      setStatus(t('appearanceSaved'))
-    } catch {
-      setStatus(t('saveFailed'))
-    }
-  }
-
-  async function updateAppLanguage(appLanguage: AppLanguage) {
-    setAppLanguage(appLanguage)
-    setSettings((current) => ({ ...current, appLanguage }))
-
-    try {
-      await chrome.storage.sync.set({ appLanguage })
-      setStatus(t('languageSaved'))
-    } catch {
-      setStatus(t('saveFailed'))
-    }
-  }
-
   function updateSetting<Key extends keyof TranslationSettings>(
     key: Key,
     value: TranslationSettings[Key],
@@ -263,71 +234,23 @@ export function Options() {
           </h1>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2">
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  className="size-9 rounded-full border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
-                  aria-label={`${t('appLanguage')}: ${getAppLanguageLabel(settings.appLanguage)}`}
-                  title={getAppLanguageLabel(settings.appLanguage)}
-                />
-              }
-            >
-              {getAppLanguageIcon(settings.appLanguage)}
-              <span className="sr-only">{t('appLanguage')}</span>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {(['system', 'zh_CN', 'en'] as const).map((language) => (
-                <DropdownMenuCheckboxItem
-                  key={language}
-                  checked={settings.appLanguage === language}
-                  onCheckedChange={(checked) => {
-                    if (checked) {
-                      void updateAppLanguage(language)
-                    }
-                  }}
-                >
-                  {getAppLanguageLabel(language)}
-                </DropdownMenuCheckboxItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <AppLanguageControl
+            appLanguage={settings.appLanguage}
+            onLanguageApplied={(appLanguage) =>
+              setSettings((current) => ({ ...current, appLanguage }))
+            }
+            onLanguageSaved={() => setStatus(t('languageSaved'))}
+            onLanguageSaveFailed={() => setStatus(t('saveFailed'))}
+            buttonClassName="size-9 rounded-full"
+          />
 
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  className="relative size-9 rounded-full border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
-                  aria-label={`${t('appTheme')}: ${getAppThemeLabel(settings.appTheme)}`}
-                  title={getAppThemeLabel(settings.appTheme)}
-                />
-              }
-            >
-              {getAppThemeIcon(settings.appTheme)}
-              <span className="sr-only">{t('appTheme')}</span>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {(['system', 'light', 'dark'] as const).map((theme) => (
-                <DropdownMenuCheckboxItem
-                  key={theme}
-                  checked={settings.appTheme === theme}
-                  onCheckedChange={(checked) => {
-                    if (checked) {
-                      void updateAppTheme(theme)
-                    }
-                  }}
-                >
-                  {getAppThemeLabel(theme)}
-                </DropdownMenuCheckboxItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <AppThemeControl
+            appTheme={settings.appTheme}
+            onThemeApplied={(appTheme) => setSettings((current) => ({ ...current, appTheme }))}
+            onThemeSaved={() => setStatus(t('appearanceSaved'))}
+            onThemeSaveFailed={() => setStatus(t('saveFailed'))}
+            buttonClassName="size-9 rounded-full"
+          />
 
           {activeTab === 'translators' && (
             <Button
@@ -365,534 +288,533 @@ export function Options() {
         </nav>
 
         <div className="min-w-0">
-      {activeTab === 'translators' && (
-        <div className="grid w-full grid-cols-[248px_minmax(0,1fr)] gap-4.5">
-        <aside className="grid content-start gap-2" aria-label={t('profileListLabel')}>
-          {settings.profiles.map((profile) => (
-            <Button
-              type="button"
-              variant={profile.id === editingProfile.id ? 'default' : 'outline'}
-              size="lg"
-              key={profile.id}
-              className={`relative grid h-auto min-h-17 w-full min-w-0 grid-cols-[minmax(0,1fr)] gap-1 overflow-hidden rounded-lg px-3 py-2.5 text-left transition before:absolute before:inset-y-2.25 before:left-0 before:w-0.75 before:rounded-r-full before:content-[''] ${profile.id === editingProfile.id
-                ? 'border-slate-400 bg-slate-100 shadow-[0_0_0_3px_rgba(71,85,105,0.12)] before:bg-slate-800'
-                : 'border-slate-200 bg-white before:bg-transparent hover:border-slate-300 hover:bg-slate-50'
-                }`}
-              onClick={() => setEditingId(profile.id)}
-              title={`${profile.name} · ${
-                profile.provider === 'chrome-built-in'
-                  ? t('chromeBuiltInProvider')
-                  : profile.model || t('modelUnset')
-              }`}
-            >
-              <strong className="block max-w-full truncate text-sm leading-[1.35] font-semibold text-slate-900">
-                {profile.name}
-              </strong>
-              <span className="block max-w-full truncate text-xs leading-[1.35] font-medium text-slate-500">
-                {profile.provider === 'chrome-built-in'
-                  ? t('chromeBuiltInProvider')
-                  : t('modelPrefix', profile.model || t('modelUnset'))}
-              </span>
-            </Button>
-          ))}
-        </aside>
-
-        <form
-          className="grid gap-3.5 rounded-lg border border-slate-200 bg-white p-4.5"
-          onSubmit={handleSubmit}
-        >
-          <div className="flex justify-end gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="lg"
-              className="h-9 rounded-md border-slate-300 bg-white px-3.5 text-sm font-semibold text-slate-900 transition hover:bg-slate-50 disabled:cursor-default disabled:opacity-[0.55]"
-              onClick={() => activateProfile(editingProfile.id)}
-              disabled={settings.activeProfileId === editingProfile.id}
-            >
-              {t('setActive')}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="lg"
-              className="h-9 rounded-md border-slate-300 bg-white px-3.5 text-sm font-semibold text-slate-900 transition hover:bg-slate-50"
-              onClick={duplicateProfile}
-            >
-              {t('duplicate')}
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              size="lg"
-              className="h-9 rounded-md border border-red-200 bg-red-50 px-3.5 text-sm font-semibold text-red-700 transition hover:bg-red-100"
-              onClick={removeProfile}
-            >
-              {t('delete')}
-            </Button>
-          </div>
-
-          <label className="grid gap-1.5">
-            <span className="text-[13px] font-semibold text-slate-600">{t('profileName')}</span>
-            <input
-              className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-[3px] focus:ring-slate-200"
-              value={editingProfile.name}
-              onChange={(event) => updateProfile('name', event.target.value)}
-              placeholder={t('profileNamePlaceholder')}
-              maxLength={profileFieldLimits.name}
-            />
-          </label>
-
-          <label className="grid gap-1.5">
-            <span className="text-[13px] font-semibold text-slate-600">
-              {t('translationProvider')}
-            </span>
-            <select
-              className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-[3px] focus:ring-slate-200"
-              value={editingProfile.provider}
-              onChange={(event) =>
-                updateProfile(
-                  'provider',
-                  event.target.value as TranslationProfile['provider'],
-                )
-              }
-            >
-              <option value="chrome-built-in">{t('chromeBuiltInProvider')}</option>
-              <option value="openai-compatible">{t('openAICompatibleProvider')}</option>
-            </select>
-          </label>
-
-          {isChromeBuiltInProfile && (
-            <div className="grid gap-1.5 rounded-lg border border-slate-200 bg-slate-50 p-2.5">
-              <span className="text-[13px] font-semibold text-slate-600">
-                {t('chromeBuiltInProvider')}
-              </span>
-              <p className="m-0 text-sm leading-5 text-slate-600">
-                {t('chromeBuiltInDescription')}
-              </p>
-            </div>
-          )}
-
-          {!isChromeBuiltInProfile && (
-          <label className="grid gap-1.5">
-            <span className="text-[13px] font-semibold text-slate-600">{t('apiBaseUrl')}</span>
-            <input
-              className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-[3px] focus:ring-slate-200"
-              value={editingProfile.apiBaseUrl}
-              onChange={(event) => updateProfile('apiBaseUrl', event.target.value)}
-              placeholder="https://api.openai.com/v1"
-              spellCheck={false}
-              maxLength={profileFieldLimits.apiBaseUrl}
-            />
-          </label>
-          )}
-
-          {isChromeBuiltInProfile ? (
-            <label className="grid gap-1.5">
-              <span className="text-[13px] font-semibold text-slate-600">
-                {t('translationConcurrency')}
-              </span>
-              <input
-                className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-[3px] focus:ring-slate-200"
-                value={editingProfile.translationConcurrency}
-                onChange={(event) =>
-                  updateProfile('translationConcurrency', Number(event.target.value))
-                }
-                type="number"
-                min={translationConcurrencyLimits.min}
-                max={translationConcurrencyLimits.max}
-                step={1}
-              />
-            </label>
-          ) : (
-          <div className="grid grid-cols-[minmax(0,1fr)_128px] gap-3">
-            <label className="grid min-w-0 gap-1.5">
-              <span className="text-[13px] font-semibold text-slate-600">{t('modelName')}</span>
-              <input
-                className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-[3px] focus:ring-slate-200"
-                value={editingProfile.model}
-                onChange={(event) => updateProfile('model', event.target.value)}
-                placeholder="gpt-4o-mini"
-                spellCheck={false}
-                maxLength={profileFieldLimits.model}
-              />
-            </label>
-
-            <label className="grid gap-1.5">
-              <span className="text-[13px] font-semibold text-slate-600">{t('translationConcurrency')}</span>
-              <input
-                className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-[3px] focus:ring-slate-200"
-                value={editingProfile.translationConcurrency}
-                onChange={(event) => updateProfile('translationConcurrency', Number(event.target.value))}
-                type="number"
-                min={translationConcurrencyLimits.min}
-                max={translationConcurrencyLimits.max}
-                step={1}
-              />
-            </label>
-          </div>
-          )}
-
-          <div className="grid grid-cols-2 gap-3">
-            <label className="grid gap-1.5">
-              <span className="text-[13px] font-semibold text-slate-600">
-                {t('translationBatchSegments')}
-              </span>
-              <input
-                className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-[3px] focus:ring-slate-200"
-                value={editingProfile.translationBatchSegments}
-                onChange={(event) =>
-                  updateProfile('translationBatchSegments', Number(event.target.value))
-                }
-                type="number"
-                min={translationBatchSegmentLimits.min}
-                max={translationBatchSegmentLimits.max}
-                step={1}
-              />
-            </label>
-
-            <label className="grid gap-1.5">
-              <span className="text-[13px] font-semibold text-slate-600">
-                {t('translationBatchTextLength')}
-              </span>
-              <input
-                className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-[3px] focus:ring-slate-200"
-                value={editingProfile.translationBatchTextLength}
-                onChange={(event) =>
-                  updateProfile('translationBatchTextLength', Number(event.target.value))
-                }
-                type="number"
-                min={translationBatchTextLengthLimits.min}
-                max={translationBatchTextLengthLimits.max}
-                step={1}
-              />
-            </label>
-          </div>
-
-          {!isChromeBuiltInProfile && (
-          <label className="grid gap-1.5">
-            <span className="text-[13px] font-semibold text-slate-600">{t('apiKey')}</span>
-            <input
-              className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-[3px] focus:ring-slate-200"
-              value={editingProfile.apiKey}
-              onChange={(event) => updateProfile('apiKey', event.target.value)}
-              placeholder="sk-..."
-              type="password"
-              spellCheck={false}
-              maxLength={profileFieldLimits.apiKey}
-            />
-          </label>
-          )}
-
-          {!isChromeBuiltInProfile && (
-          <label className="grid gap-1.5">
-            <span className="text-[13px] font-semibold text-slate-600">{t('customPrompt')}</span>
-            <textarea
-              className="min-h-28 w-full resize-y rounded-md border border-slate-300 bg-white px-2.5 py-2 text-sm leading-snug text-slate-900 outline-none transition focus:border-slate-400 focus:ring-[3px] focus:ring-slate-200"
-              value={editingProfile.customPrompt}
-              onChange={(event) => updateProfile('customPrompt', event.target.value)}
-              placeholder={t('customPromptPlaceholder')}
-              rows={5}
-              maxLength={profileFieldLimits.customPrompt}
-            />
-          </label>
-          )}
-
-          {!isChromeBuiltInProfile && (
-          <div className="grid gap-1.5 rounded-lg border border-slate-200 bg-slate-50 p-2.5">
-            <span className="text-[13px] font-semibold text-slate-600">{t('endpointPreview')}</span>
-            <code className="break-all font-mono text-xs leading-relaxed text-slate-700">
-              {getEndpointPreview(editingProfile.apiBaseUrl)}
-            </code>
-          </div>
-          )}
-
-          <Button
-            type="submit"
-            size="lg"
-            className="h-9 w-fit rounded-md bg-slate-800 px-3.5 text-sm font-semibold text-white transition hover:bg-slate-700"
-          >
-            {t('saveProfile')}
-          </Button>
-
-          <StatusNotice message={status} />
-        </form>
-      </div>
-      )}
-
-      {activeTab === 'translation' && (
-        <section className="grid w-full gap-3.5 rounded-lg border border-slate-200 bg-white p-4.5">
-          <div className="grid gap-1">
-            <h2 className="text-lg font-semibold text-slate-900">
-              {t('translationSettings')}
-            </h2>
-            <p className="text-sm leading-5 text-slate-600">
-              {t('translationSettingsDescription')}
-            </p>
-          </div>
-
-          <div className="grid max-w-72 gap-1.5">
-            <span className="text-[13px] font-semibold text-slate-600">
-              {t('targetLanguage')}
-            </span>
-            <Select
-              value={settings.targetLanguage}
-              onValueChange={(value) => {
-                if (!value) {
-                  return
-                }
-
-                updateSetting('targetLanguage', value)
-              }}
-            >
-              <SelectTrigger className="h-9 w-full rounded-md border-slate-300 bg-white px-2.5 text-sm text-slate-900">
-                <SelectValue>{settings.targetLanguage}</SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {targetLanguageOptions.map((language) => (
-                  <SelectItem key={language.value} value={language.value}>
-                    {language.value}
-                  </SelectItem>
+          {activeTab === 'translators' && (
+            <div className="grid w-full grid-cols-[248px_minmax(0,1fr)] gap-4.5">
+              <aside className="grid content-start gap-2" aria-label={t('profileListLabel')}>
+                {settings.profiles.map((profile) => (
+                  <Button
+                    type="button"
+                    variant={profile.id === editingProfile.id ? 'default' : 'outline'}
+                    size="lg"
+                    key={profile.id}
+                    className={`relative grid h-auto min-h-17 w-full min-w-0 grid-cols-[minmax(0,1fr)] gap-1 overflow-hidden rounded-lg px-3 py-2.5 text-left transition before:absolute before:inset-y-2.25 before:left-0 before:w-0.75 before:rounded-r-full before:content-[''] ${profile.id === editingProfile.id
+                      ? 'border-slate-400 bg-slate-100 shadow-[0_0_0_3px_rgba(71,85,105,0.12)] before:bg-slate-800'
+                      : 'border-slate-200 bg-white before:bg-transparent hover:border-slate-300 hover:bg-slate-50'
+                      }`}
+                    onClick={() => setEditingId(profile.id)}
+                    title={`${profile.name} · ${profile.provider === 'chrome-built-in'
+                      ? t('chromeBuiltInProvider')
+                      : profile.model || t('modelUnset')
+                      }`}
+                  >
+                    <strong className="block max-w-full truncate text-sm leading-[1.35] font-semibold text-slate-900">
+                      {profile.name}
+                    </strong>
+                    <span className="block max-w-full truncate text-xs leading-[1.35] font-medium text-slate-500">
+                      {profile.provider === 'chrome-built-in'
+                        ? t('chromeBuiltInProvider')
+                        : t('modelPrefix', profile.model || t('modelUnset'))}
+                    </span>
+                  </Button>
                 ))}
-              </SelectContent>
-            </Select>
-          </div>
+              </aside>
 
-          <label className="grid max-w-72 gap-1.5">
-            <span className="text-[13px] font-semibold text-slate-600">
-              {t('minTranslationTextLength')}
-            </span>
-            <input
-              className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-[3px] focus:ring-slate-200"
-              value={settings.minTranslationTextLength}
-              onChange={(event) =>
-                updateSetting('minTranslationTextLength', Number(event.target.value))
-              }
-              type="number"
-              min={minTranslationTextLengthLimits.min}
-              max={minTranslationTextLengthLimits.max}
-              step={1}
-            />
-          </label>
-
-          <fieldset className="grid gap-2 border-0 p-0 m-0">
-            <legend className="text-[13px] font-semibold text-slate-600">
-              {t('displayMode')}
-            </legend>
-            <div className="grid max-w-96 grid-cols-2 gap-1.5 rounded-lg border border-slate-200 bg-white p-1">
-              <Button
-                type="button"
-                size="default"
-                variant={settings.displayMode === 'bilingual' ? 'default' : 'ghost'}
-                className={
-                  settings.displayMode === 'bilingual'
-                    ? 'h-8 rounded-md bg-slate-800 text-sm font-semibold text-white'
-                    : 'h-8 rounded-md bg-transparent text-sm font-semibold text-slate-600 transition hover:bg-slate-100'
-                }
-                onClick={() => updateSetting('displayMode', 'bilingual')}
+              <form
+                className="grid gap-3.5 rounded-lg border border-slate-200 bg-white p-4.5"
+                onSubmit={handleSubmit}
               >
-                {t('bilingual')}
-              </Button>
-              <Button
-                type="button"
-                size="default"
-                variant={settings.displayMode === 'translation' ? 'default' : 'ghost'}
-                className={
-                  settings.displayMode === 'translation'
-                    ? 'h-8 rounded-md bg-slate-800 text-sm font-semibold text-white'
-                    : 'h-8 rounded-md bg-transparent text-sm font-semibold text-slate-600 transition hover:bg-slate-100'
-                }
-                onClick={() => updateSetting('displayMode', 'translation')}
-              >
-                {t('translationOnly')}
-              </Button>
-            </div>
-          </fieldset>
+                <div className="flex justify-end gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="lg"
+                    className="h-9 rounded-md border-slate-300 bg-white px-3.5 text-sm font-semibold text-slate-900 transition hover:bg-slate-50 disabled:cursor-default disabled:opacity-[0.55]"
+                    onClick={() => activateProfile(editingProfile.id)}
+                    disabled={settings.activeProfileId === editingProfile.id}
+                  >
+                    {t('setActive')}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="lg"
+                    className="h-9 rounded-md border-slate-300 bg-white px-3.5 text-sm font-semibold text-slate-900 transition hover:bg-slate-50"
+                    onClick={duplicateProfile}
+                  >
+                    {t('duplicate')}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="lg"
+                    className="h-9 rounded-md border border-red-200 bg-red-50 px-3.5 text-sm font-semibold text-red-700 transition hover:bg-red-100"
+                    onClick={removeProfile}
+                  >
+                    {t('delete')}
+                  </Button>
+                </div>
 
-          <fieldset className="grid gap-2 border-0 p-0 m-0">
-            <legend className="text-[13px] font-semibold text-slate-600">
-              {t('translationScope')}
-            </legend>
-            <div className="grid max-w-96 grid-cols-2 gap-1.5 rounded-lg border border-slate-200 bg-white p-1">
-              <Button
-                type="button"
-                size="default"
-                variant={settings.translationScope === 'viewport' ? 'default' : 'ghost'}
-                className={
-                  settings.translationScope === 'viewport'
-                    ? 'h-8 rounded-md bg-slate-800 text-sm font-semibold text-white'
-                    : 'h-8 rounded-md bg-transparent text-sm font-semibold text-slate-600 transition hover:bg-slate-100'
-                }
-                onClick={() => updateSetting('translationScope', 'viewport')}
-              >
-                {t('viewport')}
-              </Button>
-              <Button
-                type="button"
-                size="default"
-                variant={settings.translationScope === 'visible-page' ? 'default' : 'ghost'}
-                className={
-                  settings.translationScope === 'visible-page'
-                    ? 'h-8 rounded-md bg-slate-800 text-sm font-semibold text-white'
-                    : 'h-8 rounded-md bg-transparent text-sm font-semibold text-slate-600 transition hover:bg-slate-100'
-                }
-                onClick={() => updateSetting('translationScope', 'visible-page')}
-              >
-                {t('visiblePage')}
-              </Button>
-            </div>
-          </fieldset>
+                <label className="grid gap-1.5">
+                  <span className="text-[13px] font-semibold text-slate-600">{t('profileName')}</span>
+                  <input
+                    className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-[3px] focus:ring-slate-200"
+                    value={editingProfile.name}
+                    onChange={(event) => updateProfile('name', event.target.value)}
+                    placeholder={t('profileNamePlaceholder')}
+                    maxLength={profileFieldLimits.name}
+                  />
+                </label>
 
-          <fieldset className="grid gap-2 border-0 p-0 m-0">
-            <legend className="text-[13px] font-semibold text-slate-600">
-              {t('translationMode')}
-            </legend>
-            <div className="grid max-w-96 grid-cols-2 gap-1.5 rounded-lg border border-slate-200 bg-white p-1">
-              <Button
-                type="button"
-                size="default"
-                variant={
-                  settings.translationMode === 'element-context' ? 'default' : 'ghost'
-                }
-                className={
-                  settings.translationMode === 'element-context'
-                    ? 'h-8 rounded-md bg-slate-800 text-sm font-semibold text-white'
-                    : 'h-8 rounded-md bg-transparent text-sm font-semibold text-slate-600 transition hover:bg-slate-100'
-                }
-                onClick={() => updateSetting('translationMode', 'element-context')}
-              >
-                {t('wholeParagraphTranslationMode')}
-              </Button>
-              <Button
-                type="button"
-                size="default"
-                variant={settings.translationMode === 'text-node' ? 'default' : 'ghost'}
-                className={
-                  settings.translationMode === 'text-node'
-                    ? 'h-8 rounded-md bg-slate-800 text-sm font-semibold text-white'
-                    : 'h-8 rounded-md bg-transparent text-sm font-semibold text-slate-600 transition hover:bg-slate-100'
-                }
-                onClick={() => updateSetting('translationMode', 'text-node')}
-              >
-                {t('textNodeTranslationMode')}
-              </Button>
-            </div>
-          </fieldset>
+                <label className="grid gap-1.5">
+                  <span className="text-[13px] font-semibold text-slate-600">
+                    {t('translationProvider')}
+                  </span>
+                  <select
+                    className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-[3px] focus:ring-slate-200"
+                    value={editingProfile.provider}
+                    onChange={(event) =>
+                      updateProfile(
+                        'provider',
+                        event.target.value as TranslationProfile['provider'],
+                      )
+                    }
+                  >
+                    <option value="chrome-built-in">{t('chromeBuiltInProvider')}</option>
+                    <option value="openai-compatible">{t('openAICompatibleProvider')}</option>
+                  </select>
+                </label>
 
-          <Button
-            type="button"
-            size="lg"
-            className="h-9 w-fit rounded-md bg-slate-800 px-3.5 text-sm font-semibold text-white hover:bg-slate-700"
-            onClick={saveTranslationSettings}
-          >
-            {t('saveTranslationSettings')}
-          </Button>
+                {isChromeBuiltInProfile && (
+                  <div className="grid gap-1.5 rounded-lg border border-slate-200 bg-slate-50 p-2.5">
+                    <span className="text-[13px] font-semibold text-slate-600">
+                      {t('chromeBuiltInProvider')}
+                    </span>
+                    <p className="m-0 text-sm leading-5 text-slate-600">
+                      {t('chromeBuiltInDescription')}
+                    </p>
+                  </div>
+                )}
 
-          <StatusNotice message={status} />
-        </section>
-      )}
+                {!isChromeBuiltInProfile && (
+                  <label className="grid gap-1.5">
+                    <span className="text-[13px] font-semibold text-slate-600">{t('apiBaseUrl')}</span>
+                    <input
+                      className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-[3px] focus:ring-slate-200"
+                      value={editingProfile.apiBaseUrl}
+                      onChange={(event) => updateProfile('apiBaseUrl', event.target.value)}
+                      placeholder="https://api.openai.com/v1"
+                      spellCheck={false}
+                      maxLength={profileFieldLimits.apiBaseUrl}
+                    />
+                  </label>
+                )}
 
-      {activeTab === 'cache' && (
-        <section className="grid w-full gap-3.5 rounded-lg border border-slate-200 bg-white p-4.5">
-          <div className="grid gap-1">
-            <h2 className="text-lg font-semibold text-slate-900">{t('cacheSettings')}</h2>
-            <p className="text-sm leading-5 text-slate-600">{t('cacheDescription')}</p>
-          </div>
+                {isChromeBuiltInProfile ? (
+                  <label className="grid gap-1.5">
+                    <span className="text-[13px] font-semibold text-slate-600">
+                      {t('translationConcurrency')}
+                    </span>
+                    <input
+                      className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-[3px] focus:ring-slate-200"
+                      value={editingProfile.translationConcurrency}
+                      onChange={(event) =>
+                        updateProfile('translationConcurrency', Number(event.target.value))
+                      }
+                      type="number"
+                      min={translationConcurrencyLimits.min}
+                      max={translationConcurrencyLimits.max}
+                      step={1}
+                    />
+                  </label>
+                ) : (
+                  <div className="grid grid-cols-[minmax(0,1fr)_128px] gap-3">
+                    <label className="grid min-w-0 gap-1.5">
+                      <span className="text-[13px] font-semibold text-slate-600">{t('modelName')}</span>
+                      <input
+                        className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-[3px] focus:ring-slate-200"
+                        value={editingProfile.model}
+                        onChange={(event) => updateProfile('model', event.target.value)}
+                        placeholder="gpt-4o-mini"
+                        spellCheck={false}
+                        maxLength={profileFieldLimits.model}
+                      />
+                    </label>
 
-          <div className="flex items-center justify-between gap-4 rounded-lg border border-slate-200 bg-slate-50 p-3.5">
-            <div>
-              <span className="block text-[13px] font-semibold text-slate-600">
-                {t('translationCacheCount')}
-              </span>
-              <strong className="block text-2xl leading-tight font-semibold text-slate-900">
-                {cacheCount}
-              </strong>
-            </div>
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="lg"
-                className="h-9 rounded-md border-slate-300 bg-white px-3.5 text-sm font-semibold text-slate-900 hover:bg-slate-50"
-                onClick={refreshCacheStats}
-              >
-                {t('refresh')}
-              </Button>
-              <Button
-                type="button"
-                variant="destructive"
-                size="lg"
-                className="h-9 rounded-md border border-red-200 bg-red-50 px-3.5 text-sm font-semibold text-red-700 hover:bg-red-100"
-                onClick={clearCache}
-                disabled={!cacheCount}
-              >
-                {t('clearTranslationCache')}
-              </Button>
-            </div>
-          </div>
+                    <label className="grid gap-1.5">
+                      <span className="text-[13px] font-semibold text-slate-600">{t('translationConcurrency')}</span>
+                      <input
+                        className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-[3px] focus:ring-slate-200"
+                        value={editingProfile.translationConcurrency}
+                        onChange={(event) => updateProfile('translationConcurrency', Number(event.target.value))}
+                        type="number"
+                        min={translationConcurrencyLimits.min}
+                        max={translationConcurrencyLimits.max}
+                        step={1}
+                      />
+                    </label>
+                  </div>
+                )}
 
-          <StatusNotice message={status} />
-        </section>
-      )}
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="grid gap-1.5">
+                    <span className="text-[13px] font-semibold text-slate-600">
+                      {t('translationBatchSegments')}
+                    </span>
+                    <input
+                      className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-[3px] focus:ring-slate-200"
+                      value={editingProfile.translationBatchSegments}
+                      onChange={(event) =>
+                        updateProfile('translationBatchSegments', Number(event.target.value))
+                      }
+                      type="number"
+                      min={translationBatchSegmentLimits.min}
+                      max={translationBatchSegmentLimits.max}
+                      step={1}
+                    />
+                  </label>
 
-      {activeTab === 'rules' && (
-        <section className="grid w-full gap-3.5 rounded-lg border border-slate-200 bg-white p-4.5">
-          <div className="grid gap-1">
-            <h2 className="text-lg font-semibold text-slate-900">{t('rulesSettings')}</h2>
-            <p className="text-sm leading-5 text-slate-600">{t('rulesDescription')}</p>
-          </div>
+                  <label className="grid gap-1.5">
+                    <span className="text-[13px] font-semibold text-slate-600">
+                      {t('translationBatchTextLength')}
+                    </span>
+                    <input
+                      className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-[3px] focus:ring-slate-200"
+                      value={editingProfile.translationBatchTextLength}
+                      onChange={(event) =>
+                        updateProfile('translationBatchTextLength', Number(event.target.value))
+                      }
+                      type="number"
+                      min={translationBatchTextLengthLimits.min}
+                      max={translationBatchTextLengthLimits.max}
+                      step={1}
+                    />
+                  </label>
+                </div>
 
-          <label className="grid gap-1.5">
-            <span className="text-[13px] font-semibold text-slate-600">{t('userWhitelist')}</span>
-            <textarea
-              className="min-h-24 w-full resize-y rounded-md border border-slate-300 bg-white px-2.5 py-2 text-sm leading-6 text-slate-900 outline-none transition focus:border-slate-400 focus:ring-[3px] focus:ring-slate-200"
-              value={whitelistDraft}
-              onChange={(event) => setWhitelistDraft(event.target.value)}
-              placeholder={t('userWhitelistPlaceholder')}
-              rows={4}
-            />
-          </label>
+                {!isChromeBuiltInProfile && (
+                  <label className="grid gap-1.5">
+                    <span className="text-[13px] font-semibold text-slate-600">{t('apiKey')}</span>
+                    <input
+                      className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-[3px] focus:ring-slate-200"
+                      value={editingProfile.apiKey}
+                      onChange={(event) => updateProfile('apiKey', event.target.value)}
+                      placeholder="sk-..."
+                      type="password"
+                      spellCheck={false}
+                      maxLength={profileFieldLimits.apiKey}
+                    />
+                  </label>
+                )}
 
-          <label className="grid gap-1.5">
-            <span className="text-[13px] font-semibold text-slate-600">
-              {t('noTranslateSelectors')}
-            </span>
-            <textarea
-              className="min-h-24 w-full resize-y rounded-md border border-slate-300 bg-white px-2.5 py-2 font-mono text-sm leading-6 text-slate-900 outline-none transition focus:border-slate-400 focus:ring-[3px] focus:ring-slate-200"
-              value={noTranslateSelectorsDraft}
-              onChange={(event) => setNoTranslateSelectorsDraft(event.target.value)}
-              placeholder={t('noTranslateSelectorsPlaceholder')}
-              rows={4}
-              spellCheck={false}
-            />
-          </label>
+                {!isChromeBuiltInProfile && (
+                  <label className="grid gap-1.5">
+                    <span className="text-[13px] font-semibold text-slate-600">{t('customPrompt')}</span>
+                    <textarea
+                      className="min-h-28 w-full resize-y rounded-md border border-slate-300 bg-white px-2.5 py-2 text-sm leading-snug text-slate-900 outline-none transition focus:border-slate-400 focus:ring-[3px] focus:ring-slate-200"
+                      value={editingProfile.customPrompt}
+                      onChange={(event) => updateProfile('customPrompt', event.target.value)}
+                      placeholder={t('customPromptPlaceholder')}
+                      rows={5}
+                      maxLength={profileFieldLimits.customPrompt}
+                    />
+                  </label>
+                )}
 
-          <div className="grid gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
-            <span className="text-[13px] font-semibold text-slate-600">{t('builtInRules')}</span>
-            <div className="flex flex-wrap gap-1.5">
-              {builtInNoTranslateRules.map((rule) => (
-                <span
-                  key={rule}
-                  className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-600"
+                {!isChromeBuiltInProfile && (
+                  <div className="grid gap-1.5 rounded-lg border border-slate-200 bg-slate-50 p-2.5">
+                    <span className="text-[13px] font-semibold text-slate-600">{t('endpointPreview')}</span>
+                    <code className="break-all font-mono text-xs leading-relaxed text-slate-700">
+                      {getEndpointPreview(editingProfile.apiBaseUrl)}
+                    </code>
+                  </div>
+                )}
+
+                <Button
+                  type="submit"
+                  size="lg"
+                  className="h-9 w-fit rounded-md bg-slate-800 px-3.5 text-sm font-semibold text-white transition hover:bg-slate-700"
                 >
-                  {t(`builtInRule_${rule}`)}
-                </span>
-              ))}
+                  {t('saveProfile')}
+                </Button>
+
+                <StatusNotice message={status} />
+              </form>
             </div>
-          </div>
+          )}
 
-          <Button
-            type="button"
-            size="lg"
-            className="h-9 w-fit rounded-md bg-slate-800 px-3.5 text-sm font-semibold text-white hover:bg-slate-700"
-            onClick={saveWhitelist}
-          >
-            {t('saveRules')}
-          </Button>
+          {activeTab === 'translation' && (
+            <section className="grid w-full gap-3.5 rounded-lg border border-slate-200 bg-white p-4.5">
+              <div className="grid gap-1">
+                <h2 className="text-lg font-semibold text-slate-900">
+                  {t('translationSettings')}
+                </h2>
+                <p className="text-sm leading-5 text-slate-600">
+                  {t('translationSettingsDescription')}
+                </p>
+              </div>
 
-          <StatusNotice message={status} />
-        </section>
-      )}
+              <div className="grid max-w-72 gap-1.5">
+                <span className="text-[13px] font-semibold text-slate-600">
+                  {t('targetLanguage')}
+                </span>
+                <Select
+                  value={settings.targetLanguage}
+                  onValueChange={(value) => {
+                    if (!value) {
+                      return
+                    }
+
+                    updateSetting('targetLanguage', value)
+                  }}
+                >
+                  <SelectTrigger className="h-9 w-full rounded-md border-slate-300 bg-white px-2.5 text-sm text-slate-900">
+                    <SelectValue>{settings.targetLanguage}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {targetLanguageOptions.map((language) => (
+                      <SelectItem key={language.value} value={language.value}>
+                        {language.value}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <label className="grid max-w-72 gap-1.5">
+                <span className="text-[13px] font-semibold text-slate-600">
+                  {t('minTranslationTextLength')}
+                </span>
+                <input
+                  className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-[3px] focus:ring-slate-200"
+                  value={settings.minTranslationTextLength}
+                  onChange={(event) =>
+                    updateSetting('minTranslationTextLength', Number(event.target.value))
+                  }
+                  type="number"
+                  min={minTranslationTextLengthLimits.min}
+                  max={minTranslationTextLengthLimits.max}
+                  step={1}
+                />
+              </label>
+
+              <fieldset className="grid gap-2 border-0 p-0 m-0">
+                <legend className="text-[13px] font-semibold text-slate-600">
+                  {t('displayMode')}
+                </legend>
+                <div className="grid max-w-96 grid-cols-2 gap-1.5 rounded-lg border border-slate-200 bg-white p-1">
+                  <Button
+                    type="button"
+                    size="default"
+                    variant={settings.displayMode === 'bilingual' ? 'default' : 'ghost'}
+                    className={
+                      settings.displayMode === 'bilingual'
+                        ? 'h-8 rounded-md bg-slate-800 text-sm font-semibold text-white'
+                        : 'h-8 rounded-md bg-transparent text-sm font-semibold text-slate-600 transition hover:bg-slate-100'
+                    }
+                    onClick={() => updateSetting('displayMode', 'bilingual')}
+                  >
+                    {t('bilingual')}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="default"
+                    variant={settings.displayMode === 'translation' ? 'default' : 'ghost'}
+                    className={
+                      settings.displayMode === 'translation'
+                        ? 'h-8 rounded-md bg-slate-800 text-sm font-semibold text-white'
+                        : 'h-8 rounded-md bg-transparent text-sm font-semibold text-slate-600 transition hover:bg-slate-100'
+                    }
+                    onClick={() => updateSetting('displayMode', 'translation')}
+                  >
+                    {t('translationOnly')}
+                  </Button>
+                </div>
+              </fieldset>
+
+              <fieldset className="grid gap-2 border-0 p-0 m-0">
+                <legend className="text-[13px] font-semibold text-slate-600">
+                  {t('translationScope')}
+                </legend>
+                <div className="grid max-w-96 grid-cols-2 gap-1.5 rounded-lg border border-slate-200 bg-white p-1">
+                  <Button
+                    type="button"
+                    size="default"
+                    variant={settings.translationScope === 'viewport' ? 'default' : 'ghost'}
+                    className={
+                      settings.translationScope === 'viewport'
+                        ? 'h-8 rounded-md bg-slate-800 text-sm font-semibold text-white'
+                        : 'h-8 rounded-md bg-transparent text-sm font-semibold text-slate-600 transition hover:bg-slate-100'
+                    }
+                    onClick={() => updateSetting('translationScope', 'viewport')}
+                  >
+                    {t('viewport')}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="default"
+                    variant={settings.translationScope === 'visible-page' ? 'default' : 'ghost'}
+                    className={
+                      settings.translationScope === 'visible-page'
+                        ? 'h-8 rounded-md bg-slate-800 text-sm font-semibold text-white'
+                        : 'h-8 rounded-md bg-transparent text-sm font-semibold text-slate-600 transition hover:bg-slate-100'
+                    }
+                    onClick={() => updateSetting('translationScope', 'visible-page')}
+                  >
+                    {t('visiblePage')}
+                  </Button>
+                </div>
+              </fieldset>
+
+              <fieldset className="grid gap-2 border-0 p-0 m-0">
+                <legend className="text-[13px] font-semibold text-slate-600">
+                  {t('translationMode')}
+                </legend>
+                <div className="grid max-w-96 grid-cols-2 gap-1.5 rounded-lg border border-slate-200 bg-white p-1">
+                  <Button
+                    type="button"
+                    size="default"
+                    variant={
+                      settings.translationMode === 'element-context' ? 'default' : 'ghost'
+                    }
+                    className={
+                      settings.translationMode === 'element-context'
+                        ? 'h-8 rounded-md bg-slate-800 text-sm font-semibold text-white'
+                        : 'h-8 rounded-md bg-transparent text-sm font-semibold text-slate-600 transition hover:bg-slate-100'
+                    }
+                    onClick={() => updateSetting('translationMode', 'element-context')}
+                  >
+                    {t('wholeParagraphTranslationMode')}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="default"
+                    variant={settings.translationMode === 'text-node' ? 'default' : 'ghost'}
+                    className={
+                      settings.translationMode === 'text-node'
+                        ? 'h-8 rounded-md bg-slate-800 text-sm font-semibold text-white'
+                        : 'h-8 rounded-md bg-transparent text-sm font-semibold text-slate-600 transition hover:bg-slate-100'
+                    }
+                    onClick={() => updateSetting('translationMode', 'text-node')}
+                  >
+                    {t('textNodeTranslationMode')}
+                  </Button>
+                </div>
+              </fieldset>
+
+              <Button
+                type="button"
+                size="lg"
+                className="h-9 w-fit rounded-md bg-slate-800 px-3.5 text-sm font-semibold text-white hover:bg-slate-700"
+                onClick={saveTranslationSettings}
+              >
+                {t('saveTranslationSettings')}
+              </Button>
+
+              <StatusNotice message={status} />
+            </section>
+          )}
+
+          {activeTab === 'cache' && (
+            <section className="grid w-full gap-3.5 rounded-lg border border-slate-200 bg-white p-4.5">
+              <div className="grid gap-1">
+                <h2 className="text-lg font-semibold text-slate-900">{t('cacheSettings')}</h2>
+                <p className="text-sm leading-5 text-slate-600">{t('cacheDescription')}</p>
+              </div>
+
+              <div className="flex items-center justify-between gap-4 rounded-lg border border-slate-200 bg-slate-50 p-3.5">
+                <div>
+                  <span className="block text-[13px] font-semibold text-slate-600">
+                    {t('translationCacheCount')}
+                  </span>
+                  <strong className="block text-2xl leading-tight font-semibold text-slate-900">
+                    {cacheCount}
+                  </strong>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="lg"
+                    className="h-9 rounded-md border-slate-300 bg-white px-3.5 text-sm font-semibold text-slate-900 hover:bg-slate-50"
+                    onClick={refreshCacheStats}
+                  >
+                    {t('refresh')}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="lg"
+                    className="h-9 rounded-md border border-red-200 bg-red-50 px-3.5 text-sm font-semibold text-red-700 hover:bg-red-100"
+                    onClick={clearCache}
+                    disabled={!cacheCount}
+                  >
+                    {t('clearTranslationCache')}
+                  </Button>
+                </div>
+              </div>
+
+              <StatusNotice message={status} />
+            </section>
+          )}
+
+          {activeTab === 'rules' && (
+            <section className="grid w-full gap-3.5 rounded-lg border border-slate-200 bg-white p-4.5">
+              <div className="grid gap-1">
+                <h2 className="text-lg font-semibold text-slate-900">{t('rulesSettings')}</h2>
+                <p className="text-sm leading-5 text-slate-600">{t('rulesDescription')}</p>
+              </div>
+
+              <label className="grid gap-1.5">
+                <span className="text-[13px] font-semibold text-slate-600">{t('userWhitelist')}</span>
+                <textarea
+                  className="min-h-24 w-full resize-y rounded-md border border-slate-300 bg-white px-2.5 py-2 text-sm leading-6 text-slate-900 outline-none transition focus:border-slate-400 focus:ring-[3px] focus:ring-slate-200"
+                  value={whitelistDraft}
+                  onChange={(event) => setWhitelistDraft(event.target.value)}
+                  placeholder={t('userWhitelistPlaceholder')}
+                  rows={4}
+                />
+              </label>
+
+              <label className="grid gap-1.5">
+                <span className="text-[13px] font-semibold text-slate-600">
+                  {t('noTranslateSelectors')}
+                </span>
+                <textarea
+                  className="min-h-24 w-full resize-y rounded-md border border-slate-300 bg-white px-2.5 py-2 font-mono text-sm leading-6 text-slate-900 outline-none transition focus:border-slate-400 focus:ring-[3px] focus:ring-slate-200"
+                  value={noTranslateSelectorsDraft}
+                  onChange={(event) => setNoTranslateSelectorsDraft(event.target.value)}
+                  placeholder={t('noTranslateSelectorsPlaceholder')}
+                  rows={4}
+                  spellCheck={false}
+                />
+              </label>
+
+              <div className="grid gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <span className="text-[13px] font-semibold text-slate-600">{t('builtInRules')}</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {builtInNoTranslateRules.map((rule) => (
+                    <span
+                      key={rule}
+                      className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-600"
+                    >
+                      {t(`builtInRule_${rule}`)}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <Button
+                type="button"
+                size="lg"
+                className="h-9 w-fit rounded-md bg-slate-800 px-3.5 text-sm font-semibold text-white hover:bg-slate-700"
+                onClick={saveWhitelist}
+              >
+                {t('saveRules')}
+              </Button>
+
+              <StatusNotice message={status} />
+            </section>
+          )}
         </div>
       </div>
     </main>
@@ -908,54 +830,6 @@ function parseCommaListDraft(value: string) {
 
 function formatCommaList(items: readonly string[]) {
   return items.join(', ')
-}
-
-function getAppLanguageLabel(language: AppLanguage) {
-  if (language === 'zh_CN') {
-    return t('languageZhCn')
-  }
-
-  if (language === 'en') {
-    return t('languageEn')
-  }
-
-  return t('languageSystem')
-}
-
-function getAppLanguageIcon(language: AppLanguage) {
-  if (language === 'system') {
-    return <LanguagesIcon className="size-4.5" aria-hidden="true" />
-  }
-
-  return (
-    <span className="text-sm leading-none font-semibold" aria-hidden="true">
-      {language === 'zh_CN' ? '中' : 'E'}
-    </span>
-  )
-}
-
-function getAppThemeLabel(theme: AppTheme) {
-  if (theme === 'light') {
-    return t('themeLight')
-  }
-
-  if (theme === 'dark') {
-    return t('themeDark')
-  }
-
-  return t('themeSystem')
-}
-
-function getAppThemeIcon(theme: AppTheme) {
-  if (theme === 'light') {
-    return <SunIcon className="size-4.5" aria-hidden="true" />
-  }
-
-  if (theme === 'dark') {
-    return <MoonIcon className="size-4.5" aria-hidden="true" />
-  }
-
-  return <MonitorIcon className="size-4.5" aria-hidden="true" />
 }
 
 createRoot(document.getElementById('root')!).render(
