@@ -1,5 +1,5 @@
 import { t } from '../shared/i18n'
-import { normalizeBuiltInTargetLanguageCode } from '../shared/languages'
+import { defaultTargetLanguage, normalizeBuiltInTargetLanguageCode } from '../shared/languages'
 import { getActiveProfile, normalizeSettings, validateProfileForUse } from '../shared/settings'
 import type {
   TranslationDisplayMode,
@@ -277,7 +277,7 @@ async function translatePage(
     tabId,
     translationScope,
     profile.provider,
-    settings.targetLanguage,
+    normalizeBuiltInTargetLanguageCode(settings.targetLanguage),
     settings.displayMode,
     settings.translationMode,
     settings.userWhitelist,
@@ -381,7 +381,7 @@ async function startPageTranslator(
   tabId: number,
   translationScope: TranslationScope,
   translationProvider: TranslationProvider,
-  targetLanguage: string,
+  targetLanguageCode: string,
   displayMode: TranslationDisplayMode,
   translationMode: TranslationMode,
   userWhitelist: string[],
@@ -400,7 +400,7 @@ async function startPageTranslator(
     maxNodes: MAX_TEXT_NODES,
     translationScope,
     translationProvider,
-    targetLanguage,
+    targetLanguageCode,
     displayMode,
     translationMode,
     userWhitelist,
@@ -469,7 +469,7 @@ async function updatePageContextMenuTitleForTab(tabId: number) {
 }
 
 function getDefaultTargetLanguage() {
-  return t("targetLanguagePlaceholder");
+  return defaultTargetLanguage;
 }
 
 async function translatePageTexts(texts: string[], tabId?: number, requestId?: string) {

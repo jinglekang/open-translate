@@ -4,6 +4,7 @@ import { createRoot } from 'react-dom/client'
 import { clearTranslationCache, getTranslationCacheStats } from '../shared/cache'
 import { getEndpointPreview } from '../shared/endpoint'
 import { t } from '../shared/i18n'
+import { targetLanguageOptions } from '../shared/languages'
 import {
   createProfile,
   defaultSettings,
@@ -20,6 +21,13 @@ import type { TranslationProfile, TranslationSettings } from '../shared/settings
 import { builtInNoTranslateRules } from '../shared/whitelist'
 import { Button } from '../components/ui/button'
 import { StatusNotice } from '../components/status-notice'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../components/ui/select'
 import '../shared/style.css'
 
 type OptionsTab = 'translators' | 'translation' | 'cache' | 'rules'
@@ -517,6 +525,33 @@ export function Options() {
             <p className="text-sm leading-5 text-slate-600">
               {t('translationSettingsDescription')}
             </p>
+          </div>
+
+          <div className="grid max-w-72 gap-1.5">
+            <span className="text-[13px] font-semibold text-slate-600">
+              {t('targetLanguage')}
+            </span>
+            <Select
+              value={settings.targetLanguage}
+              onValueChange={(value) => {
+                if (!value) {
+                  return
+                }
+
+                updateSetting('targetLanguage', value)
+              }}
+            >
+              <SelectTrigger className="h-9 w-full rounded-md border-slate-300 bg-white px-2.5 text-sm text-slate-900">
+                <SelectValue>{settings.targetLanguage}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {targetLanguageOptions.map((language) => (
+                  <SelectItem key={language.value} value={language.value}>
+                    {language.value}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <label className="grid max-w-72 gap-1.5">

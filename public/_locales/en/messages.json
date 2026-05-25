@@ -322,20 +322,6 @@
   "targetLanguage": {
     "message": "Target language"
   },
-  "targetLanguageRequired": {
-    "message": "Please enter a target language"
-  },
-  "targetLanguageTooLong": {
-    "message": "Target language must be $LIMIT$ characters or fewer",
-    "placeholders": {
-      "limit": {
-        "content": "$1"
-      }
-    }
-  },
-  "targetLanguagePlaceholder": {
-    "message": "Simplified Chinese"
-  },
   "customPrompt": {
     "message": "Custom system prompt"
   },

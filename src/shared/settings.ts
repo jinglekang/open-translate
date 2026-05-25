@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { t } from './i18n'
+import { defaultTargetLanguage, targetLanguageValues } from './languages'
 
 const trimmedString = z.string().trim()
 
@@ -8,7 +9,6 @@ export const profileFieldLimits = {
   apiBaseUrl: 500,
   model: 120,
   apiKey: 500,
-  targetLanguage: 40,
   customPrompt: 4000,
   userWhitelistItem: 160,
   userWhitelistItems: 200,
@@ -38,6 +38,7 @@ export const translationBatchTextLengthLimits = {
 
 export const translationDisplayModeSchema = z.enum(['translation', 'bilingual'])
 export type TranslationDisplayMode = z.infer<typeof translationDisplayModeSchema>
+export const targetLanguageSchema = z.enum(targetLanguageValues)
 export const translationScopeSchema = z.enum(['visible-page', 'viewport'])
 export type TranslationScope = z.infer<typeof translationScopeSchema>
 export const translationModeSchema = z.enum(['text-node', 'element-context'])
@@ -118,13 +119,7 @@ export const translationSettingsSchema = z
     displayMode: translationDisplayModeSchema.catch('bilingual'),
     translationScope: translationScopeSchema.catch('viewport'),
     translationMode: translationModeSchema.catch('element-context'),
-    targetLanguage: trimmedString
-      .min(1, t('targetLanguageRequired'))
-      .max(
-        profileFieldLimits.targetLanguage,
-        t('targetLanguageTooLong', String(profileFieldLimits.targetLanguage)),
-      )
-      .catch('简体中文'),
+    targetLanguage: targetLanguageSchema.catch(defaultTargetLanguage),
     userWhitelist: z
       .array(
         trimmedString
@@ -190,7 +185,7 @@ export const defaultSettings: TranslationSettings = {
   displayMode: 'bilingual',
   translationScope: 'viewport',
   translationMode: 'element-context',
-  targetLanguage: '简体中文',
+  targetLanguage: defaultTargetLanguage,
   userWhitelist: [...defaultUserWhitelist],
   noTranslateSelectors: [...defaultNoTranslateSelectors],
   minTranslationTextLength: minTranslationTextLengthLimits.default,

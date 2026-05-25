@@ -322,20 +322,6 @@
   "targetLanguage": {
     "message": "目标语言"
   },
-  "targetLanguageRequired": {
-    "message": "请填写目标语言"
-  },
-  "targetLanguageTooLong": {
-    "message": "目标语言不能超过 $LIMIT$ 个字符",
-    "placeholders": {
-      "limit": {
-        "content": "$1"
-      }
-    }
-  },
-  "targetLanguagePlaceholder": {
-    "message": "简体中文"
-  },
   "customPrompt": {
     "message": "自定义系统提示词"
   },

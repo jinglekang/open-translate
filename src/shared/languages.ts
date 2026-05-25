@@ -1,48 +1,65 @@
-const builtInLanguageAliases = new Map<string, string>([
-  ['简体中文', 'zh'],
-  ['中文', 'zh'],
-  ['中国语', 'zh'],
-  ['繁体中文', 'zh-Hant'],
-  ['英文', 'en'],
-  ['英语', 'en'],
-  ['日文', 'ja'],
-  ['日语', 'ja'],
-  ['韩文', 'ko'],
-  ['韩语', 'ko'],
-  ['法文', 'fr'],
-  ['法语', 'fr'],
-  ['德文', 'de'],
-  ['德语', 'de'],
-  ['西班牙文', 'es'],
-  ['西班牙语', 'es'],
-  ['俄文', 'ru'],
-  ['俄语', 'ru'],
-  ['葡萄牙文', 'pt'],
-  ['葡萄牙语', 'pt'],
-  ['意大利文', 'it'],
-  ['意大利语', 'it'],
-  ['simplified chinese', 'zh'],
-  ['chinese', 'zh'],
-  ['traditional chinese', 'zh-Hant'],
-  ['english', 'en'],
-  ['japanese', 'ja'],
-  ['korean', 'ko'],
-  ['french', 'fr'],
-  ['german', 'de'],
-  ['spanish', 'es'],
-  ['russian', 'ru'],
-  ['portuguese', 'pt'],
-  ['italian', 'it'],
-])
+export type TargetLanguageOption = {
+  value: string
+  builtInCode: string
+}
+
+export const targetLanguageOptions = [
+  {
+    value: '简体中文',
+    builtInCode: 'zh',
+  },
+  {
+    value: '繁體中文',
+    builtInCode: 'zh-Hant',
+  },
+  {
+    value: 'English',
+    builtInCode: 'en',
+  },
+  {
+    value: '日本語',
+    builtInCode: 'ja',
+  },
+  {
+    value: '한국어',
+    builtInCode: 'ko',
+  },
+  {
+    value: 'Français',
+    builtInCode: 'fr',
+  },
+  {
+    value: 'Deutsch',
+    builtInCode: 'de',
+  },
+  {
+    value: 'Español',
+    builtInCode: 'es',
+  },
+  {
+    value: 'Русский',
+    builtInCode: 'ru',
+  },
+  {
+    value: 'Português',
+    builtInCode: 'pt',
+  },
+  {
+    value: 'Italiano',
+    builtInCode: 'it',
+  },
+] as const satisfies readonly TargetLanguageOption[]
+
+export const targetLanguageValues = targetLanguageOptions.map((option) => option.value) as [
+  string,
+  ...string[],
+]
+export const defaultTargetLanguage = targetLanguageOptions[0].value
+
+const builtInLanguageCodes = new Map<string, string>(
+  targetLanguageOptions.map((option) => [option.value, option.builtInCode]),
+)
 
 export function normalizeBuiltInTargetLanguageCode(targetLanguage: string) {
-  const normalized = targetLanguage.trim()
-  const alias = builtInLanguageAliases.get(normalized.toLowerCase()) ||
-    builtInLanguageAliases.get(normalized)
-
-  if (alias) {
-    return alias
-  }
-
-  return normalized || 'zh'
+  return builtInLanguageCodes.get(targetLanguage) || 'zh'
 }

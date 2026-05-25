@@ -11,7 +11,8 @@ import {
 import { Button } from '../components/ui/button'
 import { StatusNotice } from '../components/status-notice'
 import { t } from '../shared/i18n'
-import { getActiveProfile, normalizeSettings, profileFieldLimits } from '../shared/settings'
+import { targetLanguageOptions } from '../shared/languages'
+import { getActiveProfile, normalizeSettings } from '../shared/settings'
 import type {
   TranslationMode,
   TranslationScope,
@@ -170,18 +171,32 @@ export function Popup() {
             )}
           </div>
 
-          <label className="grid grid-cols-[104px_minmax(0,1fr)] items-center gap-2">
+          <div className="grid grid-cols-[104px_minmax(0,1fr)] items-center gap-2">
             <span className="text-[13px] font-semibold text-slate-600">
               {t('targetLanguage')}
             </span>
-            <input
-              className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-[3px] focus:ring-slate-200"
+            <Select
               value={settings.targetLanguage}
-              onChange={(event) => void handleTargetLanguageChange(event.target.value)}
-              placeholder={t('targetLanguagePlaceholder')}
-              maxLength={profileFieldLimits.targetLanguage}
-            />
-          </label>
+              onValueChange={(value) => {
+                if (!value) {
+                  return
+                }
+
+                void handleTargetLanguageChange(value)
+              }}
+            >
+              <SelectTrigger className="h-9 w-full rounded-md border-slate-300 bg-white px-2.5 text-sm text-slate-900">
+                <SelectValue>{settings.targetLanguage}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {targetLanguageOptions.map((language) => (
+                  <SelectItem key={language.value} value={language.value}>
+                    {language.value}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
           <div className="grid grid-cols-[104px_minmax(0,1fr)] items-center gap-2">
             <span className="text-[13px] font-semibold text-slate-600">{t('displayMode')}</span>

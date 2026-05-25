@@ -35,7 +35,7 @@ type PageRuntimeMessage = {
   maxNodes: number
   translationScope: 'visible-page' | 'viewport'
   translationProvider: 'openai-compatible' | 'chrome-built-in'
-  targetLanguage: string
+  targetLanguageCode: string
   displayMode: 'translation' | 'bilingual'
   translationMode: 'text-node' | 'element-context'
   userWhitelist: string[]
@@ -76,7 +76,7 @@ if (!runtimeWindow.__openTranslatePageRuntimeInstalled) {
       message.maxNodes,
       message.translationScope,
       message.translationProvider,
-      message.targetLanguage,
+      message.targetLanguageCode,
       message.displayMode,
       message.translationMode,
       message.userWhitelist,
@@ -116,7 +116,7 @@ function isStartPageTranslatorMessage(message: unknown): message is PageRuntimeM
       (message as PageRuntimeMessage).translationProvider === 'openai-compatible' ||
       (message as PageRuntimeMessage).translationProvider === 'chrome-built-in'
     ) &&
-    typeof (message as PageRuntimeMessage).targetLanguage === 'string' &&
+    typeof (message as PageRuntimeMessage).targetLanguageCode === 'string' &&
     (
       (message as PageRuntimeMessage).displayMode === 'translation' ||
       (message as PageRuntimeMessage).displayMode === 'bilingual'
@@ -138,7 +138,7 @@ function installPageTranslator(
   maxNodes: number,
   translationScope: 'visible-page' | 'viewport',
   translationProvider: 'openai-compatible' | 'chrome-built-in',
-  targetLanguage: string,
+  targetLanguageCode: string,
   displayMode: 'translation' | 'bilingual',
   translationMode: 'text-node' | 'element-context',
   userWhitelist: string[],
@@ -505,36 +505,12 @@ function installPageTranslator(
 
   async function translateWithBuiltInAI(sourceText: string) {
     const sourceLanguage = await detectBuiltInSourceLanguage(sourceText)
-    const targetLanguageCode = normalizeBuiltInTargetLanguageCode(targetLanguage)
     if (sourceLanguage === targetLanguageCode) {
       return sourceText
     }
 
     const translator = await getBuiltInTranslator(sourceLanguage, targetLanguageCode)
     return translator.translate(sourceText)
-  }
-
-  function normalizeBuiltInTargetLanguageCode(language: string) {
-    const normalized = language.trim()
-    const alias = new Map<string, string>([
-      ['简体中文', 'zh'],
-      ['中文', 'zh'],
-      ['繁体中文', 'zh-Hant'],
-      ['英文', 'en'],
-      ['英语', 'en'],
-      ['日文', 'ja'],
-      ['日语', 'ja'],
-      ['韩文', 'ko'],
-      ['韩语', 'ko'],
-      ['simplified chinese', 'zh'],
-      ['chinese', 'zh'],
-      ['traditional chinese', 'zh-Hant'],
-      ['english', 'en'],
-      ['japanese', 'ja'],
-      ['korean', 'ko'],
-    ]).get(normalized.toLowerCase())
-
-    return alias || normalized || 'zh'
   }
 
   async function getBuiltInTranslator(sourceLanguage: string, targetLanguageCode: string) {
