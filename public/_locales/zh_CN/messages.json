@@ -3,7 +3,7 @@
     "message": "Open Translate"
   },
   "extensionDescription": {
-    "message": "使用 OpenAI 兼容接口翻译选中文本或整页内容"
+    "message": "使用 OpenAI 兼容接口或 Chrome Built-in AI 翻译选中文本和整页内容"
   },
   "contextMenuTranslateToLanguage": {
     "message": "翻译成$LANGUAGE$",

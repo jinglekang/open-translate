@@ -251,17 +251,6 @@ export function Options() {
             onThemeSaveFailed={() => setStatus(t('saveFailed'))}
             buttonClassName="size-9 rounded-full"
           />
-
-          {activeTab === 'translators' && (
-            <Button
-              type="button"
-              size="lg"
-              className="h-9 rounded-md bg-slate-800 px-3.5 text-sm font-semibold text-white transition hover:bg-slate-700"
-              onClick={addProfile}
-            >
-              {t('addProfile')}
-            </Button>
-          )}
         </div>
       </header>
 
@@ -291,6 +280,15 @@ export function Options() {
           {activeTab === 'translators' && (
             <div className="grid w-full grid-cols-[248px_minmax(0,1fr)] gap-4.5">
               <aside className="grid content-start gap-2" aria-label={t('profileListLabel')}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="lg"
+                  className="h-9 w-full rounded-md border-slate-300 bg-white px-3.5 text-sm font-semibold text-slate-900 transition hover:bg-slate-50"
+                  onClick={addProfile}
+                >
+                  {t('addProfile')}
+                </Button>
                 {settings.profiles.map((profile) => (
                   <Button
                     type="button"

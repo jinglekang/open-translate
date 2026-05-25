@@ -3,7 +3,7 @@
     "message": "Open Translate"
   },
   "extensionDescription": {
-    "message": "Translate selected text or full pages with OpenAI-compatible models."
+    "message": "Translate selected text or full pages with OpenAI-compatible APIs or Chrome Built-in AI."
   },
   "contextMenuTranslateToLanguage": {
     "message": "Translate to $LANGUAGE$",
