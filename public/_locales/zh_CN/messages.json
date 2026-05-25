@@ -161,6 +161,15 @@
   "minTranslationTextLength": {
     "message": "最小翻译字数"
   },
+  "pageTextProcessingMode": {
+    "message": "页面文本处理方式"
+  },
+  "textNodeProcessingMode": {
+    "message": "逐文本节点"
+  },
+  "elementContextProcessingMode": {
+    "message": "段落整体"
+  },
   "minTranslationTextLengthInvalid": {
     "message": "最小翻译字数必须是 1 到 100 的整数"
   },

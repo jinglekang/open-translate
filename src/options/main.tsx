@@ -534,6 +534,42 @@ export function Options() {
             />
           </label>
 
+          <fieldset className="grid gap-2 border-0 p-0 m-0">
+            <legend className="text-[13px] font-semibold text-slate-600">
+              {t('pageTextProcessingMode')}
+            </legend>
+            <div className="grid grid-cols-2 gap-1.5 rounded-lg border border-slate-200 bg-white p-1">
+              <Button
+                type="button"
+                size="default"
+                variant={settings.pageTextProcessingMode === 'text-node' ? 'default' : 'ghost'}
+                className={
+                  settings.pageTextProcessingMode === 'text-node'
+                    ? 'h-8 rounded-md bg-blue-600 text-sm font-semibold text-white'
+                    : 'h-8 rounded-md bg-transparent text-sm font-semibold text-slate-600 transition hover:bg-blue-50'
+                }
+                onClick={() => updateSetting('pageTextProcessingMode', 'text-node')}
+              >
+                {t('textNodeProcessingMode')}
+              </Button>
+              <Button
+                type="button"
+                size="default"
+                variant={
+                  settings.pageTextProcessingMode === 'element-context' ? 'default' : 'ghost'
+                }
+                className={
+                  settings.pageTextProcessingMode === 'element-context'
+                    ? 'h-8 rounded-md bg-blue-600 text-sm font-semibold text-white'
+                    : 'h-8 rounded-md bg-transparent text-sm font-semibold text-slate-600 transition hover:bg-blue-50'
+                }
+                onClick={() => updateSetting('pageTextProcessingMode', 'element-context')}
+              >
+                {t('elementContextProcessingMode')}
+              </Button>
+            </div>
+          </fieldset>
+
           <Button
             type="button"
             size="lg"

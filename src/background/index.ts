@@ -3,6 +3,7 @@ import { normalizeBuiltInTargetLanguageCode } from '../shared/languages'
 import { getActiveProfile, normalizeSettings, validateProfileForUse } from '../shared/settings'
 import type {
   PageTranslationScope,
+  PageTextProcessingMode,
   TranslationDisplayMode,
   TranslationProfile,
   TranslationProvider,
@@ -278,6 +279,7 @@ async function translatePage(
     profile.provider,
     settings.targetLanguage,
     settings.displayMode,
+    settings.pageTextProcessingMode,
     settings.userWhitelist,
     settings.noTranslateSelectors,
     settings.minTranslationTextLength,
@@ -381,6 +383,7 @@ async function startPageTranslator(
   translationProvider: TranslationProvider,
   targetLanguage: string,
   displayMode: TranslationDisplayMode,
+  pageTextProcessingMode: PageTextProcessingMode,
   userWhitelist: string[],
   noTranslateSelectors: string[],
   minTranslationTextLength: number,
@@ -399,6 +402,7 @@ async function startPageTranslator(
     translationProvider,
     targetLanguage,
     displayMode,
+    pageTextProcessingMode,
     userWhitelist,
     noTranslateSelectors,
     minTranslationTextLength,
@@ -493,6 +497,7 @@ async function translatePageTexts(texts: string[], tabId?: number, requestId?: s
     settings.targetLanguage,
     settings.userWhitelist,
     settings.minTranslationTextLength,
+    settings.pageTextProcessingMode,
     profile.translationConcurrency,
     profile.translationBatchSegments,
     profile.translationBatchTextLength,
@@ -562,6 +567,7 @@ async function translateItems<T>(
   targetLanguage: string,
   userWhitelist: string[],
   minTranslationTextLength: number,
+  pageTextProcessingMode: PageTextProcessingMode,
   concurrency: number,
   maxBatchSegments: number,
   maxBatchTextLength: number,
@@ -606,6 +612,7 @@ async function translateItems<T>(
           batch.map((entry) => entry.sourceText),
           profile,
           targetLanguage,
+          pageTextProcessingMode,
         );
         const cachedItems: Array<{ item: T; translatedText: string }> = [];
         const uncachedEntries: typeof entries = [];
@@ -636,6 +643,7 @@ async function translateItems<T>(
           targetLanguage,
           userWhitelist,
           minTranslationTextLength,
+          pageTextProcessingMode,
         );
 
         const translatedItems: Array<{ item: T; translatedText: string }> = [];
@@ -729,14 +737,27 @@ async function showOptionalInlineNotice(
 function isPageTranslationActive() {
   const pageWindow = window as typeof window & {
     __openTranslatePageOriginals?: Map<Text, PageTextTranslation>;
+    __openTranslatePageElementOriginals?: Map<Element, {
+      sourceText: string;
+      translatedText: string;
+      originalHtml: string;
+    }>;
   };
 
-  return !!pageWindow.__openTranslatePageOriginals?.size;
+  return !!(
+    pageWindow.__openTranslatePageOriginals?.size ||
+    pageWindow.__openTranslatePageElementOriginals?.size
+  );
 }
 
 function restorePageOriginalText() {
   const pageWindow = window as typeof window & {
     __openTranslatePageOriginals?: Map<Text, PageTextTranslation>;
+    __openTranslatePageElementOriginals?: Map<Element, {
+      sourceText: string;
+      translatedText: string;
+      originalHtml: string;
+    }>;
     __openTranslatePageTranslator?: {
       observer: MutationObserver;
       removeScrollListener?: () => void;
@@ -745,8 +766,9 @@ function restorePageOriginalText() {
     __openTranslatePageTranslations?: Set<string>;
   };
   const originals = pageWindow.__openTranslatePageOriginals;
+  const elementOriginals = pageWindow.__openTranslatePageElementOriginals;
   const bilingualTexts = document.querySelectorAll("[data-open-translate-bilingual='true']");
-  const didRestore = !!originals?.size || bilingualTexts.length > 0;
+  const didRestore = !!originals?.size || !!elementOriginals?.size || bilingualTexts.length > 0;
 
   pageWindow.__openTranslatePageTranslator?.observer.disconnect();
   pageWindow.__openTranslatePageTranslator?.removeScrollListener?.();
@@ -756,6 +778,13 @@ function restorePageOriginalText() {
     translatedText.remove();
   }
 
+  for (const [element, translation] of elementOriginals || []) {
+    if (element.isConnected) {
+      element.innerHTML = translation.originalHtml;
+      element.removeAttribute("data-open-translate-element");
+    }
+  }
+
   for (const [node, translation] of originals || []) {
     if (node.isConnected) {
       node.nodeValue = translation.sourceText;
@@ -763,8 +792,10 @@ function restorePageOriginalText() {
   }
 
   originals?.clear();
+  elementOriginals?.clear();
   pageWindow.__openTranslatePageTranslations?.clear();
   delete pageWindow.__openTranslatePageOriginals;
+  delete pageWindow.__openTranslatePageElementOriginals;
   delete pageWindow.__openTranslatePageSessionId;
   delete pageWindow.__openTranslatePageTranslations;
   return didRestore;

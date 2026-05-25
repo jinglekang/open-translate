@@ -3,6 +3,33 @@ type PageTextTranslation = {
   translatedText: string
 }
 
+type PageElementTranslation = {
+  sourceText: string
+  translatedText: string
+  originalHtml: string
+}
+
+type PageTranslationUnit = TextTranslationUnit | ElementTranslationUnit
+
+type TextTranslationUnit = {
+  kind: 'text'
+  node: Text
+  sourceText: string
+}
+
+type ElementTranslationUnit = {
+  kind: 'element'
+  element: Element
+  sourceText: string
+  originalHtml: string
+  fragments: ProtectedFragment[]
+}
+
+type ProtectedFragment = {
+  token: string
+  node: Node
+}
+
 type PageRuntimeMessage = {
   type: 'open-translate:start-page-translator'
   maxNodes: number
@@ -10,6 +37,7 @@ type PageRuntimeMessage = {
   translationProvider: 'openai-compatible' | 'chrome-built-in'
   targetLanguage: string
   displayMode: 'translation' | 'bilingual'
+  pageTextProcessingMode: 'text-node' | 'element-context'
   userWhitelist: string[]
   noTranslateSelectors: string[]
   minTranslationTextLength: number
@@ -50,6 +78,7 @@ if (!runtimeWindow.__openTranslatePageRuntimeInstalled) {
       message.translationProvider,
       message.targetLanguage,
       message.displayMode,
+      message.pageTextProcessingMode,
       message.userWhitelist,
       message.noTranslateSelectors,
       message.minTranslationTextLength,
@@ -92,6 +121,10 @@ function isStartPageTranslatorMessage(message: unknown): message is PageRuntimeM
       (message as PageRuntimeMessage).displayMode === 'translation' ||
       (message as PageRuntimeMessage).displayMode === 'bilingual'
     ) &&
+    (
+      (message as PageRuntimeMessage).pageTextProcessingMode === 'text-node' ||
+      (message as PageRuntimeMessage).pageTextProcessingMode === 'element-context'
+    ) &&
     Array.isArray((message as PageRuntimeMessage).userWhitelist) &&
     Array.isArray((message as PageRuntimeMessage).noTranslateSelectors) &&
     typeof (message as PageRuntimeMessage).minTranslationTextLength === 'number' &&
@@ -107,6 +140,7 @@ function installPageTranslator(
   translationProvider: 'openai-compatible' | 'chrome-built-in',
   targetLanguage: string,
   displayMode: 'translation' | 'bilingual',
+  pageTextProcessingMode: 'text-node' | 'element-context',
   userWhitelist: string[],
   noTranslateSelectors: string[],
   minTranslationTextLength: number,
@@ -128,6 +162,7 @@ function installPageTranslator(
     __openTranslatePageTranslator?: PageTranslatorState
     __openTranslatePageSessionId?: number
     __openTranslatePageOriginals?: Map<Text, PageTextTranslation>
+    __openTranslatePageElementOriginals?: Map<Element, PageElementTranslation>
     __openTranslatePageTranslations?: Set<string>
   }
   windowWithTranslator.__openTranslatePageTranslator?.observer.disconnect()
@@ -151,7 +186,8 @@ function installPageTranslator(
   const state = {
     pendingNodes: new Set<Text>(),
     inFlightNodes: new Set<Text>(),
-    translationRequests: new Map<string, { nodes: Text[]; sourceTexts: string[] }>(),
+    inFlightElements: new Set<Element>(),
+    translationRequests: new Map<string, { units: PageTranslationUnit[] }>(),
     builtInTranslators: new Map<string, Promise<BuiltInTranslator>>(),
     builtInLanguageDetector: undefined as Promise<BuiltInLanguageDetector | undefined> | undefined,
     isApplyingTranslation: false,
@@ -198,12 +234,12 @@ function installPageTranslator(
         : undefined,
   }
   collectTextNodes(document.body)
-  const initialNodes = takePendingNodes()
-  if (!initialNodes.length) {
+  const initialUnits = takePendingUnits()
+  if (!initialUnits.length) {
     return { collected: false }
   }
 
-  void requestTranslations(initialNodes, initialNodes.map((node) => node.nodeValue || ''))
+  void requestTranslations(initialUnits)
     .then(notifyInitialTranslationComplete)
     .catch(notifyPageTranslationError)
   return { collected: true }
@@ -245,7 +281,11 @@ function installPageTranslator(
   }
 
   function enqueueTextNode(node: Text) {
-    if (!state.inFlightNodes.has(node) && isTranslatableTextNode(node)) {
+    if (
+      !state.inFlightNodes.has(node) &&
+      !isInsideInFlightElement(node) &&
+      isTranslatableTextNode(node)
+    ) {
       state.pendingNodes.add(node)
     }
   }
@@ -264,35 +304,144 @@ function installPageTranslator(
   }
 
   function flushPendingNodes() {
-    const nodes = takePendingNodes()
-    if (!nodes.length) {
+    const units = takePendingUnits()
+    if (!units.length) {
       return
     }
 
-    const sourceTexts = nodes.map((node) => node.nodeValue || '')
-    void requestTranslations(nodes, sourceTexts).catch(notifyPageTranslationError)
+    void requestTranslations(units).catch(notifyPageTranslationError)
   }
 
-  function takePendingNodes() {
+  function takePendingUnits() {
     const nodes = [...state.pendingNodes]
-      .filter((node) => !state.inFlightNodes.has(node) && isTranslatableTextNode(node))
+      .filter((node) => (
+        !state.inFlightNodes.has(node) &&
+        !isInsideInFlightElement(node) &&
+        isTranslatableTextNode(node)
+      ))
       .slice(0, maxNodes)
     state.pendingNodes.clear()
 
-    for (const node of nodes) {
-      state.inFlightNodes.add(node)
+    if (pageTextProcessingMode === 'element-context') {
+      return createElementContextUnits(nodes).slice(0, maxNodes)
     }
 
-    return nodes
+    const units = nodes.map((node): TextTranslationUnit => ({
+      kind: 'text',
+      node,
+      sourceText: node.nodeValue || '',
+    }))
+    for (const unit of units) {
+      state.inFlightNodes.add(unit.node)
+    }
+
+    return units
   }
 
-  function requestTranslations(nodes: Text[], sourceTexts: string[]) {
+  function createElementContextUnits(nodes: Text[]) {
+    const units: PageTranslationUnit[] = []
+    const seenElements = new Set<Element>()
+
+    for (const node of nodes) {
+      const element = getTranslationContextElement(node)
+      if (
+        !element ||
+        seenElements.has(element) ||
+        state.inFlightElements.has(element) ||
+        !isTranslatableElementContext(element)
+      ) {
+        continue
+      }
+
+      const unit = createElementTranslationUnit(element)
+      if (!unit) {
+        continue
+      }
+
+      seenElements.add(element)
+      state.inFlightElements.add(element)
+      units.push(unit)
+    }
+
+    return units
+  }
+
+  function getTranslationContextElement(node: Text) {
+    const parent = node.parentElement
+    if (!parent) {
+      return undefined
+    }
+
+    const contextElement = parent.closest(
+      'p, li, h1, h2, h3, h4, h5, h6, blockquote, figcaption, caption, td, th, dt, dd, summary, label, button, a',
+    )
+    if (contextElement && document.body.contains(contextElement)) {
+      return contextElement
+    }
+
+    return parent === document.body ? undefined : parent
+  }
+
+  function createElementTranslationUnit(element: Element): ElementTranslationUnit | undefined {
+    const fragments: ProtectedFragment[] = []
+    const sourceText = serializeElementForTranslation(element, fragments).trim()
+    if (!isAllowedTextLength(sourceText)) {
+      return undefined
+    }
+
+    return {
+      kind: 'element',
+      element,
+      sourceText,
+      originalHtml: element.innerHTML,
+      fragments,
+    }
+  }
+
+  function serializeElementForTranslation(element: Element, fragments: ProtectedFragment[]) {
+    let text = ''
+
+    for (const node of element.childNodes) {
+      text += serializeNodeForTranslation(node, fragments)
+    }
+
+    return text
+  }
+
+  function serializeNodeForTranslation(node: Node, fragments: ProtectedFragment[]): string {
+    if (node.nodeType === Node.TEXT_NODE) {
+      return node.nodeValue || ''
+    }
+
+    if (!(node instanceof Element)) {
+      return ''
+    }
+
+    if (isProtectedInlineElement(node)) {
+      const token = createProtectedFragmentToken(fragments.length)
+      fragments.push({ token, node: node.cloneNode(true) })
+      return token
+    }
+
+    if (node.closest('[data-open-translate-ui], [data-open-translate-bilingual]')) {
+      return ''
+    }
+
+    return serializeElementForTranslation(node, fragments)
+  }
+
+  function createProtectedFragmentToken(index: number) {
+    return `__OPEN_TRANSLATE_KEEP_${index}__`
+  }
+
+  function requestTranslations(units: PageTranslationUnit[]) {
+    const sourceTexts = units.map((unit) => unit.sourceText)
     if (translationProvider === 'chrome-built-in') {
-      return requestBuiltInTranslations(nodes, sourceTexts)
+      return requestBuiltInTranslations(units)
     }
 
     const requestId = createTranslationRequestId()
-    state.translationRequests.set(requestId, { nodes, sourceTexts })
+    state.translationRequests.set(requestId, { units })
 
     return new Promise<void>((resolve) => {
       chrome.runtime.sendMessage(
@@ -304,10 +453,10 @@ function installPageTranslator(
               return
             }
 
-            applyPageTranslations(nodes, sourceTexts, pageTranslationResponse)
+            applyPageTranslations(units, pageTranslationResponse)
           } finally {
             state.translationRequests.delete(requestId)
-            releaseInFlightNodes(nodes)
+            releaseInFlightUnits(units)
             resolve()
           }
         },
@@ -315,7 +464,8 @@ function installPageTranslator(
     })
   }
 
-  async function requestBuiltInTranslations(nodes: Text[], sourceTexts: string[]) {
+  async function requestBuiltInTranslations(units: PageTranslationUnit[]) {
+    const sourceTexts = units.map((unit) => unit.sourceText)
     const entries = sourceTexts.map((sourceText, index) => ({ index, sourceText }))
       .filter((entry) => (
         isAllowedTextLength(entry.sourceText) &&
@@ -334,15 +484,13 @@ function installPageTranslator(
         translationConcurrency,
         async (batch) => {
           const translatedEntries: Array<{
-            node?: Text
-            sourceText?: string
+            unit?: PageTranslationUnit
             translatedText?: string
           }> = []
 
           for (const entry of batch) {
             translatedEntries.push({
-              node: nodes[entry.index],
-              sourceText: entry.sourceText,
+              unit: units[entry.index],
               translatedText: await translateWithBuiltInAI(entry.sourceText),
             })
           }
@@ -353,7 +501,7 @@ function installPageTranslator(
         },
       )
     } finally {
-      releaseInFlightNodes(nodes)
+      releaseInFlightUnits(units)
     }
   }
 
@@ -538,8 +686,7 @@ function installPageTranslator(
 
     applyPageTranslationEntries(
       message.translations.map((translation) => ({
-        node: request.nodes[translation.index],
-        sourceText: request.sourceTexts[translation.index],
+        unit: request.units[translation.index],
         translatedText: translation.text,
       })),
       message.displayMode,
@@ -558,14 +705,12 @@ function installPageTranslator(
   }
 
   function applyPageTranslations(
-    nodes: Text[],
-    sourceTexts: string[],
+    units: PageTranslationUnit[],
     response: PageTranslationResponse,
   ) {
     applyPageTranslationEntries(
-      nodes.map((node, index) => ({
-        node,
-        sourceText: sourceTexts[index],
+      units.map((unit, index) => ({
+        unit,
         translatedText: response.translations?.[index],
       })),
       response.displayMode || 'translation',
@@ -574,8 +719,7 @@ function installPageTranslator(
 
   function applyPageTranslationEntries(
     entries: Array<{
-      node?: Text
-      sourceText?: string
+      unit?: PageTranslationUnit
       translatedText?: string
     }>,
     displayMode: 'translation' | 'bilingual',
@@ -584,16 +728,14 @@ function installPageTranslator(
     try {
       for (const entry of entries) {
         if (
-          !entry.node ||
-          !entry.sourceText ||
-          !canApplyPageTranslation(entry.node, entry.sourceText, entry.translatedText)
+          !entry.unit ||
+          !canApplyPageTranslation(entry.unit, entry.translatedText)
         ) {
           continue
         }
 
         applyPageTranslation(
-          entry.node,
-          entry.sourceText,
+          entry.unit,
           entry.translatedText,
           displayMode,
         )
@@ -606,27 +748,54 @@ function installPageTranslator(
   }
 
   function canApplyPageTranslation(
-    node: Text,
-    sourceText: string,
+    unit: PageTranslationUnit,
     translatedText?: string,
   ): translatedText is string {
+    if (!translatedText) {
+      return false
+    }
+
+    if (unit.kind === 'element') {
+      return !!(
+        unit.element.isConnected &&
+        unit.element.innerHTML === unit.originalHtml &&
+        isTranslatableElementContext(unit.element)
+      )
+    }
+
     return !!(
-      translatedText &&
-      node.parentNode &&
-      node.nodeValue === sourceText &&
-      isTranslatableTextNode(node)
+      unit.node.parentNode &&
+      unit.node.nodeValue === unit.sourceText &&
+      isTranslatableTextNode(unit.node)
     )
   }
 
-  function releaseInFlightNodes(nodes: Text[]) {
-    for (const node of nodes) {
-      state.inFlightNodes.delete(node)
+  function releaseInFlightUnits(units: PageTranslationUnit[]) {
+    for (const unit of units) {
+      if (unit.kind === 'element') {
+        state.inFlightElements.delete(unit.element)
+        continue
+      }
+
+      state.inFlightNodes.delete(unit.node)
     }
   }
 
   function applyPageTranslation(
-    node: Text,
-    sourceText: string,
+    unit: PageTranslationUnit,
+    translatedText: string,
+    displayMode: 'translation' | 'bilingual',
+  ) {
+    if (unit.kind === 'element') {
+      applyElementTranslation(unit, translatedText, displayMode)
+      return
+    }
+
+    applyTextTranslation(unit, translatedText, displayMode)
+  }
+
+  function applyTextTranslation(
+    unit: TextTranslationUnit,
     translatedText: string,
     displayMode: 'translation' | 'bilingual',
   ) {
@@ -639,10 +808,10 @@ function installPageTranslator(
     const translatedTexts = pageWindow.__openTranslatePageTranslations || new Set<string>()
     pageWindow.__openTranslatePageOriginals = originals
     pageWindow.__openTranslatePageTranslations = translatedTexts
-    originals.set(node, { sourceText, translatedText })
+    originals.set(unit.node, { sourceText: unit.sourceText, translatedText })
     translatedTexts.add(translatedText)
 
-    const nextSibling = node.nextSibling
+    const nextSibling = unit.node.nextSibling
     if (
       nextSibling instanceof HTMLElement &&
       nextSibling.dataset.openTranslateBilingual === 'true'
@@ -651,12 +820,112 @@ function installPageTranslator(
     }
 
     if (displayMode === 'translation') {
-      node.nodeValue = translatedText
+      unit.node.nodeValue = translatedText
       return
     }
 
-    node.nodeValue = sourceText
-    node.parentNode?.insertBefore(createPageBilingualText(translatedText), node.nextSibling)
+    unit.node.nodeValue = unit.sourceText
+    unit.node.parentNode?.insertBefore(createPageBilingualText(translatedText), unit.node.nextSibling)
+  }
+
+  function applyElementTranslation(
+    unit: ElementTranslationUnit,
+    translatedText: string,
+    displayMode: 'translation' | 'bilingual',
+  ) {
+    const pageWindow = window as typeof window & {
+      __openTranslatePageElementOriginals?: Map<Element, PageElementTranslation>
+      __openTranslatePageTranslations?: Set<string>
+    }
+    const originals =
+      pageWindow.__openTranslatePageElementOriginals || new Map<Element, PageElementTranslation>()
+    const translatedTexts = pageWindow.__openTranslatePageTranslations || new Set<string>()
+    pageWindow.__openTranslatePageElementOriginals = originals
+    pageWindow.__openTranslatePageTranslations = translatedTexts
+    originals.set(unit.element, {
+      sourceText: unit.sourceText,
+      translatedText,
+      originalHtml: unit.originalHtml,
+    })
+    translatedTexts.add(translatedText)
+    unit.element.setAttribute('data-open-translate-element', 'true')
+
+    const nextSibling = unit.element.nextSibling
+    if (
+      nextSibling instanceof HTMLElement &&
+      nextSibling.dataset.openTranslateBilingual === 'true'
+    ) {
+      nextSibling.remove()
+    }
+
+    if (displayMode === 'translation') {
+      replaceElementContentWithTranslation(unit.element, translatedText, unit.fragments)
+      return
+    }
+
+    unit.element.parentNode?.insertBefore(
+      createPageBilingualFragment(translatedText, unit.fragments),
+      unit.element.nextSibling,
+    )
+  }
+
+  function replaceElementContentWithTranslation(
+    element: Element,
+    translatedText: string,
+    fragments: ProtectedFragment[],
+  ) {
+    element.replaceChildren(...createTranslatedNodes(translatedText, fragments))
+  }
+
+  function createPageBilingualFragment(
+    translatedText: string,
+    fragments: ProtectedFragment[],
+  ) {
+    const wrapper = document.createElement('font')
+    wrapper.dataset.openTranslateBilingual = 'true'
+    wrapper.style.cssText = `
+      display: inline;
+      margin-left: 0.35em;
+    `
+    wrapper.append(...createTranslatedNodes(translatedText, fragments))
+
+    return wrapper
+  }
+
+  function createTranslatedNodes(translatedText: string, fragments: ProtectedFragment[]) {
+    const nodes: Node[] = []
+    const usedTokens = new Set<string>()
+    const tokenPattern = /__OPEN_TRANSLATE_KEEP_(\d+)__/gi
+    let lastIndex = 0
+
+    for (const match of translatedText.matchAll(tokenPattern)) {
+      const token = match[0]
+      const index = match.index || 0
+      const fragmentIndex = Number(match[1])
+      if (index > lastIndex) {
+        nodes.push(document.createTextNode(translatedText.slice(lastIndex, index)))
+      }
+
+      const fragment = Number.isInteger(fragmentIndex) ? fragments[fragmentIndex] : undefined
+      if (fragment) {
+        usedTokens.add(fragment.token)
+      }
+      nodes.push(fragment ? fragment.node.cloneNode(true) : document.createTextNode(token))
+      lastIndex = index + token.length
+    }
+
+    if (lastIndex < translatedText.length) {
+      nodes.push(document.createTextNode(translatedText.slice(lastIndex)))
+    }
+
+    for (const fragment of fragments) {
+      if (!usedTokens.has(fragment.token)) {
+        nodes.push(document.createTextNode(' '))
+        nodes.push(fragment.node.cloneNode(true))
+      }
+    }
+
+    return nodes.length ? nodes : [document.createTextNode(translatedText)]
   }
 
   function createPageBilingualText(translatedText: string) {
@@ -698,6 +967,10 @@ function installPageTranslator(
       return false
     }
 
+    if (parent.closest('[data-open-translate-element="true"]')) {
+      return false
+    }
+
     if (isInNoTranslateElement(parent)) {
       return false
     }
@@ -721,6 +994,37 @@ function installPageTranslator(
     )
   }
 
+  function isTranslatableElementContext(element: Element) {
+    if (
+      !element.isConnected ||
+      ignoredTags.has(element.tagName) ||
+      element.closest('[data-open-translate-ui], [data-open-translate-bilingual]') ||
+      element.closest('[data-open-translate-element="true"]') ||
+      isInNoTranslateElement(element)
+    ) {
+      return false
+    }
+
+    const rect = element.getBoundingClientRect()
+    const style = getComputedStyle(element)
+    return (
+      rect.width > 0 &&
+      rect.height > 0 &&
+      (pageTranslationScope !== 'viewport' || isRectInViewport(rect)) &&
+      style.visibility !== 'hidden' &&
+      style.display !== 'none' &&
+      Number(style.opacity) !== 0
+    )
+  }
+
+  function isProtectedInlineElement(element: Element) {
+    return (
+      ignoredTags.has(element.tagName) ||
+      element.matches('[data-open-translate-ui], [data-open-translate-bilingual]') ||
+      matchesNoTranslateSelector(element)
+    )
+  }
+
   function isRectInViewport(rect: DOMRect) {
     return (
       rect.bottom > 0 &&
@@ -734,13 +1038,35 @@ function installPageTranslator(
     return text.trim().length >= minTranslationTextLength
   }
 
+  function isInsideInFlightElement(node: Text) {
+    const parent = node.parentElement
+    return !!parent && [...state.inFlightElements].some((element) => element.contains(parent))
+  }
+
   function isInNoTranslateElement(element: Element) {
     return !!(
       element.closest(
-        "pre, code, [contenteditable='true'], [data-open-translate-ui], [data-open-translate-selection-panel], [data-open-translate-bilingual]",
+        "pre, code, [contenteditable='true'], [data-open-translate-ui], [data-open-translate-selection-panel], [data-open-translate-bilingual], [data-open-translate-element='true']",
       ) ||
       noTranslateSelectors.some((selector) => matchesClosestSelector(element, selector))
     )
+  }
+
+  function matchesNoTranslateSelector(element: Element) {
+    return noTranslateSelectors.some((selector) => matchesSelector(element, selector))
+  }
+
+  function matchesSelector(element: Element, selector: string) {
+    const normalizedSelector = selector.trim()
+    if (!normalizedSelector) {
+      return false
+    }
+
+    try {
+      return element.matches(normalizedSelector)
+    } catch {
+      return false
+    }
   }
 
   function matchesClosestSelector(element: Element, selector: string) {
@@ -783,6 +1109,7 @@ function installPageTranslator(
 function beginPageTranslationSession(
   pageWindow: typeof window & {
     __openTranslatePageOriginals?: Map<Text, PageTextTranslation>
+    __openTranslatePageElementOriginals?: Map<Element, PageElementTranslation>
     __openTranslatePageSessionId?: number
     __openTranslatePageTranslations?: Set<string>
   },
@@ -791,6 +1118,7 @@ function beginPageTranslationSession(
 
   pageWindow.__openTranslatePageSessionId = pageSessionId
   pageWindow.__openTranslatePageOriginals = new Map<Text, PageTextTranslation>()
+  pageWindow.__openTranslatePageElementOriginals = new Map<Element, PageElementTranslation>()
   pageWindow.__openTranslatePageTranslations = new Set<string>()
   return pageSessionId
 }

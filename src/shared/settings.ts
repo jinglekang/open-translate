@@ -40,6 +40,8 @@ export const translationDisplayModeSchema = z.enum(['translation', 'bilingual'])
 export type TranslationDisplayMode = z.infer<typeof translationDisplayModeSchema>
 export const pageTranslationScopeSchema = z.enum(['visible-page', 'viewport'])
 export type PageTranslationScope = z.infer<typeof pageTranslationScopeSchema>
+export const pageTextProcessingModeSchema = z.enum(['text-node', 'element-context'])
+export type PageTextProcessingMode = z.infer<typeof pageTextProcessingModeSchema>
 export const translationProviderSchema = z.enum(['openai-compatible', 'chrome-built-in'])
 export type TranslationProvider = z.infer<typeof translationProviderSchema>
 
@@ -115,6 +117,7 @@ export const translationSettingsSchema = z
     activeProfileId: trimmedString.min(1),
     displayMode: translationDisplayModeSchema.catch('bilingual'),
     pageTranslationScope: pageTranslationScopeSchema.catch('viewport'),
+    pageTextProcessingMode: pageTextProcessingModeSchema.catch('text-node'),
     targetLanguage: trimmedString
       .min(1, t('targetLanguageRequired'))
       .max(
@@ -157,6 +160,7 @@ export const translationSettingsSchema = z
       activeProfileId,
       displayMode: settings.displayMode,
       pageTranslationScope: settings.pageTranslationScope,
+      pageTextProcessingMode: settings.pageTextProcessingMode,
       targetLanguage: settings.targetLanguage,
       userWhitelist: [...new Set(settings.userWhitelist)],
       noTranslateSelectors: [...new Set(settings.noTranslateSelectors)],
@@ -185,6 +189,7 @@ export const defaultSettings: TranslationSettings = {
   activeProfileId: defaultProfile.id,
   displayMode: 'bilingual',
   pageTranslationScope: 'viewport',
+  pageTextProcessingMode: 'text-node',
   targetLanguage: '简体中文',
   userWhitelist: [...defaultUserWhitelist],
   noTranslateSelectors: [...defaultNoTranslateSelectors],
@@ -237,6 +242,7 @@ export function normalizeSettings(stored: unknown): TranslationSettings {
     activeProfileId: defaultProfile.id,
     displayMode: 'bilingual',
     pageTranslationScope: 'viewport',
+    pageTextProcessingMode: defaultSettings.pageTextProcessingMode,
     targetLanguage: legacyResult.data.targetLanguage || defaultSettings.targetLanguage,
     userWhitelist: [...defaultSettings.userWhitelist],
     noTranslateSelectors: [...defaultSettings.noTranslateSelectors],

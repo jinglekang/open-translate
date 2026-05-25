@@ -161,6 +161,15 @@
   "minTranslationTextLength": {
     "message": "Minimum text length"
   },
+  "pageTextProcessingMode": {
+    "message": "Page text processing"
+  },
+  "textNodeProcessingMode": {
+    "message": "Text nodes"
+  },
+  "elementContextProcessingMode": {
+    "message": "Whole paragraph"
+  },
   "minTranslationTextLengthInvalid": {
     "message": "Minimum text length must be an integer from 1 to 100"
   },
