@@ -1,6 +1,6 @@
 import { StrictMode, useEffect, useMemo, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { SettingsIcon } from 'lucide-react'
+import { LanguagesIcon, SettingsIcon } from 'lucide-react'
 import {
   Select,
   SelectContent,
@@ -100,13 +100,12 @@ export function Popup() {
   }
 
   return (
-    <main className="w-[328px] bg-slate-50 text-slate-900">
+    <main className="w-82 bg-slate-50 text-slate-900">
       <header className="flex items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3">
         <div className="flex min-w-0 items-center gap-2.5">
-          <span
-            className="h-2.5 w-2.5 shrink-0 rounded-full bg-green-600 shadow-[0_0_0_4px_rgba(22,163,74,0.12)]"
-            aria-label={t('extensionEnabled')}
-          />
+          <span className="grid size-7 shrink-0 place-items-center rounded-md border border-slate-200 bg-slate-100 text-slate-700">
+            <LanguagesIcon className="size-4" aria-hidden="true" />
+          </span>
           <h1 className="truncate text-base leading-tight font-semibold text-slate-900">
             {t('popupTitle')}
           </h1>
@@ -115,7 +114,7 @@ export function Popup() {
           type="button"
           size="sm"
           variant="outline"
-          className="h-8 shrink-0 gap-1.5 rounded-md border-emerald-200 bg-emerald-50 px-2.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 hover:text-emerald-800"
+          className="h-8 shrink-0 gap-1.5 rounded-md border-slate-300 bg-slate-100 px-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-200"
           onClick={openOptionsPage}
         >
           <SettingsIcon className="size-3.5" aria-hidden="true" />
@@ -157,7 +156,7 @@ export function Popup() {
                   ? t('chromeBuiltInProvider')
                   : activeProfile?.model || t('modelUnset')}
               </span>
-              <span className="shrink-0 rounded-md bg-blue-50 px-1.5 py-0.5 text-[11px] font-semibold text-blue-700">
+              <span className="shrink-0 rounded-md bg-slate-100 px-1.5 py-0.5 text-[11px] font-semibold text-slate-700">
                 {settings.activeProfileId === activeProfile?.id ? t('activeProfile') : ''}
               </span>
             </div>
@@ -176,7 +175,7 @@ export function Popup() {
               {t('targetLanguage')}
             </span>
             <input
-              className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-900 outline-none transition focus:border-blue-600 focus:ring-[3px] focus:ring-blue-100"
+              className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-[3px] focus:ring-slate-200"
               value={settings.targetLanguage}
               onChange={(event) => void handleTargetLanguageChange(event.target.value)}
               placeholder={t('targetLanguagePlaceholder')}
@@ -193,8 +192,8 @@ export function Popup() {
                 variant={settings.displayMode === 'bilingual' ? 'default' : 'ghost'}
                 className={
                   settings.displayMode === 'bilingual'
-                    ? 'h-8 rounded-md bg-blue-600 text-sm font-semibold text-white'
-                    : 'h-8 rounded-md bg-transparent text-sm font-semibold text-slate-600 transition hover:bg-blue-50'
+                    ? 'h-8 rounded-md bg-slate-800 text-sm font-semibold text-white'
+                    : 'h-8 rounded-md bg-transparent text-sm font-semibold text-slate-600 transition hover:bg-slate-100'
                 }
                 onClick={() => handleDisplayModeChange('bilingual')}
               >
@@ -206,8 +205,8 @@ export function Popup() {
                 variant={settings.displayMode === 'translation' ? 'default' : 'ghost'}
                 className={
                   settings.displayMode === 'translation'
-                    ? 'h-8 rounded-md bg-blue-600 text-sm font-semibold text-white'
-                    : 'h-8 rounded-md bg-transparent text-sm font-semibold text-slate-600 transition hover:bg-blue-50'
+                    ? 'h-8 rounded-md bg-slate-800 text-sm font-semibold text-white'
+                    : 'h-8 rounded-md bg-transparent text-sm font-semibold text-slate-600 transition hover:bg-slate-100'
                 }
                 onClick={() => handleDisplayModeChange('translation')}
               >
@@ -227,8 +226,8 @@ export function Popup() {
                 variant={settings.translationScope === 'viewport' ? 'default' : 'ghost'}
                 className={
                   settings.translationScope === 'viewport'
-                    ? 'h-8 rounded-md bg-blue-600 text-sm font-semibold text-white'
-                    : 'h-8 rounded-md bg-transparent text-sm font-semibold text-slate-600 transition hover:bg-blue-50'
+                    ? 'h-8 rounded-md bg-slate-800 text-sm font-semibold text-white'
+                    : 'h-8 rounded-md bg-transparent text-sm font-semibold text-slate-600 transition hover:bg-slate-100'
                 }
                 onClick={() => handleTranslationScopeChange('viewport')}
               >
@@ -240,8 +239,8 @@ export function Popup() {
                 variant={settings.translationScope === 'visible-page' ? 'default' : 'ghost'}
                 className={
                   settings.translationScope === 'visible-page'
-                    ? 'h-8 rounded-md bg-blue-600 text-sm font-semibold text-white'
-                    : 'h-8 rounded-md bg-transparent text-sm font-semibold text-slate-600 transition hover:bg-blue-50'
+                    ? 'h-8 rounded-md bg-slate-800 text-sm font-semibold text-white'
+                    : 'h-8 rounded-md bg-transparent text-sm font-semibold text-slate-600 transition hover:bg-slate-100'
                 }
                 onClick={() => handleTranslationScopeChange('visible-page')}
               >
@@ -261,8 +260,8 @@ export function Popup() {
                 variant={settings.translationMode === 'element-context' ? 'default' : 'ghost'}
                 className={
                   settings.translationMode === 'element-context'
-                    ? 'h-8 rounded-md bg-blue-600 text-sm font-semibold text-white'
-                    : 'h-8 rounded-md bg-transparent text-sm font-semibold text-slate-600 transition hover:bg-blue-50'
+                    ? 'h-8 rounded-md bg-slate-800 text-sm font-semibold text-white'
+                    : 'h-8 rounded-md bg-transparent text-sm font-semibold text-slate-600 transition hover:bg-slate-100'
                 }
                 onClick={() => handleTranslationModeChange('element-context')}
               >
@@ -274,8 +273,8 @@ export function Popup() {
                 variant={settings.translationMode === 'text-node' ? 'default' : 'ghost'}
                 className={
                   settings.translationMode === 'text-node'
-                    ? 'h-8 rounded-md bg-blue-600 text-sm font-semibold text-white'
-                    : 'h-8 rounded-md bg-transparent text-sm font-semibold text-slate-600 transition hover:bg-blue-50'
+                    ? 'h-8 rounded-md bg-slate-800 text-sm font-semibold text-white'
+                    : 'h-8 rounded-md bg-transparent text-sm font-semibold text-slate-600 transition hover:bg-slate-100'
                 }
                 onClick={() => handleTranslationModeChange('text-node')}
               >

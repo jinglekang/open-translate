@@ -39,6 +39,7 @@ Vite outputs fixed extension files:
 
 ## Product Requirements
 
+- Popup and Options should automatically follow the browser/system color scheme with `prefers-color-scheme`; do not add a manual theme switch unless explicitly requested.
 - Default target language is Simplified Chinese.
 - Default display mode is bilingual.
 - Default translation scope is viewport.

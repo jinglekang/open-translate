@@ -211,7 +211,7 @@ export function Options() {
     <main className="min-h-screen bg-slate-50 px-7 py-7 text-slate-900">
       <header className="mx-auto mb-5 flex w-full max-w-300 items-center justify-between gap-4.5">
         <div>
-          <p className="mb-1 text-[11px] font-bold uppercase tracking-[0.08em] text-blue-600">
+          <p className="mb-1 text-[11px] font-bold uppercase tracking-[0.08em] text-slate-500">
             Open Translate
           </p>
           <h1 className="text-[28px] leading-tight font-semibold text-slate-900">
@@ -222,7 +222,7 @@ export function Options() {
           <Button
             type="button"
             size="lg"
-            className="h-9 rounded-md bg-blue-600 px-3.5 text-sm font-semibold text-white transition hover:bg-blue-700"
+            className="h-9 rounded-md bg-slate-800 px-3.5 text-sm font-semibold text-white transition hover:bg-slate-700"
             onClick={addProfile}
           >
             {t('addProfile')}
@@ -242,8 +242,8 @@ export function Options() {
               variant={activeTab === tab ? 'default' : 'ghost'}
               className={
                 activeTab === tab
-                  ? 'h-10 justify-start rounded-md bg-blue-600 px-3 text-sm font-semibold text-white'
-                  : 'h-10 justify-start rounded-md bg-transparent px-3 text-sm font-semibold text-slate-600 hover:bg-blue-50'
+                  ? 'h-10 justify-start rounded-md bg-slate-800 px-3 text-sm font-semibold text-white'
+                  : 'h-10 justify-start rounded-md bg-transparent px-3 text-sm font-semibold text-slate-600 hover:bg-slate-100'
               }
               onClick={() => setActiveTab(tab)}
             >
@@ -263,7 +263,7 @@ export function Options() {
               size="lg"
               key={profile.id}
               className={`relative grid h-auto min-h-17 w-full min-w-0 grid-cols-[minmax(0,1fr)] gap-1 overflow-hidden rounded-lg px-3 py-2.5 text-left transition before:absolute before:inset-y-2.25 before:left-0 before:w-0.75 before:rounded-r-full before:content-[''] ${profile.id === editingProfile.id
-                ? 'border-blue-600 bg-blue-50 shadow-[0_0_0_3px_rgba(37,99,235,0.12)] before:bg-blue-600'
+                ? 'border-slate-400 bg-slate-100 shadow-[0_0_0_3px_rgba(71,85,105,0.12)] before:bg-slate-800'
                 : 'border-slate-200 bg-white before:bg-transparent hover:border-slate-300 hover:bg-slate-50'
                 }`}
               onClick={() => setEditingId(profile.id)}
@@ -323,7 +323,7 @@ export function Options() {
           <label className="grid gap-1.5">
             <span className="text-[13px] font-semibold text-slate-600">{t('profileName')}</span>
             <input
-              className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-900 outline-none transition focus:border-blue-600 focus:ring-[3px] focus:ring-blue-100"
+              className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-[3px] focus:ring-slate-200"
               value={editingProfile.name}
               onChange={(event) => updateProfile('name', event.target.value)}
               placeholder={t('profileNamePlaceholder')}
@@ -336,7 +336,7 @@ export function Options() {
               {t('translationProvider')}
             </span>
             <select
-              className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-900 outline-none transition focus:border-blue-600 focus:ring-[3px] focus:ring-blue-100"
+              className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-[3px] focus:ring-slate-200"
               value={editingProfile.provider}
               onChange={(event) =>
                 updateProfile(
@@ -365,7 +365,7 @@ export function Options() {
           <label className="grid gap-1.5">
             <span className="text-[13px] font-semibold text-slate-600">{t('apiBaseUrl')}</span>
             <input
-              className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-900 outline-none transition focus:border-blue-600 focus:ring-[3px] focus:ring-blue-100"
+              className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-[3px] focus:ring-slate-200"
               value={editingProfile.apiBaseUrl}
               onChange={(event) => updateProfile('apiBaseUrl', event.target.value)}
               placeholder="https://api.openai.com/v1"
@@ -381,7 +381,7 @@ export function Options() {
                 {t('translationConcurrency')}
               </span>
               <input
-                className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-900 outline-none transition focus:border-blue-600 focus:ring-[3px] focus:ring-blue-100"
+                className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-[3px] focus:ring-slate-200"
                 value={editingProfile.translationConcurrency}
                 onChange={(event) =>
                   updateProfile('translationConcurrency', Number(event.target.value))
@@ -397,7 +397,7 @@ export function Options() {
             <label className="grid min-w-0 gap-1.5">
               <span className="text-[13px] font-semibold text-slate-600">{t('modelName')}</span>
               <input
-                className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-900 outline-none transition focus:border-blue-600 focus:ring-[3px] focus:ring-blue-100"
+                className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-[3px] focus:ring-slate-200"
                 value={editingProfile.model}
                 onChange={(event) => updateProfile('model', event.target.value)}
                 placeholder="gpt-4o-mini"
@@ -409,7 +409,7 @@ export function Options() {
             <label className="grid gap-1.5">
               <span className="text-[13px] font-semibold text-slate-600">{t('translationConcurrency')}</span>
               <input
-                className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-900 outline-none transition focus:border-blue-600 focus:ring-[3px] focus:ring-blue-100"
+                className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-[3px] focus:ring-slate-200"
                 value={editingProfile.translationConcurrency}
                 onChange={(event) => updateProfile('translationConcurrency', Number(event.target.value))}
                 type="number"
@@ -427,7 +427,7 @@ export function Options() {
                 {t('translationBatchSegments')}
               </span>
               <input
-                className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-900 outline-none transition focus:border-blue-600 focus:ring-[3px] focus:ring-blue-100"
+                className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-[3px] focus:ring-slate-200"
                 value={editingProfile.translationBatchSegments}
                 onChange={(event) =>
                   updateProfile('translationBatchSegments', Number(event.target.value))
@@ -444,7 +444,7 @@ export function Options() {
                 {t('translationBatchTextLength')}
               </span>
               <input
-                className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-900 outline-none transition focus:border-blue-600 focus:ring-[3px] focus:ring-blue-100"
+                className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-[3px] focus:ring-slate-200"
                 value={editingProfile.translationBatchTextLength}
                 onChange={(event) =>
                   updateProfile('translationBatchTextLength', Number(event.target.value))
@@ -461,7 +461,7 @@ export function Options() {
           <label className="grid gap-1.5">
             <span className="text-[13px] font-semibold text-slate-600">{t('apiKey')}</span>
             <input
-              className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-900 outline-none transition focus:border-blue-600 focus:ring-[3px] focus:ring-blue-100"
+              className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-[3px] focus:ring-slate-200"
               value={editingProfile.apiKey}
               onChange={(event) => updateProfile('apiKey', event.target.value)}
               placeholder="sk-..."
@@ -476,7 +476,7 @@ export function Options() {
           <label className="grid gap-1.5">
             <span className="text-[13px] font-semibold text-slate-600">{t('customPrompt')}</span>
             <textarea
-              className="min-h-28 w-full resize-y rounded-md border border-slate-300 bg-white px-2.5 py-2 text-sm leading-snug text-slate-900 outline-none transition focus:border-blue-600 focus:ring-[3px] focus:ring-blue-100"
+              className="min-h-28 w-full resize-y rounded-md border border-slate-300 bg-white px-2.5 py-2 text-sm leading-snug text-slate-900 outline-none transition focus:border-slate-400 focus:ring-[3px] focus:ring-slate-200"
               value={editingProfile.customPrompt}
               onChange={(event) => updateProfile('customPrompt', event.target.value)}
               placeholder={t('customPromptPlaceholder')}
@@ -498,7 +498,7 @@ export function Options() {
           <Button
             type="submit"
             size="lg"
-            className="h-9 w-fit rounded-md bg-blue-600 px-3.5 text-sm font-semibold text-white transition hover:bg-blue-700"
+            className="h-9 w-fit rounded-md bg-slate-800 px-3.5 text-sm font-semibold text-white transition hover:bg-slate-700"
           >
             {t('saveProfile')}
           </Button>
@@ -524,7 +524,7 @@ export function Options() {
               {t('minTranslationTextLength')}
             </span>
             <input
-              className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-900 outline-none transition focus:border-blue-600 focus:ring-[3px] focus:ring-blue-100"
+              className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-[3px] focus:ring-slate-200"
               value={settings.minTranslationTextLength}
               onChange={(event) =>
                 updateSetting('minTranslationTextLength', Number(event.target.value))
@@ -547,8 +547,8 @@ export function Options() {
                 variant={settings.displayMode === 'bilingual' ? 'default' : 'ghost'}
                 className={
                   settings.displayMode === 'bilingual'
-                    ? 'h-8 rounded-md bg-blue-600 text-sm font-semibold text-white'
-                    : 'h-8 rounded-md bg-transparent text-sm font-semibold text-slate-600 transition hover:bg-blue-50'
+                    ? 'h-8 rounded-md bg-slate-800 text-sm font-semibold text-white'
+                    : 'h-8 rounded-md bg-transparent text-sm font-semibold text-slate-600 transition hover:bg-slate-100'
                 }
                 onClick={() => updateSetting('displayMode', 'bilingual')}
               >
@@ -560,8 +560,8 @@ export function Options() {
                 variant={settings.displayMode === 'translation' ? 'default' : 'ghost'}
                 className={
                   settings.displayMode === 'translation'
-                    ? 'h-8 rounded-md bg-blue-600 text-sm font-semibold text-white'
-                    : 'h-8 rounded-md bg-transparent text-sm font-semibold text-slate-600 transition hover:bg-blue-50'
+                    ? 'h-8 rounded-md bg-slate-800 text-sm font-semibold text-white'
+                    : 'h-8 rounded-md bg-transparent text-sm font-semibold text-slate-600 transition hover:bg-slate-100'
                 }
                 onClick={() => updateSetting('displayMode', 'translation')}
               >
@@ -581,8 +581,8 @@ export function Options() {
                 variant={settings.translationScope === 'viewport' ? 'default' : 'ghost'}
                 className={
                   settings.translationScope === 'viewport'
-                    ? 'h-8 rounded-md bg-blue-600 text-sm font-semibold text-white'
-                    : 'h-8 rounded-md bg-transparent text-sm font-semibold text-slate-600 transition hover:bg-blue-50'
+                    ? 'h-8 rounded-md bg-slate-800 text-sm font-semibold text-white'
+                    : 'h-8 rounded-md bg-transparent text-sm font-semibold text-slate-600 transition hover:bg-slate-100'
                 }
                 onClick={() => updateSetting('translationScope', 'viewport')}
               >
@@ -594,8 +594,8 @@ export function Options() {
                 variant={settings.translationScope === 'visible-page' ? 'default' : 'ghost'}
                 className={
                   settings.translationScope === 'visible-page'
-                    ? 'h-8 rounded-md bg-blue-600 text-sm font-semibold text-white'
-                    : 'h-8 rounded-md bg-transparent text-sm font-semibold text-slate-600 transition hover:bg-blue-50'
+                    ? 'h-8 rounded-md bg-slate-800 text-sm font-semibold text-white'
+                    : 'h-8 rounded-md bg-transparent text-sm font-semibold text-slate-600 transition hover:bg-slate-100'
                 }
                 onClick={() => updateSetting('translationScope', 'visible-page')}
               >
@@ -617,8 +617,8 @@ export function Options() {
                 }
                 className={
                   settings.translationMode === 'element-context'
-                    ? 'h-8 rounded-md bg-blue-600 text-sm font-semibold text-white'
-                    : 'h-8 rounded-md bg-transparent text-sm font-semibold text-slate-600 transition hover:bg-blue-50'
+                    ? 'h-8 rounded-md bg-slate-800 text-sm font-semibold text-white'
+                    : 'h-8 rounded-md bg-transparent text-sm font-semibold text-slate-600 transition hover:bg-slate-100'
                 }
                 onClick={() => updateSetting('translationMode', 'element-context')}
               >
@@ -630,8 +630,8 @@ export function Options() {
                 variant={settings.translationMode === 'text-node' ? 'default' : 'ghost'}
                 className={
                   settings.translationMode === 'text-node'
-                    ? 'h-8 rounded-md bg-blue-600 text-sm font-semibold text-white'
-                    : 'h-8 rounded-md bg-transparent text-sm font-semibold text-slate-600 transition hover:bg-blue-50'
+                    ? 'h-8 rounded-md bg-slate-800 text-sm font-semibold text-white'
+                    : 'h-8 rounded-md bg-transparent text-sm font-semibold text-slate-600 transition hover:bg-slate-100'
                 }
                 onClick={() => updateSetting('translationMode', 'text-node')}
               >
@@ -643,7 +643,7 @@ export function Options() {
           <Button
             type="button"
             size="lg"
-            className="h-9 w-fit rounded-md bg-blue-600 px-3.5 text-sm font-semibold text-white hover:bg-blue-700"
+            className="h-9 w-fit rounded-md bg-slate-800 px-3.5 text-sm font-semibold text-white hover:bg-slate-700"
             onClick={saveTranslationSettings}
           >
             {t('saveTranslationSettings')}
@@ -706,7 +706,7 @@ export function Options() {
           <label className="grid gap-1.5">
             <span className="text-[13px] font-semibold text-slate-600">{t('userWhitelist')}</span>
             <textarea
-              className="min-h-24 w-full resize-y rounded-md border border-slate-300 bg-white px-2.5 py-2 text-sm leading-6 text-slate-900 outline-none transition focus:border-blue-600 focus:ring-[3px] focus:ring-blue-100"
+              className="min-h-24 w-full resize-y rounded-md border border-slate-300 bg-white px-2.5 py-2 text-sm leading-6 text-slate-900 outline-none transition focus:border-slate-400 focus:ring-[3px] focus:ring-slate-200"
               value={whitelistDraft}
               onChange={(event) => setWhitelistDraft(event.target.value)}
               placeholder={t('userWhitelistPlaceholder')}
@@ -719,7 +719,7 @@ export function Options() {
               {t('noTranslateSelectors')}
             </span>
             <textarea
-              className="min-h-24 w-full resize-y rounded-md border border-slate-300 bg-white px-2.5 py-2 font-mono text-sm leading-6 text-slate-900 outline-none transition focus:border-blue-600 focus:ring-[3px] focus:ring-blue-100"
+              className="min-h-24 w-full resize-y rounded-md border border-slate-300 bg-white px-2.5 py-2 font-mono text-sm leading-6 text-slate-900 outline-none transition focus:border-slate-400 focus:ring-[3px] focus:ring-slate-200"
               value={noTranslateSelectorsDraft}
               onChange={(event) => setNoTranslateSelectorsDraft(event.target.value)}
               placeholder={t('noTranslateSelectorsPlaceholder')}
@@ -745,7 +745,7 @@ export function Options() {
           <Button
             type="button"
             size="lg"
-            className="h-9 w-fit rounded-md bg-blue-600 px-3.5 text-sm font-semibold text-white hover:bg-blue-700"
+            className="h-9 w-fit rounded-md bg-slate-800 px-3.5 text-sm font-semibold text-white hover:bg-slate-700"
             onClick={saveWhitelist}
           >
             {t('saveRules')}
