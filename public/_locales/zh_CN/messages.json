@@ -372,10 +372,10 @@
     "message": "未命名配置"
   },
   "defaultProfileName": {
-    "message": "默认 OpenAI"
+    "message": "Chrome 内置翻译"
   },
   "newProfileName": {
-    "message": "新的接口配置"
+    "message": "新的翻译配置"
   },
   "copySuffix": {
     "message": "$NAME$ 副本",

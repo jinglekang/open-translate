@@ -43,7 +43,7 @@ export const translationScopeSchema = z.enum(['visible-page', 'viewport'])
 export type TranslationScope = z.infer<typeof translationScopeSchema>
 export const translationModeSchema = z.enum(['text-node', 'element-context'])
 export type TranslationMode = z.infer<typeof translationModeSchema>
-export const translationProviderSchema = z.enum(['openai-compatible', 'chrome-built-in'])
+export const translationProviderSchema = z.enum(['chrome-built-in', 'openai-compatible'])
 export type TranslationProvider = z.infer<typeof translationProviderSchema>
 
 export const defaultUserWhitelist = [
@@ -67,7 +67,7 @@ export const defaultNoTranslateSelectors = [
 
 export const translationProfileSchema = z.object({
   id: trimmedString.min(1),
-  provider: translationProviderSchema.catch('openai-compatible'),
+  provider: translationProviderSchema.catch('chrome-built-in'),
   name: trimmedString
     .min(1, t('profileNameRequired'))
     .max(profileFieldLimits.name, t('profileNameTooLong', String(profileFieldLimits.name)))
@@ -168,7 +168,7 @@ export type TranslationSettings = z.infer<typeof translationSettingsSchema>
 
 export const defaultProfile: TranslationProfile = {
   id: 'default',
-  provider: 'openai-compatible',
+  provider: 'chrome-built-in',
   name: t('defaultProfileName'),
   apiBaseUrl: 'https://api.openai.com/v1',
   model: 'gpt-4o-mini',

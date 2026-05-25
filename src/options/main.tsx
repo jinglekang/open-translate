@@ -35,7 +35,7 @@ type OptionsTab = 'translators' | 'translation' | 'cache' | 'rules'
 export function Options() {
   const [settings, setSettings] = useState<TranslationSettings>(defaultSettings)
   const [editingId, setEditingId] = useState(defaultSettings.activeProfileId)
-  const [activeTab, setActiveTab] = useState<OptionsTab>('translators')
+  const [activeTab, setActiveTab] = useState<OptionsTab>('translation')
   const [cacheCount, setCacheCount] = useState(0)
   const [whitelistDraft, setWhitelistDraft] = useState(
     formatCommaList(defaultSettings.userWhitelist),
@@ -243,7 +243,7 @@ export function Options() {
           className="sticky top-7 grid gap-1 rounded-lg border border-slate-200 bg-white p-2"
           aria-label={t('optionsTabs')}
         >
-          {(['translators', 'translation', 'rules', 'cache'] as const).map((tab) => (
+          {(['translation', 'translators', 'rules', 'cache'] as const).map((tab) => (
             <Button
               key={tab}
               type="button"
@@ -353,8 +353,8 @@ export function Options() {
                 )
               }
             >
-              <option value="openai-compatible">{t('openAICompatibleProvider')}</option>
               <option value="chrome-built-in">{t('chromeBuiltInProvider')}</option>
+              <option value="openai-compatible">{t('openAICompatibleProvider')}</option>
             </select>
           </label>
 

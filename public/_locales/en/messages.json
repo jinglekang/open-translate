@@ -372,10 +372,10 @@
     "message": "Untitled profile"
   },
   "defaultProfileName": {
-    "message": "Default OpenAI"
+    "message": "Chrome Built-in Translator"
   },
   "newProfileName": {
-    "message": "New API profile"
+    "message": "New translator profile"
   },
   "copySuffix": {
     "message": "$NAME$ copy",

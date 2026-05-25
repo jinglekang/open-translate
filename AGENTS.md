@@ -41,6 +41,7 @@ Vite outputs fixed extension files:
 
 - Popup and Options should automatically follow the browser/system color scheme with `prefers-color-scheme`; do not add a manual theme switch unless explicitly requested.
 - Default target language is Simplified Chinese.
+- Default translator profile should use Chrome Built-in AI so the extension can translate immediately after install without API configuration.
 - Target language choices in Popup should come from `src/shared/languages.ts`; Chrome Built-in AI target language codes should be derived from those same canonical options. Do not add legacy alias compatibility unless explicitly requested.
 - Default display mode is bilingual.
 - Default translation scope is viewport.
