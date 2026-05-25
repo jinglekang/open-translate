@@ -106,12 +106,13 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     if (selectedText) {
       await translateSelection(
         tab.id,
-        selectedText,
-        profile,
-        settings.targetLanguage,
-        settings.userWhitelist,
-        settings.displayMode,
-      );
+    selectedText,
+    profile,
+    settings.targetLanguage,
+    settings.userWhitelist,
+    settings.minTranslationTextLength,
+    settings.displayMode,
+  );
       return;
     }
 
@@ -214,15 +215,22 @@ async function translateSelection(
   profile: TranslationProfile,
   targetLanguage: string,
   userWhitelist: string[],
+  minTranslationTextLength: number,
   displayMode: TranslationDisplayMode,
 ) {
   await showInlineNotice(tabId, t("translatingSelection"), "loading");
   const translatedText =
-    shouldSkipTranslation(selectedText, userWhitelist)
+    shouldSkipTranslation(selectedText, userWhitelist, minTranslationTextLength)
       ? selectedText
       : profile.provider === "chrome-built-in"
         ? await translateSelectionWithChromeBuiltInAI(tabId, selectedText, targetLanguage)
-        : await translateText(selectedText, profile, targetLanguage, userWhitelist);
+        : await translateText(
+          selectedText,
+          profile,
+          targetLanguage,
+          userWhitelist,
+          minTranslationTextLength,
+        );
 
   const [{ result: didShow }] = await chrome.scripting.executeScript({
     target: { tabId },
@@ -271,6 +279,8 @@ async function translatePage(
     settings.targetLanguage,
     settings.displayMode,
     settings.userWhitelist,
+    settings.noTranslateSelectors,
+    settings.minTranslationTextLength,
     profile.translationConcurrency,
     profile.translationBatchSegments,
     profile.translationBatchTextLength,
@@ -372,6 +382,8 @@ async function startPageTranslator(
   targetLanguage: string,
   displayMode: TranslationDisplayMode,
   userWhitelist: string[],
+  noTranslateSelectors: string[],
+  minTranslationTextLength: number,
   translationConcurrency: number,
   translationBatchSegments: number,
   translationBatchTextLength: number,
@@ -388,6 +400,8 @@ async function startPageTranslator(
     targetLanguage,
     displayMode,
     userWhitelist,
+    noTranslateSelectors,
+    minTranslationTextLength,
     translationConcurrency,
     translationBatchSegments,
     translationBatchTextLength,
@@ -478,6 +492,7 @@ async function translatePageTexts(texts: string[], tabId?: number, requestId?: s
     profile,
     settings.targetLanguage,
     settings.userWhitelist,
+    settings.minTranslationTextLength,
     profile.translationConcurrency,
     profile.translationBatchSegments,
     profile.translationBatchTextLength,
@@ -546,6 +561,7 @@ async function translateItems<T>(
   profile: TranslationProfile,
   targetLanguage: string,
   userWhitelist: string[],
+  minTranslationTextLength: number,
   concurrency: number,
   maxBatchSegments: number,
   maxBatchTextLength: number,
@@ -563,7 +579,7 @@ async function translateItems<T>(
   }));
   const translatableEntries: typeof entries = [];
   for (const entry of entries) {
-    if (shouldSkipTranslation(entry.sourceText, userWhitelist)) {
+    if (shouldSkipTranslation(entry.sourceText, userWhitelist, minTranslationTextLength)) {
       translations[entry.index] = "";
       completed += 1;
       continue;
@@ -619,6 +635,7 @@ async function translateItems<T>(
           profile,
           targetLanguage,
           userWhitelist,
+          minTranslationTextLength,
         );
 
         const translatedItems: Array<{ item: T; translatedText: string }> = [];

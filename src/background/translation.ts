@@ -27,8 +27,9 @@ export async function translateText(
   profile: TranslationProfile,
   targetLanguage: string,
   userWhitelist: string[],
+  minTranslationTextLength: number,
 ) {
-  if (shouldSkipTranslation(sourceText, userWhitelist)) {
+  if (shouldSkipTranslation(sourceText, userWhitelist, minTranslationTextLength)) {
     return sourceText
   }
 
@@ -56,12 +57,25 @@ export async function translateTextBatch(
   profile: TranslationProfile,
   targetLanguage: string,
   userWhitelist: string[],
+  minTranslationTextLength: number,
 ) {
   if (sourceTexts.length === 1) {
-    return [await translateText(sourceTexts[0], profile, targetLanguage, userWhitelist)]
+    return [await translateText(
+      sourceTexts[0],
+      profile,
+      targetLanguage,
+      userWhitelist,
+      minTranslationTextLength,
+    )]
   }
 
-  return translateUncachedBatchWithFallback(sourceTexts, profile, targetLanguage, userWhitelist)
+  return translateUncachedBatchWithFallback(
+    sourceTexts,
+    profile,
+    targetLanguage,
+    userWhitelist,
+    minTranslationTextLength,
+  )
 }
 
 export async function getCachedTranslations(
@@ -90,6 +104,7 @@ async function translateUncachedBatchWithFallback(
   profile: TranslationProfile,
   targetLanguage: string,
   userWhitelist: string[],
+  minTranslationTextLength: number,
 ) {
   try {
     const translatedTexts = await requestBatchTranslations(sourceTexts, profile, targetLanguage)
@@ -102,7 +117,13 @@ async function translateUncachedBatchWithFallback(
   } catch {
     return Promise.all(
       sourceTexts.map((sourceText) =>
-        translateText(sourceText, profile, targetLanguage, userWhitelist),
+        translateText(
+          sourceText,
+          profile,
+          targetLanguage,
+          userWhitelist,
+          minTranslationTextLength,
+        ),
       ),
     )
   }

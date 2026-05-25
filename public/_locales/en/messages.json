@@ -90,11 +90,14 @@
   "profilesTab": {
     "message": "API Profiles"
   },
+  "translationTab": {
+    "message": "Translation"
+  },
   "cacheTab": {
     "message": "Cache"
   },
-  "whitelistTab": {
-    "message": "Whitelist"
+  "rulesTab": {
+    "message": "Rules"
   },
   "addProfile": {
     "message": "Add Profile"
@@ -149,17 +152,35 @@
   "refresh": {
     "message": "Refresh"
   },
-  "whitelistSettings": {
-    "message": "Do-not-translate whitelist"
+  "translationSettings": {
+    "message": "Translation settings"
   },
-  "whitelistDescription": {
-    "message": "Enter one exact text per line. Matches stay original and are not sent for translation."
+  "translationSettingsDescription": {
+    "message": "Control basic filtering before page text enters the translation flow."
+  },
+  "minTranslationTextLength": {
+    "message": "Minimum text length"
+  },
+  "minTranslationTextLengthInvalid": {
+    "message": "Minimum text length must be an integer from 1 to 100"
+  },
+  "translationSettingsSaved": {
+    "message": "Translation settings saved"
+  },
+  "saveTranslationSettings": {
+    "message": "Save Translation Settings"
+  },
+  "rulesSettings": {
+    "message": "Rules"
+  },
+  "rulesDescription": {
+    "message": "Configure text and node-level rules. Matches stay original and are not sent for translation."
   },
   "userWhitelist": {
-    "message": "Editable whitelist"
+    "message": "Do-not-translate whitelist"
   },
   "userWhitelistPlaceholder": {
-    "message": "Enter one original text per line"
+    "message": "Use English commas, for example: OpenAI, GitHub, API"
   },
   "userWhitelistSaved": {
     "message": "Whitelist saved"
@@ -169,6 +190,24 @@
   },
   "userWhitelistTooMany": {
     "message": "The whitelist can store at most 200 items"
+  },
+  "noTranslateSelectors": {
+    "message": "Do-not-translate node selectors"
+  },
+  "noTranslateSelectorsPlaceholder": {
+    "message": "Use English commas, for example: pre, code, .notranslate, [data-no-translate]"
+  },
+  "noTranslateSelectorTooLong": {
+    "message": "A node selector must be 200 characters or fewer"
+  },
+  "noTranslateSelectorsTooMany": {
+    "message": "The selector list can store at most 100 items"
+  },
+  "rulesSaved": {
+    "message": "Rules saved"
+  },
+  "saveRules": {
+    "message": "Save Rules"
   },
   "builtInWhitelist": {
     "message": "Built-in rules"

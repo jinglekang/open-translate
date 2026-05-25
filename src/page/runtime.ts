@@ -11,6 +11,8 @@ type PageRuntimeMessage = {
   targetLanguage: string
   displayMode: 'translation' | 'bilingual'
   userWhitelist: string[]
+  noTranslateSelectors: string[]
+  minTranslationTextLength: number
   translationConcurrency: number
   translationBatchSegments: number
   translationBatchTextLength: number
@@ -49,6 +51,8 @@ if (!runtimeWindow.__openTranslatePageRuntimeInstalled) {
       message.targetLanguage,
       message.displayMode,
       message.userWhitelist,
+      message.noTranslateSelectors,
+      message.minTranslationTextLength,
       message.translationConcurrency,
       message.translationBatchSegments,
       message.translationBatchTextLength,
@@ -89,6 +93,8 @@ function isStartPageTranslatorMessage(message: unknown): message is PageRuntimeM
       (message as PageRuntimeMessage).displayMode === 'bilingual'
     ) &&
     Array.isArray((message as PageRuntimeMessage).userWhitelist) &&
+    Array.isArray((message as PageRuntimeMessage).noTranslateSelectors) &&
+    typeof (message as PageRuntimeMessage).minTranslationTextLength === 'number' &&
     typeof (message as PageRuntimeMessage).translationConcurrency === 'number' &&
     typeof (message as PageRuntimeMessage).translationBatchSegments === 'number' &&
     typeof (message as PageRuntimeMessage).translationBatchTextLength === 'number'
@@ -102,6 +108,8 @@ function installPageTranslator(
   targetLanguage: string,
   displayMode: 'translation' | 'bilingual',
   userWhitelist: string[],
+  noTranslateSelectors: string[],
+  minTranslationTextLength: number,
   translationConcurrency: number,
   translationBatchSegments: number,
   translationBatchTextLength: number,
@@ -310,7 +318,7 @@ function installPageTranslator(
   async function requestBuiltInTranslations(nodes: Text[], sourceTexts: string[]) {
     const entries = sourceTexts.map((sourceText, index) => ({ index, sourceText }))
       .filter((entry) => (
-        entry.sourceText.trim() &&
+        isAllowedTextLength(entry.sourceText) &&
         !userWhitelist.includes(entry.sourceText.trim())
       ))
     let completed = sourceTexts.length - entries.length
@@ -690,15 +698,14 @@ function installPageTranslator(
       return false
     }
 
-    if (
-      parent.closest(
-        "pre, code, [contenteditable='true'], [data-open-translate-ui], [data-open-translate-selection-panel], [data-open-translate-bilingual]",
-      )
-    ) {
+    if (isInNoTranslateElement(parent)) {
       return false
     }
 
-    if (!text.trim() || /^[\d\s()[\]{}.,:;'"!?+\-*/\\|_=<>@#$%^&~`]+$/.test(text.trim())) {
+    if (
+      !isAllowedTextLength(text) ||
+      /^[\d\s()[\]{}.,:;'"!?+\-*/\\|_=<>@#$%^&~`]+$/.test(text.trim())
+    ) {
       return false
     }
 
@@ -721,6 +728,32 @@ function installPageTranslator(
       rect.top < window.innerHeight &&
       rect.left < window.innerWidth
     )
+  }
+
+  function isAllowedTextLength(text: string) {
+    return text.trim().length >= minTranslationTextLength
+  }
+
+  function isInNoTranslateElement(element: Element) {
+    return !!(
+      element.closest(
+        "pre, code, [contenteditable='true'], [data-open-translate-ui], [data-open-translate-selection-panel], [data-open-translate-bilingual]",
+      ) ||
+      noTranslateSelectors.some((selector) => matchesClosestSelector(element, selector))
+    )
+  }
+
+  function matchesClosestSelector(element: Element, selector: string) {
+    const normalizedSelector = selector.trim()
+    if (!normalizedSelector) {
+      return false
+    }
+
+    try {
+      return !!element.closest(normalizedSelector)
+    } catch {
+      return false
+    }
   }
 
   function notifyInitialTranslationComplete() {

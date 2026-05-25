@@ -11,6 +11,7 @@ import {
   normalizeSettings,
   profileFieldLimits,
   sanitizeSettings,
+  minTranslationTextLengthLimits,
   translationBatchSegmentLimits,
   translationBatchTextLengthLimits,
   translationConcurrencyLimits,
@@ -21,7 +22,7 @@ import { Button } from '../components/ui/button'
 import { StatusNotice } from '../components/status-notice'
 import '../shared/style.css'
 
-type OptionsTab = 'profiles' | 'cache' | 'whitelist'
+type OptionsTab = 'profiles' | 'translation' | 'cache' | 'rules'
 
 export function Options() {
   const [settings, setSettings] = useState<TranslationSettings>(defaultSettings)
@@ -29,7 +30,10 @@ export function Options() {
   const [activeTab, setActiveTab] = useState<OptionsTab>('profiles')
   const [cacheCount, setCacheCount] = useState(0)
   const [whitelistDraft, setWhitelistDraft] = useState(
-    defaultSettings.userWhitelist.join('\n'),
+    formatCommaList(defaultSettings.userWhitelist),
+  )
+  const [noTranslateSelectorsDraft, setNoTranslateSelectorsDraft] = useState(
+    formatCommaList(defaultSettings.noTranslateSelectors),
   )
   const [status, setStatus] = useState(t('loadingSettings'))
 
@@ -46,7 +50,8 @@ export function Options() {
       const nextSettings = normalizeSettings(stored)
       setSettings(nextSettings)
       setEditingId(nextSettings.activeProfileId)
-      setWhitelistDraft(nextSettings.userWhitelist.join('\n'))
+      setWhitelistDraft(formatCommaList(nextSettings.userWhitelist))
+      setNoTranslateSelectorsDraft(formatCommaList(nextSettings.noTranslateSelectors))
       setStatus(t('settingsSynced'))
     })
     void refreshCacheStats()
@@ -82,7 +87,8 @@ export function Options() {
     }
 
     setSettings(stored)
-    setWhitelistDraft(stored.userWhitelist.join('\n'))
+    setWhitelistDraft(formatCommaList(stored.userWhitelist))
+    setNoTranslateSelectorsDraft(formatCommaList(stored.noTranslateSelectors))
     setEditingId(
       stored.profiles.some((profile) => profile.id === nextEditingId)
         ? nextEditingId
@@ -157,10 +163,25 @@ export function Options() {
     await saveSettings(
       {
         ...settings,
-        userWhitelist: parseWhitelistDraft(whitelistDraft),
+        userWhitelist: parseCommaListDraft(whitelistDraft),
+        noTranslateSelectors: parseCommaListDraft(noTranslateSelectorsDraft),
       },
-      t('userWhitelistSaved'),
+      t('rulesSaved'),
     )
+  }
+
+  async function saveTranslationSettings() {
+    await saveSettings(settings, t('translationSettingsSaved'))
+  }
+
+  function updateSetting<Key extends keyof TranslationSettings>(
+    key: Key,
+    value: TranslationSettings[Key],
+  ) {
+    setSettings((current) => ({
+      ...current,
+      [key]: value,
+    }))
   }
 
   async function refreshCacheStats() {
@@ -210,10 +231,10 @@ export function Options() {
       </header>
 
       <nav
-        className="mx-auto mb-4 grid w-full max-w-260 grid-cols-3 gap-1 rounded-lg border border-slate-200 bg-white p-1"
+        className="mx-auto mb-4 grid w-full max-w-260 grid-cols-4 gap-1 rounded-lg border border-slate-200 bg-white p-1"
         aria-label={t('optionsTabs')}
       >
-        {(['profiles', 'cache', 'whitelist'] as const).map((tab) => (
+        {(['profiles', 'translation', 'cache', 'rules'] as const).map((tab) => (
           <Button
             key={tab}
             type="button"
@@ -485,6 +506,47 @@ export function Options() {
       </div>
       )}
 
+      {activeTab === 'translation' && (
+        <section className="mx-auto grid w-full max-w-260 gap-3.5 rounded-lg border border-slate-200 bg-white p-4.5">
+          <div className="grid gap-1">
+            <h2 className="text-lg font-semibold text-slate-900">
+              {t('translationSettings')}
+            </h2>
+            <p className="text-sm leading-5 text-slate-600">
+              {t('translationSettingsDescription')}
+            </p>
+          </div>
+
+          <label className="grid max-w-72 gap-1.5">
+            <span className="text-[13px] font-semibold text-slate-600">
+              {t('minTranslationTextLength')}
+            </span>
+            <input
+              className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-900 outline-none transition focus:border-blue-600 focus:ring-[3px] focus:ring-blue-100"
+              value={settings.minTranslationTextLength}
+              onChange={(event) =>
+                updateSetting('minTranslationTextLength', Number(event.target.value))
+              }
+              type="number"
+              min={minTranslationTextLengthLimits.min}
+              max={minTranslationTextLengthLimits.max}
+              step={1}
+            />
+          </label>
+
+          <Button
+            type="button"
+            size="lg"
+            className="h-9 w-fit rounded-md bg-blue-600 px-3.5 text-sm font-semibold text-white hover:bg-blue-700"
+            onClick={saveTranslationSettings}
+          >
+            {t('saveTranslationSettings')}
+          </Button>
+
+          <StatusNotice message={status} />
+        </section>
+      )}
+
       {activeTab === 'cache' && (
         <section className="mx-auto grid w-full max-w-260 gap-3.5 rounded-lg border border-slate-200 bg-white p-4.5">
           <div className="grid gap-1">
@@ -528,21 +590,35 @@ export function Options() {
         </section>
       )}
 
-      {activeTab === 'whitelist' && (
+      {activeTab === 'rules' && (
         <section className="mx-auto grid w-full max-w-260 gap-3.5 rounded-lg border border-slate-200 bg-white p-4.5">
           <div className="grid gap-1">
-            <h2 className="text-lg font-semibold text-slate-900">{t('whitelistSettings')}</h2>
-            <p className="text-sm leading-5 text-slate-600">{t('whitelistDescription')}</p>
+            <h2 className="text-lg font-semibold text-slate-900">{t('rulesSettings')}</h2>
+            <p className="text-sm leading-5 text-slate-600">{t('rulesDescription')}</p>
           </div>
 
           <label className="grid gap-1.5">
             <span className="text-[13px] font-semibold text-slate-600">{t('userWhitelist')}</span>
             <textarea
-              className="min-h-54 w-full resize-y rounded-md border border-slate-300 bg-white px-2.5 py-2 text-sm leading-6 text-slate-900 outline-none transition focus:border-blue-600 focus:ring-[3px] focus:ring-blue-100"
+              className="min-h-24 w-full resize-y rounded-md border border-slate-300 bg-white px-2.5 py-2 text-sm leading-6 text-slate-900 outline-none transition focus:border-blue-600 focus:ring-[3px] focus:ring-blue-100"
               value={whitelistDraft}
               onChange={(event) => setWhitelistDraft(event.target.value)}
               placeholder={t('userWhitelistPlaceholder')}
-              rows={10}
+              rows={4}
+            />
+          </label>
+
+          <label className="grid gap-1.5">
+            <span className="text-[13px] font-semibold text-slate-600">
+              {t('noTranslateSelectors')}
+            </span>
+            <textarea
+              className="min-h-24 w-full resize-y rounded-md border border-slate-300 bg-white px-2.5 py-2 font-mono text-sm leading-6 text-slate-900 outline-none transition focus:border-blue-600 focus:ring-[3px] focus:ring-blue-100"
+              value={noTranslateSelectorsDraft}
+              onChange={(event) => setNoTranslateSelectorsDraft(event.target.value)}
+              placeholder={t('noTranslateSelectorsPlaceholder')}
+              rows={4}
+              spellCheck={false}
             />
           </label>
 
@@ -566,7 +642,7 @@ export function Options() {
             className="h-9 w-fit rounded-md bg-blue-600 px-3.5 text-sm font-semibold text-white hover:bg-blue-700"
             onClick={saveWhitelist}
           >
-            {t('saveWhitelist')}
+            {t('saveRules')}
           </Button>
 
           <StatusNotice message={status} />
@@ -576,11 +652,15 @@ export function Options() {
   )
 }
 
-function parseWhitelistDraft(value: string) {
+function parseCommaListDraft(value: string) {
   return value
-    .split(/\r?\n/)
+    .split(',')
     .map((item) => item.trim())
     .filter(Boolean)
+}
+
+function formatCommaList(items: readonly string[]) {
+  return items.join(', ')
 }
 
 createRoot(document.getElementById('root')!).render(

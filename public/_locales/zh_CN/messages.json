@@ -90,11 +90,14 @@
   "profilesTab": {
     "message": "接口配置"
   },
+  "translationTab": {
+    "message": "翻译设置"
+  },
   "cacheTab": {
     "message": "缓存设置"
   },
-  "whitelistTab": {
-    "message": "白名单"
+  "rulesTab": {
+    "message": "规则设置"
   },
   "addProfile": {
     "message": "新增配置"
@@ -149,17 +152,35 @@
   "refresh": {
     "message": "刷新"
   },
-  "whitelistSettings": {
-    "message": "不翻译白名单"
+  "translationSettings": {
+    "message": "翻译设置"
   },
-  "whitelistDescription": {
-    "message": "每行一个完整文本。命中后保留原文，不发送翻译请求。"
+  "translationSettingsDescription": {
+    "message": "控制页面文本进入翻译流程前的基础过滤规则。"
+  },
+  "minTranslationTextLength": {
+    "message": "最小翻译字数"
+  },
+  "minTranslationTextLengthInvalid": {
+    "message": "最小翻译字数必须是 1 到 100 的整数"
+  },
+  "translationSettingsSaved": {
+    "message": "已保存翻译设置"
+  },
+  "saveTranslationSettings": {
+    "message": "保存翻译设置"
+  },
+  "rulesSettings": {
+    "message": "规则设置"
+  },
+  "rulesDescription": {
+    "message": "配置文本和节点级规则。命中后保留原文，不发送翻译请求。"
   },
   "userWhitelist": {
-    "message": "可编辑白名单"
+    "message": "不翻译白名单"
   },
   "userWhitelistPlaceholder": {
-    "message": "每行填写一个需要保留原文的文本"
+    "message": "使用英文逗号分割，例如：OpenAI, GitHub, API"
   },
   "userWhitelistSaved": {
     "message": "已保存白名单"
@@ -169,6 +190,24 @@
   },
   "userWhitelistTooMany": {
     "message": "白名单最多保存 200 项"
+  },
+  "noTranslateSelectors": {
+    "message": "不翻译节点选择器"
+  },
+  "noTranslateSelectorsPlaceholder": {
+    "message": "使用英文逗号分割，例如：pre, code, .notranslate, [data-no-translate]"
+  },
+  "noTranslateSelectorTooLong": {
+    "message": "单个节点选择器不能超过 200 个字符"
+  },
+  "noTranslateSelectorsTooMany": {
+    "message": "节点选择器最多保存 100 项"
+  },
+  "rulesSaved": {
+    "message": "已保存规则设置"
+  },
+  "saveRules": {
+    "message": "保存规则"
   },
   "builtInWhitelist": {
     "message": "内置规则"

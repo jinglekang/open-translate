@@ -12,6 +12,13 @@ export const profileFieldLimits = {
   customPrompt: 4000,
   userWhitelistItem: 160,
   userWhitelistItems: 200,
+  noTranslateSelectorItem: 200,
+  noTranslateSelectors: 100,
+} as const
+export const minTranslationTextLengthLimits = {
+  min: 1,
+  default: 2,
+  max: 100,
 } as const
 export const translationConcurrencyLimits = {
   min: 1,
@@ -47,6 +54,12 @@ export const defaultUserWhitelist = [
   'TypeScript',
   'HTML',
   'CSS',
+] as const
+
+export const defaultNoTranslateSelectors = [
+  'pre',
+  'code',
+  '[contenteditable="true"]',
 ] as const
 
 export const translationProfileSchema = z.object({
@@ -117,6 +130,20 @@ export const translationSettingsSchema = z
       )
       .max(profileFieldLimits.userWhitelistItems, t('userWhitelistTooMany'))
       .catch([...defaultUserWhitelist]),
+    noTranslateSelectors: z
+      .array(
+        trimmedString
+          .min(1)
+          .max(profileFieldLimits.noTranslateSelectorItem, t('noTranslateSelectorTooLong')),
+      )
+      .max(profileFieldLimits.noTranslateSelectors, t('noTranslateSelectorsTooMany'))
+      .catch([...defaultNoTranslateSelectors]),
+    minTranslationTextLength: z.coerce
+      .number()
+      .int(t('minTranslationTextLengthInvalid'))
+      .min(minTranslationTextLengthLimits.min, t('minTranslationTextLengthInvalid'))
+      .max(minTranslationTextLengthLimits.max, t('minTranslationTextLengthInvalid'))
+      .catch(minTranslationTextLengthLimits.default),
   })
   .transform((settings) => {
     const activeProfileId = settings.profiles.some(
@@ -132,6 +159,8 @@ export const translationSettingsSchema = z
       pageTranslationScope: settings.pageTranslationScope,
       targetLanguage: settings.targetLanguage,
       userWhitelist: [...new Set(settings.userWhitelist)],
+      noTranslateSelectors: [...new Set(settings.noTranslateSelectors)],
+      minTranslationTextLength: settings.minTranslationTextLength,
     }
   })
 
@@ -158,6 +187,8 @@ export const defaultSettings: TranslationSettings = {
   pageTranslationScope: 'viewport',
   targetLanguage: '简体中文',
   userWhitelist: [...defaultUserWhitelist],
+  noTranslateSelectors: [...defaultNoTranslateSelectors],
+  minTranslationTextLength: minTranslationTextLengthLimits.default,
 }
 
 const legacySettingsSchema = z.object({
@@ -208,6 +239,8 @@ export function normalizeSettings(stored: unknown): TranslationSettings {
     pageTranslationScope: 'viewport',
     targetLanguage: legacyResult.data.targetLanguage || defaultSettings.targetLanguage,
     userWhitelist: [...defaultSettings.userWhitelist],
+    noTranslateSelectors: [...defaultSettings.noTranslateSelectors],
+    minTranslationTextLength: defaultSettings.minTranslationTextLength,
   })
 }
 

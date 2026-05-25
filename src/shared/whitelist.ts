@@ -5,9 +5,17 @@ export const builtInNoTranslateRules = [
   'urlOrEmail',
 ] as const
 
-export function shouldSkipTranslation(sourceText: string, userWhitelist: string[]) {
+export function shouldSkipTranslation(
+  sourceText: string,
+  userWhitelist: string[],
+  minTranslationTextLength = 1,
+) {
   const normalizedText = sourceText.trim()
-  if (!normalizedText || isBuiltInNoTranslateText(normalizedText)) {
+  if (
+    !normalizedText ||
+    normalizedText.length < minTranslationTextLength ||
+    isBuiltInNoTranslateText(normalizedText)
+  ) {
     return true
   }
 
