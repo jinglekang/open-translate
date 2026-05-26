@@ -3,7 +3,7 @@
     "message": "Open Translate"
   },
   "extensionDescription": {
-    "message": "Translate selected text or full pages with OpenAI-compatible APIs or Chrome Built-in AI."
+    "message": "Translate selected text or full pages with OpenAI-compatible APIs or the Built-in Translator API."
   },
   "contextMenuTranslateToLanguage": {
     "message": "Translate to $LANGUAGE$",
@@ -325,13 +325,13 @@
   "openAICompatibleProvider": {
     "message": "OpenAI-compatible API"
   },
-  "chromeBuiltInProvider": {
-    "message": "Chrome Built-in AI"
+  "builtInTranslatorProvider": {
+    "message": "Built-in Translator API"
   },
-  "chromeBuiltInDescription": {
-    "message": "Use Chrome's built-in Translator API. This mode does not require an API base URL, model name, or API Key, but requires Chrome 138+ on desktop with the relevant language pack available."
+  "builtInTranslatorDescription": {
+    "message": "Use the browser built-in Translator API. This mode does not require an API base URL, model name, or API Key, but requires the current browser to support the relevant language pack."
   },
-  "chromeBuiltInFirstUseNotice": {
+  "builtInTranslatorFirstUseNotice": {
     "message": "First use may be slower while language support loads."
   },
   "apiBaseUrlRequired": {
@@ -423,7 +423,7 @@
     "message": "Untitled profile"
   },
   "defaultProfileName": {
-    "message": "Chrome Built-in Translator"
+    "message": "Browser built-in Translator"
   },
   "newProfileName": {
     "message": "New translator profile"
@@ -483,13 +483,13 @@
     }
   },
   "builtInAiUnavailable": {
-    "message": "Chrome Built-in AI Translator is not available. Use Chrome 138+ on desktop and enable the built-in translation capability."
+    "message": "The browser built-in Translator API is not available. Enable the built-in translation capability and make sure the current browser supports the relevant language pack."
   },
   "builtInAiUnsupportedLanguagePair": {
-    "message": "Chrome Built-in AI Translator does not support this language pair."
+    "message": "The browser built-in Translator API does not support this language pair."
   },
   "builtInAiRunsInPage": {
-    "message": "Chrome Built-in AI must run in the page context"
+    "message": "The browser built-in Translator API must run in the page context"
   },
   "missingApiBaseUrl": {
     "message": "Please enter an API base URL in Options first"

@@ -1,13 +1,13 @@
 # Open Translate
 
-Open Translate 是一个开源 Chrome 翻译插件，支持配置 OpenAI 兼容的大模型接口，也支持 Chrome Built-in AI。配置翻译接口后，可以在网页中选中文字翻译，也可以在页面空白处右键翻译页面内容。
+Open Translate 是一个开源 Chromium 翻译插件，支持配置 OpenAI 兼容的大模型接口，也支持浏览器内置 Translator API。配置翻译接口后，可以在网页中选中文字翻译，也可以在页面空白处右键翻译页面内容。
 
 > 本项目由 AI 辅助开发。
 
 ## 功能
 
 - 配置 OpenAI 兼容接口地址，例如 `https://api.openai.com/v1`
-- 支持 Chrome Built-in AI Translator API
+- 支持浏览器内置 Translator API
 - 配置模型名称、API Key、并发数、批量段数、批量文本长度和自定义系统提示词
 - 在选项页维护多套翻译接口
 - 在弹窗中快速切换当前翻译接口、目标语言、翻译偏好、翻译范围和翻译方式

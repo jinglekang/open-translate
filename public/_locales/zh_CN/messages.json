@@ -3,7 +3,7 @@
     "message": "Open Translate"
   },
   "extensionDescription": {
-    "message": "使用 OpenAI 兼容接口或 Chrome Built-in AI 翻译选中文本和整页内容"
+    "message": "使用 OpenAI 兼容接口或浏览器内置 Translator API 翻译选中文本和整页内容"
   },
   "contextMenuTranslateToLanguage": {
     "message": "翻译成$LANGUAGE$",
@@ -325,13 +325,13 @@
   "openAICompatibleProvider": {
     "message": "OpenAI 兼容接口"
   },
-  "chromeBuiltInProvider": {
-    "message": "Chrome Built-in AI"
+  "builtInTranslatorProvider": {
+    "message": "浏览器内置 Translator API"
   },
-  "chromeBuiltInDescription": {
-    "message": "使用 Chrome 内置 Translator API。本模式不需要接口地址、模型名称或 API Key，但需要 Chrome 138+ 桌面端支持对应语言包。"
+  "builtInTranslatorDescription": {
+    "message": "使用浏览器内置 Translator API。本模式不需要接口地址、模型名称或 API Key，但需要当前浏览器支持对应语言包。"
   },
-  "chromeBuiltInFirstUseNotice": {
+  "builtInTranslatorFirstUseNotice": {
     "message": "首次使用需准备语言能力，可能稍慢。"
   },
   "apiBaseUrlRequired": {
@@ -423,7 +423,7 @@
     "message": "未命名配置"
   },
   "defaultProfileName": {
-    "message": "Chrome 内置翻译"
+    "message": "浏览器内置翻译"
   },
   "newProfileName": {
     "message": "新的翻译配置"
@@ -483,13 +483,13 @@
     }
   },
   "builtInAiUnavailable": {
-    "message": "Chrome Built-in AI Translator 当前不可用，请确认使用 Chrome 138+ 桌面端并启用内置翻译能力"
+    "message": "浏览器内置 Translator API 当前不可用，请确认当前浏览器已启用内置翻译能力并支持对应语言包"
   },
   "builtInAiUnsupportedLanguagePair": {
-    "message": "Chrome 内置翻译暂不支持当前语言组合"
+    "message": "浏览器内置翻译暂不支持当前语言组合"
   },
   "builtInAiRunsInPage": {
-    "message": "Chrome Built-in AI 需要在页面环境中运行"
+    "message": "浏览器内置 Translator API 需要在页面环境中运行"
   },
   "missingApiBaseUrl": {
     "message": "请先在选项页填写接口地址"

@@ -223,8 +223,8 @@ async function translateSelection(
   const translatedText =
     shouldSkipTranslation(selectedText, userWhitelist, minTranslationTextLength)
       ? selectedText
-      : profile.provider === "chrome-built-in"
-        ? await translateSelectionWithChromeBuiltInAI(tabId, selectedText, targetLanguage)
+      : profile.provider === "built-in-translator"
+        ? await translateSelectionWithBuiltInTranslator(tabId, selectedText, targetLanguage)
         : await translateText(
           selectedText,
           profile,
@@ -246,7 +246,7 @@ async function translateSelection(
   );
 }
 
-async function translateSelectionWithChromeBuiltInAI(
+async function translateSelectionWithBuiltInTranslator(
   tabId: number,
   selectedText: string,
   targetLanguage: string,
@@ -417,7 +417,7 @@ function getDefaultTargetLanguage() {
 async function translatePageTexts(texts: string[], tabId?: number, requestId?: string) {
   const settings = await getCurrentSettings();
   const profile = validateProfileForUse(getActiveProfile(settings));
-  if (profile.provider === "chrome-built-in") {
+  if (profile.provider === "built-in-translator") {
     return {
       error: t("builtInAiRunsInPage"),
     };

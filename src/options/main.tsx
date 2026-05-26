@@ -56,7 +56,7 @@ export function Options() {
       getActiveProfile(settings),
     [editingId, settings],
   )
-  const isChromeBuiltInProfile = editingProfile.provider === 'chrome-built-in'
+  const isBuiltInTranslatorProfile = editingProfile.provider === 'built-in-translator'
 
   useEffect(() => {
     chrome.storage.sync.get(null).then((stored) => {
@@ -232,7 +232,7 @@ export function Options() {
           return profile
         }
 
-        if (provider === 'chrome-built-in') {
+        if (provider === 'built-in-translator') {
           return {
             ...profile,
             provider,
@@ -331,8 +331,8 @@ export function Options() {
                       : 'border-slate-200 bg-white before:bg-transparent hover:border-slate-300 hover:bg-slate-50'
                       }`}
                     onClick={() => setEditingId(profile.id)}
-                    title={`${profile.name} · ${profile.provider === 'chrome-built-in'
-                      ? t('chromeBuiltInProvider')
+                    title={`${profile.name} · ${profile.provider === 'built-in-translator'
+                      ? t('builtInTranslatorProvider')
                       : profile.model || t('modelUnset')
                       }`}
                   >
@@ -340,8 +340,8 @@ export function Options() {
                       {profile.name}
                     </strong>
                     <span className="block max-w-full truncate text-xs leading-[1.35] font-medium text-slate-500">
-                      {profile.provider === 'chrome-built-in'
-                        ? t('chromeBuiltInProvider')
+                      {profile.provider === 'built-in-translator'
+                        ? t('builtInTranslatorProvider')
                         : t('modelPrefix', profile.model || t('modelUnset'))}
                     </span>
                   </Button>
@@ -405,23 +405,23 @@ export function Options() {
                       updateProfileProvider(event.target.value as TranslationProfile['provider'])
                     }
                   >
-                    <option value="chrome-built-in">{t('chromeBuiltInProvider')}</option>
+                    <option value="built-in-translator">{t('builtInTranslatorProvider')}</option>
                     <option value="openai-compatible">{t('openAICompatibleProvider')}</option>
                   </select>
                 </label>
 
-                {isChromeBuiltInProfile && (
+                {isBuiltInTranslatorProfile && (
                   <div className="grid gap-1.5 rounded-lg border border-slate-200 bg-slate-50 p-2.5">
                     <span className="text-[13px] font-semibold text-slate-600">
-                      {t('chromeBuiltInProvider')}
+                      {t('builtInTranslatorProvider')}
                     </span>
                     <p className="m-0 text-sm leading-5 text-slate-600">
-                      {t('chromeBuiltInDescription')}
+                      {t('builtInTranslatorDescription')}
                     </p>
                   </div>
                 )}
 
-                {!isChromeBuiltInProfile && (
+                {!isBuiltInTranslatorProfile && (
                   <label className="grid gap-1.5">
                     <span className="text-[13px] font-semibold text-slate-600">{t('apiBaseUrl')}</span>
                     <input
@@ -435,7 +435,7 @@ export function Options() {
                   </label>
                 )}
 
-                {isChromeBuiltInProfile ? (
+                {isBuiltInTranslatorProfile ? (
                   <label className="grid gap-1.5">
                     <span className="text-[13px] font-semibold text-slate-600">
                       {t('translationConcurrency')}
@@ -517,7 +517,7 @@ export function Options() {
                   </label>
                 </div>
 
-                {!isChromeBuiltInProfile && (
+                {!isBuiltInTranslatorProfile && (
                   <label className="grid gap-1.5">
                     <span className="text-[13px] font-semibold text-slate-600">{t('apiKey')}</span>
                     <input
@@ -532,7 +532,7 @@ export function Options() {
                   </label>
                 )}
 
-                {!isChromeBuiltInProfile && (
+                {!isBuiltInTranslatorProfile && (
                   <label className="grid gap-1.5">
                     <span className="text-[13px] font-semibold text-slate-600">{t('customPrompt')}</span>
                     <textarea
@@ -546,7 +546,7 @@ export function Options() {
                   </label>
                 )}
 
-                {!isChromeBuiltInProfile && (
+                {!isBuiltInTranslatorProfile && (
                   <div className="grid gap-1.5 rounded-lg border border-slate-200 bg-slate-50 p-2.5">
                     <span className="text-[13px] font-semibold text-slate-600">{t('endpointPreview')}</span>
                     <code className="break-all font-mono text-xs leading-relaxed text-slate-700">

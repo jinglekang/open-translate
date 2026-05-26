@@ -19,7 +19,7 @@ pnpm lint
 ## Extension Entries
 
 - `src/background/index.ts`: MV3 service worker. Owns context menus, settings lookup, page runtime injection, selected-text translation, API translation, cache-aware batch pipeline, and page progress notices.
-- `src/page/runtime.ts`: injected page runtime. Owns initial collection, mutation collection, scroll collection, node state, applying translations, restoring original text, and Chrome Built-in AI page translation.
+- `src/page/runtime.ts`: injected page runtime. Owns initial collection, mutation collection, scroll collection, node state, applying translations, restoring original text, and Built-in Translator API page translation.
 - `src/popup/main.tsx`: quick settings popup. Keep it compact. It should expose current translator, target language, display mode, translation scope, translation mode, and an Options entry.
 - `src/options/main.tsx`: full settings page. It uses left navigation and right content, with menu order: translators, translation, rules, cache.
 - `src/shared/settings.ts`: Zod schemas, defaults, validation, and settings normalization.
@@ -41,8 +41,8 @@ Vite outputs fixed extension files:
 
 - Popup and Options should automatically follow the browser/system color scheme with `prefers-color-scheme`; do not add a manual theme switch unless explicitly requested.
 - Default target language is Simplified Chinese.
-- Default translator profile should use Chrome Built-in AI so the extension can translate immediately after install without API configuration.
-- Target language choices in Popup should come from `src/shared/languages.ts`; Chrome Built-in AI target language codes should be derived from those same canonical options. Do not add legacy alias compatibility unless explicitly requested.
+- Default translator profile should use Built-in Translator API so the extension can translate immediately after install without API configuration.
+- Target language choices in Popup should come from `src/shared/languages.ts`; Built-in Translator API target language codes should be derived from those same canonical options.
 - Default display mode is bilingual.
 - Default translation scope is viewport.
 - Default translation mode is whole paragraph.
@@ -148,12 +148,12 @@ Requirements for whole paragraph mode:
 Supported providers:
 
 - OpenAI-compatible API through `/chat/completions`.
-- Chrome Built-in AI Translator API.
+- Built-in Translator API.
 
-Chrome Built-in AI requirements:
+Built-in Translator API requirements:
 
 - It must run in the page context, not the MV3 service worker.
-- Hide endpoint, model, API key, and custom prompt fields for Chrome Built-in profiles.
+- Hide endpoint, model, API key, and custom prompt fields for Built-in Translator API profiles.
 - Keep concurrency and batch settings per profile because different providers/models have different limits.
 
 ## Naming
@@ -173,7 +173,7 @@ Use the current names:
 
 - The extension currently needs broad host access for page translation across arbitrary websites.
 - `activeTab` alone is usually not enough for automatic dynamic/scroll/runtime page behavior unless the product scope is changed.
-- The extension should support Chrome-compatible Chromium browsers such as Edge as long as used APIs are available. Chrome Built-in AI remains Chrome-dependent.
+- The extension should support Chromium browsers such as Chrome and Edge as long as used APIs are available. Built-in Translator API availability depends on the current browser.
 
 ## Build And Release Notes
 

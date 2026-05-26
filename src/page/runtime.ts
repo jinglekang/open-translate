@@ -48,7 +48,7 @@ type PageRuntimeMessage = {
   type: 'open-translate:start-page-translator'
   maxNodes: number
   translationScope: 'visible-page' | 'viewport'
-  translationProvider: 'openai-compatible' | 'chrome-built-in'
+  translationProvider: 'openai-compatible' | 'built-in-translator'
   targetLanguageCode: string
   displayMode: 'translation' | 'bilingual'
   translationMode: 'text-node' | 'element-context'
@@ -176,7 +176,7 @@ function isStartPageTranslatorMessage(message: unknown): message is PageRuntimeM
     ) &&
     (
       (message as PageRuntimeMessage).translationProvider === 'openai-compatible' ||
-      (message as PageRuntimeMessage).translationProvider === 'chrome-built-in'
+      (message as PageRuntimeMessage).translationProvider === 'built-in-translator'
     ) &&
     typeof (message as PageRuntimeMessage).targetLanguageCode === 'string' &&
     (
@@ -246,7 +246,7 @@ async function getBuiltInTranslator(
   }).then((availability) => {
     if (availability === 'unavailable') {
       const languagePair = `${sourceLanguage.language} -> ${targetLanguageCode}`
-      console.warn('Open Translate Chrome Built-in AI unsupported language pair', {
+      console.warn('Open Translate built-in Translator API unsupported language pair', {
         sourceLanguage: sourceLanguage.language,
         targetLanguage: targetLanguageCode,
         detection: sourceLanguage,
@@ -359,7 +359,7 @@ function createLogTextSample(text: string) {
 function installPageTranslator(
   maxNodes: number,
   translationScope: 'visible-page' | 'viewport',
-  translationProvider: 'openai-compatible' | 'chrome-built-in',
+  translationProvider: 'openai-compatible' | 'built-in-translator',
   targetLanguageCode: string,
   displayMode: 'translation' | 'bilingual',
   translationMode: 'text-node' | 'element-context',
@@ -692,7 +692,7 @@ function installPageTranslator(
 
   function requestTranslations(units: PageTranslationUnit[]) {
     const sourceTexts = units.map((unit) => unit.sourceText)
-    if (translationProvider === 'chrome-built-in') {
+    if (translationProvider === 'built-in-translator') {
       return requestBuiltInTranslations(units)
     }
 

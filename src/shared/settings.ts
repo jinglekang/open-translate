@@ -45,7 +45,12 @@ export const translationScopeSchema = z.enum(['visible-page', 'viewport'])
 export type TranslationScope = z.infer<typeof translationScopeSchema>
 export const translationModeSchema = z.enum(['text-node', 'element-context'])
 export type TranslationMode = z.infer<typeof translationModeSchema>
-export const translationProviderSchema = z.enum(['chrome-built-in', 'openai-compatible'])
+export const builtInTranslatorProvider = 'built-in-translator'
+export const openAICompatibleProvider = 'openai-compatible'
+export const translationProviderSchema = z.enum([
+  builtInTranslatorProvider,
+  openAICompatibleProvider,
+])
 export type TranslationProvider = z.infer<typeof translationProviderSchema>
 export const appThemeSchema = z.enum(['system', 'light', 'dark'])
 export type AppTheme = z.infer<typeof appThemeSchema>
@@ -73,7 +78,7 @@ export const defaultNoTranslateSelectors = [
 
 export const translationProfileSchema = z.object({
   id: trimmedString.min(1),
-  provider: translationProviderSchema.catch('chrome-built-in'),
+  provider: translationProviderSchema.catch(builtInTranslatorProvider),
   name: trimmedString
     .min(1, t('profileNameRequired'))
     .max(profileFieldLimits.name, t('profileNameTooLong', String(profileFieldLimits.name)))
@@ -176,7 +181,7 @@ export type TranslationSettings = z.infer<typeof translationSettingsSchema>
 
 export const defaultProfile: TranslationProfile = {
   id: 'default',
-  provider: 'chrome-built-in',
+  provider: builtInTranslatorProvider,
   name: t('defaultProfileName'),
   apiBaseUrl: '',
   model: '',
@@ -240,7 +245,7 @@ export function normalizeSettings(stored: unknown): TranslationSettings {
         ...defaultProfile,
         provider:
           legacyResult.data.apiBaseUrl || legacyResult.data.model || legacyResult.data.apiKey
-            ? 'openai-compatible'
+            ? openAICompatibleProvider
             : defaultProfile.provider,
         apiBaseUrl:
           legacyResult.data.apiBaseUrl ||
@@ -279,7 +284,7 @@ export function sanitizeSettings(settings: TranslationSettings): TranslationSett
 }
 
 export function validateProfileForUse(profile: TranslationProfile) {
-  if (profile.provider === 'chrome-built-in') {
+  if (profile.provider === builtInTranslatorProvider) {
     const result = translationProfileSchema.safeParse(profile)
     if (!result.success) {
       throw new Error(result.error.issues[0]?.message || t('settingsInvalid'))
@@ -321,7 +326,7 @@ export function getActiveProfile(settings: TranslationSettings) {
 }
 
 function normalizeProfileForProvider(profile: TranslationProfile): TranslationProfile {
-  if (profile.provider !== 'chrome-built-in') {
+  if (profile.provider !== builtInTranslatorProvider) {
     return profile
   }
 

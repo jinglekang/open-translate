@@ -182,17 +182,17 @@ export function Popup() {
           <div className="grid min-w-0 gap-1.5 rounded-lg border border-slate-200 bg-white p-3">
             <div className="flex min-w-0 items-center gap-2">
               <span className="block min-w-0 truncate text-[13px] font-semibold text-slate-700">
-                {activeProfile?.provider === 'chrome-built-in'
-                  ? t('chromeBuiltInProvider')
+                {activeProfile?.provider === 'built-in-translator'
+                  ? t('builtInTranslatorProvider')
                   : activeProfile?.model || t('modelUnset')}
               </span>
               <span className="shrink-0 rounded-md bg-slate-100 px-1.5 py-0.5 text-[11px] font-semibold text-slate-700">
                 {settings.activeProfileId === activeProfile?.id ? t('activeProfile') : ''}
               </span>
             </div>
-            {activeProfile?.provider === 'chrome-built-in' ? (
+            {activeProfile?.provider === 'built-in-translator' ? (
               <p className="m-0 text-xs leading-5 text-slate-600">
-                {t('chromeBuiltInFirstUseNotice')}
+                {t('builtInTranslatorFirstUseNotice')}
               </p>
             ) : (
               <code
