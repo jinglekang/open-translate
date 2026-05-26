@@ -8,6 +8,8 @@ import { setAppLanguage, t } from '../shared/i18n'
 import { targetLanguageOptions } from '../shared/languages'
 import {
   createProfile,
+  defaultOpenAICompatibleApiBaseUrl,
+  defaultOpenAICompatibleModel,
   defaultSettings,
   getActiveProfile,
   normalizeSettings,
@@ -222,6 +224,35 @@ export function Options() {
     }))
   }
 
+  function updateProfileProvider(provider: TranslationProfile['provider']) {
+    setSettings((current) => ({
+      ...current,
+      profiles: current.profiles.map((profile) => {
+        if (profile.id !== editingProfile.id) {
+          return profile
+        }
+
+        if (provider === 'chrome-built-in') {
+          return {
+            ...profile,
+            provider,
+            apiBaseUrl: '',
+            model: '',
+            apiKey: '',
+            customPrompt: '',
+          }
+        }
+
+        return {
+          ...profile,
+          provider,
+          apiBaseUrl: profile.apiBaseUrl || defaultOpenAICompatibleApiBaseUrl,
+          model: profile.model || defaultOpenAICompatibleModel,
+        }
+      }),
+    }))
+  }
+
   return (
     <main className="min-h-screen bg-slate-50 px-7 py-7 text-slate-900">
       <header className="mx-auto mb-5 flex w-full max-w-300 items-center justify-between gap-4.5">
@@ -371,10 +402,7 @@ export function Options() {
                     className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-[3px] focus:ring-slate-200"
                     value={editingProfile.provider}
                     onChange={(event) =>
-                      updateProfile(
-                        'provider',
-                        event.target.value as TranslationProfile['provider'],
-                      )
+                      updateProfileProvider(event.target.value as TranslationProfile['provider'])
                     }
                   >
                     <option value="chrome-built-in">{t('chromeBuiltInProvider')}</option>
@@ -400,7 +428,7 @@ export function Options() {
                       className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-[3px] focus:ring-slate-200"
                       value={editingProfile.apiBaseUrl}
                       onChange={(event) => updateProfile('apiBaseUrl', event.target.value)}
-                      placeholder="https://api.openai.com/v1"
+                      placeholder={defaultOpenAICompatibleApiBaseUrl}
                       spellCheck={false}
                       maxLength={profileFieldLimits.apiBaseUrl}
                     />
@@ -432,7 +460,7 @@ export function Options() {
                         className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-[3px] focus:ring-slate-200"
                         value={editingProfile.model}
                         onChange={(event) => updateProfile('model', event.target.value)}
-                        placeholder="gpt-4o-mini"
+                        placeholder={defaultOpenAICompatibleModel}
                         spellCheck={false}
                         maxLength={profileFieldLimits.model}
                       />

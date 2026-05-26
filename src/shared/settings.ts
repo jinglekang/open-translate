@@ -35,6 +35,8 @@ export const translationBatchTextLengthLimits = {
   default: 1200,
   max: 4000,
 } as const
+export const defaultOpenAICompatibleApiBaseUrl = 'https://api.openai.com/v1'
+export const defaultOpenAICompatibleModel = 'gpt-4o-mini'
 
 export const translationDisplayModeSchema = z.enum(['translation', 'bilingual'])
 export type TranslationDisplayMode = z.infer<typeof translationDisplayModeSchema>
@@ -77,16 +79,14 @@ export const translationProfileSchema = z.object({
     .max(profileFieldLimits.name, t('profileNameTooLong', String(profileFieldLimits.name)))
     .catch(t('untitledProfile')),
   apiBaseUrl: trimmedString
-    .min(1, t('apiBaseUrlRequired'))
     .max(
       profileFieldLimits.apiBaseUrl,
       t('apiBaseUrlTooLong', String(profileFieldLimits.apiBaseUrl)),
     )
-    .catch('https://api.openai.com/v1'),
+    .catch(''),
   model: trimmedString
-    .min(1, t('modelNameRequired'))
     .max(profileFieldLimits.model, t('modelNameTooLong', String(profileFieldLimits.model)))
-    .catch('gpt-4o-mini'),
+    .catch(''),
   apiKey: trimmedString
     .max(profileFieldLimits.apiKey, t('apiKeyTooLong', String(profileFieldLimits.apiKey)))
     .catch(''),
@@ -157,7 +157,7 @@ export const translationSettingsSchema = z
       : settings.profiles[0].id
 
     return {
-      profiles: settings.profiles,
+      profiles: settings.profiles.map(normalizeProfileForProvider),
       activeProfileId,
       displayMode: settings.displayMode,
       translationScope: settings.translationScope,
@@ -178,8 +178,8 @@ export const defaultProfile: TranslationProfile = {
   id: 'default',
   provider: 'chrome-built-in',
   name: t('defaultProfileName'),
-  apiBaseUrl: 'https://api.openai.com/v1',
-  model: 'gpt-4o-mini',
+  apiBaseUrl: '',
+  model: '',
   apiKey: '',
   translationConcurrency: translationConcurrencyLimits.default,
   translationBatchSegments: translationBatchSegmentLimits.default,
@@ -238,8 +238,20 @@ export function normalizeSettings(stored: unknown): TranslationSettings {
     profiles: [
       {
         ...defaultProfile,
-        apiBaseUrl: legacyResult.data.apiBaseUrl || defaultProfile.apiBaseUrl,
-        model: legacyResult.data.model || defaultProfile.model,
+        provider:
+          legacyResult.data.apiBaseUrl || legacyResult.data.model || legacyResult.data.apiKey
+            ? 'openai-compatible'
+            : defaultProfile.provider,
+        apiBaseUrl:
+          legacyResult.data.apiBaseUrl ||
+          (legacyResult.data.model || legacyResult.data.apiKey
+            ? defaultOpenAICompatibleApiBaseUrl
+            : defaultProfile.apiBaseUrl),
+        model:
+          legacyResult.data.model ||
+          (legacyResult.data.apiBaseUrl || legacyResult.data.apiKey
+            ? defaultOpenAICompatibleModel
+            : defaultProfile.model),
         apiKey: legacyResult.data.apiKey || defaultProfile.apiKey,
         customPrompt: legacyResult.data.customPrompt || defaultProfile.customPrompt,
       },
@@ -306,4 +318,18 @@ export function getActiveProfile(settings: TranslationSettings) {
     settings.profiles[0] ||
     defaultProfile
   )
+}
+
+function normalizeProfileForProvider(profile: TranslationProfile): TranslationProfile {
+  if (profile.provider !== 'chrome-built-in') {
+    return profile
+  }
+
+  return {
+    ...profile,
+    apiBaseUrl: '',
+    model: '',
+    apiKey: '',
+    customPrompt: '',
+  }
 }
