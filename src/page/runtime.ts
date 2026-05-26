@@ -39,6 +39,11 @@ type BuiltInSourceLanguageDetection = {
   textSample: string
 }
 
+type BuiltInTranslationState = {
+  builtInTranslators: Map<string, Promise<BuiltInTranslator>>
+  builtInLanguageDetector?: Promise<BuiltInLanguageDetector | undefined>
+}
+
 type PageRuntimeMessage = {
   type: 'open-translate:start-page-translator'
   maxNodes: number
@@ -53,6 +58,14 @@ type PageRuntimeMessage = {
   translationConcurrency: number
   translationBatchSegments: number
   translationBatchTextLength: number
+  builtInAiUnavailableMessage: string
+  builtInAiUnsupportedLanguagePairMessage: string
+}
+
+type BuiltInTextTranslationMessage = {
+  type: 'open-translate:translate-text-with-built-in-ai'
+  sourceText: string
+  targetLanguageCode: string
   builtInAiUnavailableMessage: string
   builtInAiUnsupportedLanguagePairMessage: string
 }
@@ -72,11 +85,33 @@ const runtimeWindow = window as typeof window & {
   __openTranslatePartialTranslationHandler?: (message: PartialTranslationMessage) => void
 }
 
+const LANGUAGE_DETECTION_CONFIDENCE_THRESHOLD = 0.75
+const builtInTranslationState: BuiltInTranslationState = {
+  builtInTranslators: new Map<string, Promise<BuiltInTranslator>>(),
+}
+
 if (!runtimeWindow.__openTranslatePageRuntimeInstalled) {
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (isPartialTranslationMessage(message)) {
       runtimeWindow.__openTranslatePartialTranslationHandler?.(message)
       return false
+    }
+
+    if (isBuiltInTextTranslationMessage(message)) {
+      translateTextWithBuiltInAI(
+        message.sourceText,
+        message.targetLanguageCode,
+        message.builtInAiUnavailableMessage,
+        message.builtInAiUnsupportedLanguagePairMessage,
+        builtInTranslationState,
+      )
+        .then((translatedText) => sendResponse({ translatedText }))
+        .catch((error) =>
+          sendResponse({
+            error: error instanceof Error ? error.message : String(error),
+          }),
+        )
+      return true
     }
 
     if (!isStartPageTranslatorMessage(message)) {
@@ -102,6 +137,20 @@ if (!runtimeWindow.__openTranslatePageRuntimeInstalled) {
     return false
   })
   runtimeWindow.__openTranslatePageRuntimeInstalled = true
+}
+
+function isBuiltInTextTranslationMessage(message: unknown): message is BuiltInTextTranslationMessage {
+  return (
+    !!message &&
+    typeof message === 'object' &&
+    (message as BuiltInTextTranslationMessage).type ===
+    'open-translate:translate-text-with-built-in-ai' &&
+    typeof (message as BuiltInTextTranslationMessage).sourceText === 'string' &&
+    typeof (message as BuiltInTextTranslationMessage).targetLanguageCode === 'string' &&
+    typeof (message as BuiltInTextTranslationMessage).builtInAiUnavailableMessage === 'string' &&
+    typeof (message as BuiltInTextTranslationMessage).builtInAiUnsupportedLanguagePairMessage ===
+    'string'
+  )
 }
 
 function isPartialTranslationMessage(message: unknown): message is PartialTranslationMessage {
@@ -147,6 +196,164 @@ function isStartPageTranslatorMessage(message: unknown): message is PageRuntimeM
     typeof (message as PageRuntimeMessage).builtInAiUnavailableMessage === 'string' &&
     typeof (message as PageRuntimeMessage).builtInAiUnsupportedLanguagePairMessage === 'string'
   )
+}
+
+async function translateTextWithBuiltInAI(
+  sourceText: string,
+  targetLanguageCode: string,
+  builtInAiUnavailableMessage: string,
+  builtInAiUnsupportedLanguagePairMessage: string,
+  state: BuiltInTranslationState,
+) {
+  const sourceLanguage = await detectBuiltInSourceLanguage(sourceText, state)
+  if (sourceLanguage.language === targetLanguageCode) {
+    return sourceText
+  }
+
+  const translator = await getBuiltInTranslator(
+    sourceLanguage,
+    targetLanguageCode,
+    builtInAiUnavailableMessage,
+    builtInAiUnsupportedLanguagePairMessage,
+    state,
+  )
+  return translator.translate(sourceText)
+}
+
+async function getBuiltInTranslator(
+  sourceLanguage: BuiltInSourceLanguageDetection,
+  targetLanguageCode: string,
+  builtInAiUnavailableMessage: string,
+  builtInAiUnsupportedLanguagePairMessage: string,
+  state: BuiltInTranslationState,
+) {
+  const apiWindow = window as Window & {
+    Translator?: BuiltInTranslatorConstructor
+  }
+  if (!apiWindow.Translator) {
+    throw new Error(builtInAiUnavailableMessage)
+  }
+
+  const cacheKey = `${sourceLanguage.language}:${targetLanguageCode}`
+  const existingTranslator = state.builtInTranslators.get(cacheKey)
+  if (existingTranslator) {
+    return existingTranslator
+  }
+
+  const translatorPromise = apiWindow.Translator.availability({
+    sourceLanguage: sourceLanguage.language,
+    targetLanguage: targetLanguageCode,
+  }).then((availability) => {
+    if (availability === 'unavailable') {
+      const languagePair = `${sourceLanguage.language} -> ${targetLanguageCode}`
+      console.warn('Open Translate Chrome Built-in AI unsupported language pair', {
+        sourceLanguage: sourceLanguage.language,
+        targetLanguage: targetLanguageCode,
+        detection: sourceLanguage,
+      })
+      throw new Error(`${builtInAiUnsupportedLanguagePairMessage} (${languagePair})`)
+    }
+
+    return apiWindow.Translator!.create({
+      sourceLanguage: sourceLanguage.language,
+      targetLanguage: targetLanguageCode,
+    })
+  })
+
+  state.builtInTranslators.set(cacheKey, translatorPromise)
+  return translatorPromise
+}
+
+async function detectBuiltInSourceLanguage(
+  sourceText: string,
+  state: BuiltInTranslationState,
+) {
+  const documentLanguage = normalizeBuiltInSourceLanguageCode(
+    document.documentElement.lang || navigator.language || 'en',
+  )
+  const textSample = createLogTextSample(sourceText)
+  if (sourceText.trim().length < 10) {
+    return {
+      language: documentLanguage,
+      documentLanguage,
+      source: 'document',
+      textSample,
+    } satisfies BuiltInSourceLanguageDetection
+  }
+
+  const detector = await getBuiltInLanguageDetector(state)
+  if (!detector) {
+    return {
+      language: documentLanguage,
+      documentLanguage,
+      source: 'detector-unavailable',
+      textSample,
+    } satisfies BuiltInSourceLanguageDetection
+  }
+
+  try {
+    const [result] = await detector.detect(sourceText)
+    const detectedLanguage = result?.detectedLanguage
+      ? normalizeBuiltInSourceLanguageCode(result.detectedLanguage)
+      : undefined
+    const shouldUseDetectedLanguage =
+      (result?.confidence ?? 0) >= LANGUAGE_DETECTION_CONFIDENCE_THRESHOLD && !!detectedLanguage
+
+    return {
+      language: shouldUseDetectedLanguage ? detectedLanguage : documentLanguage,
+      documentLanguage,
+      source: shouldUseDetectedLanguage
+        ? 'detector'
+        : 'detector-low-confidence',
+      detectedLanguage,
+      confidence: result?.confidence,
+      textSample,
+    } satisfies BuiltInSourceLanguageDetection
+  } catch {
+    return {
+      language: documentLanguage,
+      documentLanguage,
+      source: 'detector-error',
+      textSample,
+    } satisfies BuiltInSourceLanguageDetection
+  }
+}
+
+async function getBuiltInLanguageDetector(state: BuiltInTranslationState) {
+  const apiWindow = window as Window & {
+    LanguageDetector?: BuiltInLanguageDetectorConstructor
+  }
+  if (!apiWindow.LanguageDetector) {
+    return undefined
+  }
+
+  state.builtInLanguageDetector ||= apiWindow.LanguageDetector.availability()
+    .then((availability) => {
+      if (availability === 'unavailable') {
+        return undefined
+      }
+
+      return apiWindow.LanguageDetector!.create()
+    })
+    .catch(() => undefined)
+
+  return state.builtInLanguageDetector
+}
+
+function normalizeBuiltInSourceLanguageCode(language: string) {
+  const normalized = language.trim() || 'en'
+  if (/^zh-(tw|hk|mo|hant)/i.test(normalized)) {
+    return 'zh-Hant'
+  }
+  if (/^zh/i.test(normalized)) {
+    return 'zh-Hans'
+  }
+
+  return normalized.split('-')[0].toLowerCase()
+}
+
+function createLogTextSample(text: string) {
+  return text.replace(/\s+/g, ' ').trim().slice(0, 160)
 }
 
 function installPageTranslator(
@@ -506,7 +713,13 @@ function installPageTranslator(
           for (const entry of batch) {
             translatedEntries.push({
               unit: units[entry.index],
-              translatedText: await translateWithBuiltInAI(entry.sourceText),
+              translatedText: await translateTextWithBuiltInAI(
+                entry.sourceText,
+                targetLanguageCode,
+                builtInAiUnavailableMessage,
+                builtInAiUnsupportedLanguagePairMessage,
+                state,
+              ),
             })
           }
 
@@ -518,144 +731,6 @@ function installPageTranslator(
     } finally {
       releaseInFlightUnits(units)
     }
-  }
-
-  async function translateWithBuiltInAI(sourceText: string) {
-    const sourceLanguage = await detectBuiltInSourceLanguage(sourceText)
-    if (sourceLanguage.language === targetLanguageCode) {
-      return sourceText
-    }
-
-    const translator = await getBuiltInTranslator(sourceLanguage, targetLanguageCode)
-    return translator.translate(sourceText)
-  }
-
-  async function getBuiltInTranslator(
-    sourceLanguage: BuiltInSourceLanguageDetection,
-    targetLanguageCode: string,
-  ) {
-    const apiWindow = window as Window & {
-      Translator?: BuiltInTranslatorConstructor
-    }
-    if (!apiWindow.Translator) {
-      throw new Error(builtInAiUnavailableMessage)
-    }
-
-    const cacheKey = `${sourceLanguage.language}:${targetLanguageCode}`
-    const existingTranslator = state.builtInTranslators.get(cacheKey)
-    if (existingTranslator) {
-      return existingTranslator
-    }
-
-    const translatorPromise = apiWindow.Translator.availability({
-      sourceLanguage: sourceLanguage.language,
-      targetLanguage: targetLanguageCode,
-    }).then((availability) => {
-      if (availability === 'unavailable') {
-        const languagePair = `${sourceLanguage.language} -> ${targetLanguageCode}`
-        console.warn('Open Translate Chrome Built-in AI unsupported language pair', {
-          sourceLanguage: sourceLanguage.language,
-          targetLanguage: targetLanguageCode,
-          detection: sourceLanguage,
-        })
-        throw new Error(`${builtInAiUnsupportedLanguagePairMessage} (${languagePair})`)
-      }
-
-      return apiWindow.Translator!.create({
-        sourceLanguage: sourceLanguage.language,
-        targetLanguage: targetLanguageCode,
-      })
-    })
-
-    state.builtInTranslators.set(cacheKey, translatorPromise)
-    return translatorPromise
-  }
-
-  async function detectBuiltInSourceLanguage(sourceText: string) {
-    const documentLanguage = normalizeBuiltInSourceLanguageCode(
-      document.documentElement.lang || navigator.language || 'en',
-    )
-    const textSample = createLogTextSample(sourceText)
-    if (sourceText.trim().length < 20) {
-      return {
-        language: documentLanguage,
-        documentLanguage,
-        source: 'document',
-        textSample,
-      } satisfies BuiltInSourceLanguageDetection
-    }
-
-    const detector = await getBuiltInLanguageDetector()
-    if (!detector) {
-      return {
-        language: documentLanguage,
-        documentLanguage,
-        source: 'detector-unavailable',
-        textSample,
-      } satisfies BuiltInSourceLanguageDetection
-    }
-
-    try {
-      const [result] = await detector.detect(sourceText)
-      const detectedLanguage = result?.detectedLanguage
-        ? normalizeBuiltInSourceLanguageCode(result.detectedLanguage)
-        : undefined
-
-      return {
-        language: result?.confidence > 0.55 && detectedLanguage ? detectedLanguage : documentLanguage,
-        documentLanguage,
-        source: result?.confidence > 0.55 && detectedLanguage
-          ? 'detector'
-          : 'detector-low-confidence',
-        detectedLanguage,
-        confidence: result?.confidence,
-        textSample,
-      } satisfies BuiltInSourceLanguageDetection
-    } catch {
-      return {
-        language: documentLanguage,
-        documentLanguage,
-        source: 'detector-error',
-        textSample,
-      } satisfies BuiltInSourceLanguageDetection
-    }
-  }
-
-  async function getBuiltInLanguageDetector() {
-    const apiWindow = window as Window & {
-      LanguageDetector?: BuiltInLanguageDetectorConstructor
-    }
-    if (!apiWindow.LanguageDetector) {
-      return undefined
-    }
-
-    state.builtInLanguageDetector ||= apiWindow.LanguageDetector.availability()
-      .then((availability) => {
-        if (availability === 'unavailable') {
-          return undefined
-        }
-
-        return apiWindow.LanguageDetector!.create()
-      })
-      .catch(() => undefined)
-
-    return state.builtInLanguageDetector
-  }
-
-  function normalizeBuiltInSourceLanguageCode(language: string) {
-    const normalized = language.trim() || 'en'
-    if (/^zh-(tw|hk|mo|hant)/i.test(normalized)) {
-      return 'zh-Hant'
-    }
-    if (/^zh/i.test(normalized)) {
-      return 'zh-Hans'
-    }
-
-    return normalized.split('-')[0].toLowerCase()
-  }
-
-  function createLogTextSample(text: string) {
-    return text.replace(/\s+/g, ' ').trim().slice(0, 160)
   }
 
   async function runConcurrent<T>(
