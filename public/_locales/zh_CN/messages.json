@@ -45,8 +45,14 @@
   "translationOnly": {
     "message": "仅译文"
   },
+  "translationOnlyDescription": {
+    "message": "用译文替换页面原文。"
+  },
   "bilingual": {
     "message": "双语对照"
+  },
+  "bilingualDescription": {
+    "message": "保留原文，并在旁边显示译文。"
   },
   "translationOnlyEnabled": {
     "message": "已切换为仅译文"
@@ -60,8 +66,14 @@
   "visiblePage": {
     "message": "可见页面"
   },
+  "visiblePageDescription": {
+    "message": "翻译当前文档中已收集到的可见文本。"
+  },
   "viewport": {
     "message": "当前视窗"
+  },
+  "viewportDescription": {
+    "message": "浏览时优先翻译当前视窗附近的文本。"
   },
   "visiblePageTranslationEnabled": {
     "message": "整页翻译将处理页面可见文本"
@@ -200,8 +212,14 @@
   "textNodeTranslationMode": {
     "message": "逐文本节点"
   },
+  "textNodeTranslationModeDescription": {
+    "message": "逐个文本节点翻译，对密集界面更稳，但上下文较少。"
+  },
   "wholeParagraphTranslationMode": {
     "message": "段落整体"
+  },
+  "wholeParagraphTranslationModeDescription": {
+    "message": "按段落类内容整体翻译，保留周围内联上下文。"
   },
   "minTranslationTextLengthInvalid": {
     "message": "最小翻译字数必须是 1 到 100 的整数"

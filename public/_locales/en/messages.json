@@ -45,8 +45,14 @@
   "translationOnly": {
     "message": "Translation only"
   },
+  "translationOnlyDescription": {
+    "message": "Replace original page text with the translation."
+  },
   "bilingual": {
     "message": "Bilingual"
+  },
+  "bilingualDescription": {
+    "message": "Keep the original text and show the translation beside it."
   },
   "translationOnlyEnabled": {
     "message": "Switched to translation only"
@@ -60,8 +66,14 @@
   "visiblePage": {
     "message": "Visible page"
   },
+  "visiblePageDescription": {
+    "message": "Translate visible page text collected from the current document."
+  },
   "viewport": {
     "message": "Viewport"
+  },
+  "viewportDescription": {
+    "message": "Translate text near the current viewport as you browse."
   },
   "visiblePageTranslationEnabled": {
     "message": "Page translation will use visible page text"
@@ -200,8 +212,14 @@
   "textNodeTranslationMode": {
     "message": "Text nodes"
   },
+  "textNodeTranslationModeDescription": {
+    "message": "Translate individual text nodes; safer for dense UI but less contextual."
+  },
   "wholeParagraphTranslationMode": {
     "message": "Whole paragraph"
+  },
+  "wholeParagraphTranslationModeDescription": {
+    "message": "Translate paragraph-like content with surrounding inline context."
   },
   "minTranslationTextLengthInvalid": {
     "message": "Minimum text length must be an integer from 1 to 100"

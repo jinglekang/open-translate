@@ -1,6 +1,6 @@
 import { StrictMode, useEffect, useMemo, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { LanguagesIcon, SettingsIcon } from 'lucide-react'
+import { CircleHelpIcon, LanguagesIcon, SettingsIcon } from 'lucide-react'
 import {
   Select,
   SelectContent,
@@ -11,6 +11,12 @@ import {
 import { Button } from '../components/ui/button'
 import { AppThemeControl } from '../components/app-theme-control'
 import { StatusNotice } from '../components/status-notice'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '../components/ui/tooltip'
 import { applyAppTheme } from '../shared/appearance'
 import { setAppLanguage, t } from '../shared/i18n'
 import { targetLanguageOptions } from '../shared/languages'
@@ -226,7 +232,14 @@ export function Popup() {
           </div>
 
           <div className="grid grid-cols-2 items-center gap-2">
-            <span className="text-[13px] font-semibold text-slate-600">{t('displayMode')}</span>
+            <PopupLabelWithTooltip
+              label={t('displayMode')}
+              description={t(
+                settings.displayMode === 'bilingual'
+                  ? 'bilingualDescription'
+                  : 'translationOnlyDescription',
+              )}
+            />
             <Select
               value={settings.displayMode}
               onValueChange={(value) => {
@@ -243,16 +256,29 @@ export function Popup() {
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="bilingual">{t('bilingual')}</SelectItem>
-                <SelectItem value="translation">{t('translationOnly')}</SelectItem>
+                <PopupSelectItemWithTooltip
+                  value="bilingual"
+                  label={t('bilingual')}
+                  description={t('bilingualDescription')}
+                />
+                <PopupSelectItemWithTooltip
+                  value="translation"
+                  label={t('translationOnly')}
+                  description={t('translationOnlyDescription')}
+                />
               </SelectContent>
             </Select>
           </div>
 
           <div className="grid grid-cols-2 items-center gap-2">
-            <span className="text-[13px] font-semibold text-slate-600">
-              {t('translationScope')}
-            </span>
+            <PopupLabelWithTooltip
+              label={t('translationScope')}
+              description={t(
+                settings.translationScope === 'viewport'
+                  ? 'viewportDescription'
+                  : 'visiblePageDescription',
+              )}
+            />
             <Select
               value={settings.translationScope}
               onValueChange={(value) => {
@@ -269,16 +295,29 @@ export function Popup() {
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="viewport">{t('viewport')}</SelectItem>
-                <SelectItem value="visible-page">{t('visiblePage')}</SelectItem>
+                <PopupSelectItemWithTooltip
+                  value="viewport"
+                  label={t('viewport')}
+                  description={t('viewportDescription')}
+                />
+                <PopupSelectItemWithTooltip
+                  value="visible-page"
+                  label={t('visiblePage')}
+                  description={t('visiblePageDescription')}
+                />
               </SelectContent>
             </Select>
           </div>
 
           <div className="grid grid-cols-2 items-center gap-2">
-            <span className="text-[13px] font-semibold text-slate-600">
-              {t('translationMode')}
-            </span>
+            <PopupLabelWithTooltip
+              label={t('translationMode')}
+              description={t(
+                settings.translationMode === 'element-context'
+                  ? 'wholeParagraphTranslationModeDescription'
+                  : 'textNodeTranslationModeDescription',
+              )}
+            />
             <Select
               value={settings.translationMode}
               onValueChange={(value) => {
@@ -297,8 +336,16 @@ export function Popup() {
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="element-context">{t('wholeParagraphTranslationMode')}</SelectItem>
-                <SelectItem value="text-node">{t('textNodeTranslationMode')}</SelectItem>
+                <PopupSelectItemWithTooltip
+                  value="element-context"
+                  label={t('wholeParagraphTranslationMode')}
+                  description={t('wholeParagraphTranslationModeDescription')}
+                />
+                <PopupSelectItemWithTooltip
+                  value="text-node"
+                  label={t('textNodeTranslationMode')}
+                  description={t('textNodeTranslationModeDescription')}
+                />
               </SelectContent>
             </Select>
           </div>
@@ -312,8 +359,65 @@ export function Popup() {
   )
 }
 
+function PopupLabelWithTooltip({
+  label,
+  description,
+}: {
+  label: string
+  description: string
+}) {
+  return (
+    <span className="flex min-w-0 items-center gap-1.5 text-[13px] font-semibold text-slate-600">
+      <span className="min-w-0 truncate">{label}</span>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <button
+              type="button"
+              className="grid size-4 shrink-0 place-items-center rounded-full text-slate-400 outline-none transition hover:text-slate-600 focus-visible:ring-2 focus-visible:ring-slate-300"
+              aria-label={description}
+            />
+          }
+        >
+          <CircleHelpIcon className="size-3.5" aria-hidden="true" />
+        </TooltipTrigger>
+        <TooltipContent side="top" align="start" className="max-w-54 leading-4">
+          {description}
+        </TooltipContent>
+      </Tooltip>
+    </span>
+  )
+}
+
+function PopupSelectItemWithTooltip({
+  value,
+  label,
+  description,
+}: {
+  value: string
+  label: string
+  description: string
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger render={<SelectItem value={value} />}>
+        {label}
+      </TooltipTrigger>
+      <TooltipContent
+        side="left"
+        align="center"
+        className="max-w-36 whitespace-normal wrap-break-word text-left leading-4"
+      >
+        {description}
+      </TooltipContent>
+    </Tooltip>
+  )
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <Popup />
+    <TooltipProvider>
+      <Popup />
+    </TooltipProvider>
   </StrictMode>,
 )

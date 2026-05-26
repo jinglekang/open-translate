@@ -627,6 +627,13 @@ export function Options() {
                 <legend className="text-[13px] font-semibold text-slate-600">
                   {t('displayMode')}
                 </legend>
+                <p className="m-0 text-xs leading-5 text-slate-500">
+                  {t(
+                    settings.displayMode === 'bilingual'
+                      ? 'bilingualDescription'
+                      : 'translationOnlyDescription',
+                  )}
+                </p>
                 <div className="grid max-w-96 grid-cols-2 gap-1.5 rounded-lg border border-slate-200 bg-white p-1">
                   <Button
                     type="button"
@@ -661,6 +668,13 @@ export function Options() {
                 <legend className="text-[13px] font-semibold text-slate-600">
                   {t('translationScope')}
                 </legend>
+                <p className="m-0 text-xs leading-5 text-slate-500">
+                  {t(
+                    settings.translationScope === 'viewport'
+                      ? 'viewportDescription'
+                      : 'visiblePageDescription',
+                  )}
+                </p>
                 <div className="grid max-w-96 grid-cols-2 gap-1.5 rounded-lg border border-slate-200 bg-white p-1">
                   <Button
                     type="button"
@@ -695,6 +709,13 @@ export function Options() {
                 <legend className="text-[13px] font-semibold text-slate-600">
                   {t('translationMode')}
                 </legend>
+                <p className="m-0 text-xs leading-5 text-slate-500">
+                  {t(
+                    settings.translationMode === 'element-context'
+                      ? 'wholeParagraphTranslationModeDescription'
+                      : 'textNodeTranslationModeDescription',
+                  )}
+                </p>
                 <div className="grid max-w-96 grid-cols-2 gap-1.5 rounded-lg border border-slate-200 bg-white p-1">
                   <Button
                     type="button"
