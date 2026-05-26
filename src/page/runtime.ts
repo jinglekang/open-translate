@@ -565,6 +565,16 @@ function installPageTranslator(
     const seenElements = new Set<Element>()
 
     for (const node of nodes) {
+      if (isInsideInteractiveContent(node)) {
+        state.inFlightNodes.add(node)
+        units.push({
+          kind: 'text',
+          node,
+          sourceText: node.nodeValue || '',
+        })
+        continue
+      }
+
       const element = getTranslationContextElement(node)
       if (
         !element ||
@@ -595,13 +605,37 @@ function installPageTranslator(
     }
 
     const contextElement = parent.closest(
-      'p, li, h1, h2, h3, h4, h5, h6, blockquote, figcaption, caption, td, th, dt, dd, summary, label, button, a',
+      'p, li, h1, h2, h3, h4, h5, h6, blockquote, figcaption, caption, td, th, dt, dd, summary',
     )
     if (contextElement && document.body.contains(contextElement)) {
       return contextElement
     }
 
     return parent === document.body ? undefined : parent
+  }
+
+  function isInsideInteractiveContent(node: Text) {
+    const parent = node.parentElement
+    return !!parent?.closest(
+      [
+        'a',
+        'button',
+        'label',
+        'summary',
+        'select',
+        'option',
+        '[role="button"]',
+        '[role="link"]',
+        '[role="menu"]',
+        '[role="menuitem"]',
+        '[role="tab"]',
+        '[role="treeitem"]',
+        '[role="option"]',
+        '[role="navigation"]',
+        '[role="toolbar"]',
+        'nav',
+      ].join(', '),
+    )
   }
 
   function createElementTranslationUnit(element: Element): ElementTranslationUnit | undefined {
@@ -956,23 +990,14 @@ function installPageTranslator(
     translatedTexts.add(translatedText)
     unit.element.setAttribute('data-open-translate-element', 'true')
 
-    const nextSibling = unit.element.nextSibling
-    if (
-      nextSibling instanceof HTMLElement &&
-      nextSibling.dataset.openTranslateBilingual === 'true'
-    ) {
-      nextSibling.remove()
-    }
+    removeExistingBilingualElementTranslation(unit.element)
 
     if (displayMode === 'translation') {
       replaceElementContentWithTranslation(unit.element, translatedText, unit.fragments)
       return
     }
 
-    unit.element.parentNode?.insertBefore(
-      createPageBilingualFragment(translatedText, unit.fragments),
-      unit.element.nextSibling,
-    )
+    unit.element.append(createPageBilingualFragment(translatedText, unit.fragments))
   }
 
   function replaceElementContentWithTranslation(
@@ -992,6 +1017,8 @@ function installPageTranslator(
     wrapper.style.cssText = `
       display: inline;
       margin-left: 0.35em;
+      font: inherit;
+      color: inherit;
     `
     wrapper.append(...createTranslatedNodes(translatedText, fragments))
 
@@ -1041,9 +1068,28 @@ function installPageTranslator(
     wrapper.style.cssText = `
       display: inline;
       margin-left: 0.35em;
+      font: inherit;
+      color: inherit;
     `
 
     return wrapper
+  }
+
+  function removeExistingBilingualElementTranslation(element: Element) {
+    const existingChild = Array.from(element.children).find(
+      (child) =>
+        child instanceof HTMLElement &&
+        child.dataset.openTranslateBilingual === 'true',
+    )
+    existingChild?.remove()
+
+    const legacyNextSibling = element.nextSibling
+    if (
+      legacyNextSibling instanceof HTMLElement &&
+      legacyNextSibling.dataset.openTranslateBilingual === 'true'
+    ) {
+      legacyNextSibling.remove()
+    }
   }
 
   function isTranslatableTextNode(node: Text) {
