@@ -102,7 +102,7 @@ function getAppLanguageIcon(
 
   return (
     <span className={cn('text-sm leading-none font-semibold', textIconClassName)} aria-hidden="true">
-      {language === 'zh_CN' ? '中' : 'E'}
+      {language === 'zh_CN' ? '中' : 'EN'}
     </span>
   )
 }
