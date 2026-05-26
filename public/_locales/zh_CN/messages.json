@@ -467,6 +467,9 @@
   "builtInAiUnavailable": {
     "message": "Chrome Built-in AI Translator 当前不可用，请确认使用 Chrome 138+ 桌面端并启用内置翻译能力"
   },
+  "builtInAiUnsupportedLanguagePair": {
+    "message": "Chrome 内置翻译暂不支持当前语言组合"
+  },
   "builtInAiRunsInPage": {
     "message": "Chrome Built-in AI 需要在页面环境中运行"
   },

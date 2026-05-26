@@ -467,6 +467,9 @@
   "builtInAiUnavailable": {
     "message": "Chrome Built-in AI Translator is not available. Use Chrome 138+ on desktop and enable the built-in translation capability."
   },
+  "builtInAiUnsupportedLanguagePair": {
+    "message": "Chrome Built-in AI Translator does not support this language pair."
+  },
   "builtInAiRunsInPage": {
     "message": "Chrome Built-in AI must run in the page context"
   },

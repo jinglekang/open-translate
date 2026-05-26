@@ -30,6 +30,15 @@ type ProtectedFragment = {
   node: Node
 }
 
+type BuiltInSourceLanguageDetection = {
+  language: string
+  documentLanguage: string
+  source: 'document' | 'detector' | 'detector-low-confidence' | 'detector-error' | 'detector-unavailable'
+  detectedLanguage?: string
+  confidence?: number
+  textSample: string
+}
+
 type PageRuntimeMessage = {
   type: 'open-translate:start-page-translator'
   maxNodes: number
@@ -44,6 +53,8 @@ type PageRuntimeMessage = {
   translationConcurrency: number
   translationBatchSegments: number
   translationBatchTextLength: number
+  builtInAiUnavailableMessage: string
+  builtInAiUnsupportedLanguagePairMessage: string
 }
 
 type PartialTranslationMessage = {
@@ -85,6 +96,8 @@ if (!runtimeWindow.__openTranslatePageRuntimeInstalled) {
       message.translationConcurrency,
       message.translationBatchSegments,
       message.translationBatchTextLength,
+      message.builtInAiUnavailableMessage,
+      message.builtInAiUnsupportedLanguagePairMessage,
     ))
     return false
   })
@@ -130,7 +143,9 @@ function isStartPageTranslatorMessage(message: unknown): message is PageRuntimeM
     typeof (message as PageRuntimeMessage).minTranslationTextLength === 'number' &&
     typeof (message as PageRuntimeMessage).translationConcurrency === 'number' &&
     typeof (message as PageRuntimeMessage).translationBatchSegments === 'number' &&
-    typeof (message as PageRuntimeMessage).translationBatchTextLength === 'number'
+    typeof (message as PageRuntimeMessage).translationBatchTextLength === 'number' &&
+    typeof (message as PageRuntimeMessage).builtInAiUnavailableMessage === 'string' &&
+    typeof (message as PageRuntimeMessage).builtInAiUnsupportedLanguagePairMessage === 'string'
   )
 }
 
@@ -147,6 +162,8 @@ function installPageTranslator(
   translationConcurrency: number,
   translationBatchSegments: number,
   translationBatchTextLength: number,
+  builtInAiUnavailableMessage: string,
+  builtInAiUnsupportedLanguagePairMessage: string,
 ) {
   type PageTranslatorState = {
     observer: MutationObserver
@@ -505,7 +522,7 @@ function installPageTranslator(
 
   async function translateWithBuiltInAI(sourceText: string) {
     const sourceLanguage = await detectBuiltInSourceLanguage(sourceText)
-    if (sourceLanguage === targetLanguageCode) {
+    if (sourceLanguage.language === targetLanguageCode) {
       return sourceText
     }
 
@@ -513,30 +530,39 @@ function installPageTranslator(
     return translator.translate(sourceText)
   }
 
-  async function getBuiltInTranslator(sourceLanguage: string, targetLanguageCode: string) {
+  async function getBuiltInTranslator(
+    sourceLanguage: BuiltInSourceLanguageDetection,
+    targetLanguageCode: string,
+  ) {
     const apiWindow = window as Window & {
       Translator?: BuiltInTranslatorConstructor
     }
     if (!apiWindow.Translator) {
-      throw new Error('Chrome Built-in AI Translator is not available')
+      throw new Error(builtInAiUnavailableMessage)
     }
 
-    const cacheKey = `${sourceLanguage}:${targetLanguageCode}`
+    const cacheKey = `${sourceLanguage.language}:${targetLanguageCode}`
     const existingTranslator = state.builtInTranslators.get(cacheKey)
     if (existingTranslator) {
       return existingTranslator
     }
 
     const translatorPromise = apiWindow.Translator.availability({
-      sourceLanguage,
+      sourceLanguage: sourceLanguage.language,
       targetLanguage: targetLanguageCode,
     }).then((availability) => {
       if (availability === 'unavailable') {
-        throw new Error('Chrome Built-in AI Translator does not support this language pair')
+        const languagePair = `${sourceLanguage.language} -> ${targetLanguageCode}`
+        console.warn('Open Translate Chrome Built-in AI unsupported language pair', {
+          sourceLanguage: sourceLanguage.language,
+          targetLanguage: targetLanguageCode,
+          detection: sourceLanguage,
+        })
+        throw new Error(`${builtInAiUnsupportedLanguagePairMessage} (${languagePair})`)
       }
 
       return apiWindow.Translator!.create({
-        sourceLanguage,
+        sourceLanguage: sourceLanguage.language,
         targetLanguage: targetLanguageCode,
       })
     })
@@ -549,22 +575,49 @@ function installPageTranslator(
     const documentLanguage = normalizeBuiltInSourceLanguageCode(
       document.documentElement.lang || navigator.language || 'en',
     )
+    const textSample = createLogTextSample(sourceText)
     if (sourceText.trim().length < 20) {
-      return documentLanguage
+      return {
+        language: documentLanguage,
+        documentLanguage,
+        source: 'document',
+        textSample,
+      } satisfies BuiltInSourceLanguageDetection
     }
 
     const detector = await getBuiltInLanguageDetector()
     if (!detector) {
-      return documentLanguage
+      return {
+        language: documentLanguage,
+        documentLanguage,
+        source: 'detector-unavailable',
+        textSample,
+      } satisfies BuiltInSourceLanguageDetection
     }
 
     try {
       const [result] = await detector.detect(sourceText)
-      return result?.confidence > 0.55
+      const detectedLanguage = result?.detectedLanguage
         ? normalizeBuiltInSourceLanguageCode(result.detectedLanguage)
-        : documentLanguage
+        : undefined
+
+      return {
+        language: result?.confidence > 0.55 && detectedLanguage ? detectedLanguage : documentLanguage,
+        documentLanguage,
+        source: result?.confidence > 0.55 && detectedLanguage
+          ? 'detector'
+          : 'detector-low-confidence',
+        detectedLanguage,
+        confidence: result?.confidence,
+        textSample,
+      } satisfies BuiltInSourceLanguageDetection
     } catch {
-      return documentLanguage
+      return {
+        language: documentLanguage,
+        documentLanguage,
+        source: 'detector-error',
+        textSample,
+      } satisfies BuiltInSourceLanguageDetection
     }
   }
 
@@ -599,6 +652,10 @@ function installPageTranslator(
     }
 
     return normalized.split('-')[0].toLowerCase()
+  }
+
+  function createLogTextSample(text: string) {
+    return text.replace(/\s+/g, ' ').trim().slice(0, 160)
   }
 
   async function runConcurrent<T>(
