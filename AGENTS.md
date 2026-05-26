@@ -56,6 +56,22 @@ Vite outputs fixed extension files:
   4. Cache / 缓存设置
 - Avoid UI copy that says the whole Options page is only API configuration. The page now includes translation, rules, and cache settings.
 
+## Potential Future Features
+
+These are roadmap candidates, not current product requirements. Treat them as possible future directions unless a user explicitly asks to implement one. The order below balances product importance and implementation difficulty:
+
+1. Cache lifetime, entry count, and storage size management with clearer cleanup policies. High importance, low-to-medium difficulty.
+2. Automatic source-language detection for page, selection, and input translation. High importance, medium difficulty.
+3. More bilingual display styles, including layout, color, font size, and spacing options. Medium-to-high importance, low-to-medium difficulty.
+4. A floating page button for quick translation entry points, status, and restore controls. Medium-to-high importance, medium difficulty.
+5. Per-site rules for translation scope, whitelist terms, no-translate selectors, and default preferences. High importance, medium-to-high difficulty.
+6. More translation engines, including additional LLM providers, machine translation services, and browser-native capabilities. Medium-to-high importance, medium-to-high difficulty.
+7. Input-field translation for textareas, editors, forms, and other editable content. Medium importance, high difficulty.
+8. Subtitle translation for video sites, including translated subtitles and bilingual subtitle display. Medium importance, high difficulty.
+9. Additional configuration sync methods beyond local browser storage. Medium importance, medium-to-high difficulty.
+10. Online subscription support for shared/common site rules. Medium importance, medium-to-high difficulty.
+11. Chrome Web Store release preparation, including assets, screenshots, privacy copy, packaging, and review readiness. High importance, medium difficulty; best handled after the core feature set stabilizes.
+
 ## Translation Behavior
 
 - Selected-text translation is single-request translation. Do not batch selected text.
