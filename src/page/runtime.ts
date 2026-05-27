@@ -21,6 +21,7 @@ type ElementTranslationUnit = {
   kind: 'element'
   element: Element
   sourceText: string
+  contextText?: string
   originalHtml: string
   fragments: ProtectedFragment[]
 }
@@ -649,9 +650,33 @@ function installPageTranslator(
       kind: 'element',
       element,
       sourceText,
+      contextText: createElementTranslationContext(element, sourceText),
       originalHtml: element.innerHTML,
       fragments,
     }
+  }
+
+  function createElementTranslationContext(element: Element, sourceText: string) {
+    if (element.tagName !== 'LI') {
+      return undefined
+    }
+
+    const list = element.parentElement
+    if (!list || (list.tagName !== 'UL' && list.tagName !== 'OL')) {
+      return undefined
+    }
+
+    const listItems = Array.from(list.children)
+      .filter((child): child is HTMLElement => child instanceof HTMLElement && child.tagName === 'LI')
+      .map((child) => child.innerText.trim())
+      .filter(Boolean)
+
+    if (listItems.length < 2) {
+      return undefined
+    }
+
+    const contextText = listItems.join('\n')
+    return contextText === sourceText ? undefined : contextText
   }
 
   function serializeElementForTranslation(element: Element, fragments: ProtectedFragment[]) {
@@ -691,7 +716,7 @@ function installPageTranslator(
   }
 
   function requestTranslations(units: PageTranslationUnit[]) {
-    const sourceTexts = units.map((unit) => unit.sourceText)
+    const sourceTexts = units.map(createTranslationRequestText)
     if (translationProvider === 'built-in-translator') {
       return requestBuiltInTranslations(units)
     }
@@ -718,6 +743,21 @@ function installPageTranslator(
         },
       )
     })
+  }
+
+  function createTranslationRequestText(unit: PageTranslationUnit) {
+    if (unit.kind !== 'element' || !unit.contextText) {
+      return unit.sourceText
+    }
+
+    return [
+      '<OPEN_TRANSLATE_CONTEXT>',
+      unit.contextText,
+      '</OPEN_TRANSLATE_CONTEXT>',
+      '<OPEN_TRANSLATE_TEXT>',
+      unit.sourceText,
+      '</OPEN_TRANSLATE_TEXT>',
+    ].join('\n')
   }
 
   async function requestBuiltInTranslations(units: PageTranslationUnit[]) {

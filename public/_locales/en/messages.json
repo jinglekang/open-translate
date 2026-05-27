@@ -183,6 +183,49 @@
   "translationCacheCount": {
     "message": "Cached entries"
   },
+  "translationCacheLruEntries": {
+    "message": "LRU entries"
+  },
+  "translationCacheLegacyEntries": {
+    "message": "Legacy entries"
+  },
+  "translationCacheApproximateSize": {
+    "message": "Approx. size"
+  },
+  "translationCacheLastAccess": {
+    "message": "Latest access"
+  },
+  "translationCachePolicyMaxEntries": {
+    "message": "LRU capacity"
+  },
+  "translationCachePolicyRefreshInterval": {
+    "message": "Access refresh"
+  },
+  "translationCachePolicyRefreshIntervalValue": {
+    "message": "$MINUTES$ min",
+    "placeholders": {
+      "minutes": {
+        "content": "$1"
+      }
+    }
+  },
+  "translationCachePolicyStaleDays": {
+    "message": "Old-cache threshold"
+  },
+  "translationCachePolicyStaleDaysValue": {
+    "message": "$DAYS$ days",
+    "placeholders": {
+      "days": {
+        "content": "$1"
+      }
+    }
+  },
+  "translationCachePolicyLegacyHandling": {
+    "message": "Legacy handling"
+  },
+  "translationCachePolicyLegacyHandlingValue": {
+    "message": "Migrate on hit"
+  },
   "translationCacheCleared": {
     "message": "Cleared $COUNT$ translation cache entries",
     "placeholders": {
@@ -191,8 +234,27 @@
       }
     }
   },
+  "staleTranslationCacheDeleted": {
+    "message": "Deleted $COUNT$ stale translation cache entries",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
   "clearTranslationCache": {
     "message": "Clear Cache"
+  },
+  "deleteStaleTranslationCache": {
+    "message": "Delete Old Cache"
+  },
+  "deleteStaleTranslationCacheDescription": {
+    "message": "Delete LRU cache entries that have not been accessed for more than $DAYS$ days. Legacy entries without access time are kept.",
+    "placeholders": {
+      "days": {
+        "content": "$1"
+      }
+    }
   },
   "refresh": {
     "message": "Refresh"

@@ -1,6 +1,11 @@
 import { t } from '../shared/i18n'
 import type { TranslationMode, TranslationProfile } from '../shared/settings'
-import { translationCacheKeyPrefix } from '../shared/cache'
+import {
+  cacheAccessRefreshIntervalMinutes,
+  maxTranslationCacheEntries,
+  translationCacheIndexKey,
+  translationCacheKeyPrefix,
+} from '../shared/cache'
 import { shouldSkipTranslation } from '../shared/whitelist'
 
 type ChatMessage = {
@@ -21,6 +26,22 @@ type ChatCompletionsPayload = {
 }
 
 const BATCH_SEPARATOR = '<OPEN_TRANSLATE_SEGMENT_BREAK>'
+const CONTEXT_TAG_PATTERN = /<OPEN_TRANSLATE_CONTEXT>[\s\S]*?<\/OPEN_TRANSLATE_CONTEXT>/gi
+const CONTEXT_TEXT_PATTERN =
+  /<OPEN_TRANSLATE_TEXT>([\s\S]*?)<\/OPEN_TRANSLATE_TEXT>/i
+const CONTEXT_WRAPPER_PATTERN = /<\/?OPEN_TRANSLATE_(?:CONTEXT|TEXT)>/gi
+const cacheAccessRefreshInterval = cacheAccessRefreshIntervalMinutes * 60 * 1000
+
+type TranslationCacheEntry = {
+  translatedText: string
+  createdAt: number
+  lastAccessedAt: number
+  size: number
+}
+
+type TranslationCacheIndex = {
+  keys: string[]
+}
 
 export async function translateText(
   sourceText: string,
@@ -41,7 +62,7 @@ export async function translateText(
     translationMode,
   )
   if (cachedTranslation) {
-    return cachedTranslation
+    return normalizeTranslationOutput(sourceText, cachedTranslation)
   }
 
   const payload = await requestChatCompletions(profile, [
@@ -49,7 +70,10 @@ export async function translateText(
     { role: 'user', content: sourceText },
   ])
 
-  const translatedText = payload?.choices?.[0]?.message?.content?.trim()
+  const translatedText = normalizeTranslationOutput(
+    sourceText,
+    payload?.choices?.[0]?.message?.content?.trim() || '',
+  )
   if (!translatedText) {
     throw new Error(t('emptyTranslationResponse'))
   }
@@ -100,11 +124,31 @@ export async function getCachedTranslations(
       ),
     )
     const cachedItems = await chrome.storage.local.get(cacheKeys)
+    const now = Date.now()
+    const updates: Record<string, TranslationCacheEntry> = {}
+    const hitKeys: string[] = []
 
-    return cacheKeys.map((cacheKey) => {
+    const translations = cacheKeys.map((cacheKey, index) => {
       const cachedValue = cachedItems[cacheKey]
-      return typeof cachedValue === 'string' ? cachedValue : undefined
+      const translatedText = readCachedTranslationValue(cachedValue)
+      if (!translatedText) {
+        return undefined
+      }
+
+      hitKeys.push(cacheKey)
+      if (shouldRefreshCacheAccess(cachedValue, now)) {
+        updates[cacheKey] = createCacheEntry(
+          normalizeTranslationOutput(sourceTexts[index], translatedText),
+          now,
+          getCacheEntryCreatedAt(cachedValue, now),
+        )
+      }
+
+      return normalizeTranslationOutput(sourceTexts[index], translatedText)
     })
+
+    await persistCacheAccessUpdates(updates, hitKeys)
+    return translations
   } catch (error) {
     console.warn('Open Translate cache read failed', error)
     return sourceTexts.map(() => undefined)
@@ -130,14 +174,16 @@ async function translateUncachedBatchWithFallback(
       sourceTexts.map((sourceText, index) =>
         cacheTranslation(
           sourceText,
-          translatedTexts[index],
+          normalizeTranslationOutput(sourceText, translatedTexts[index]),
           profile,
           targetLanguage,
           translationMode,
         ),
       ),
     )
-    return translatedTexts
+    return sourceTexts.map((sourceText, index) =>
+      normalizeTranslationOutput(sourceText, translatedTexts[index]),
+    )
   } catch {
     return Promise.all(
       sourceTexts.map((sourceText) =>
@@ -174,7 +220,9 @@ async function requestBatchTranslations(
 
   const translatedTexts = content
     .split(new RegExp(`\\s*${BATCH_SEPARATOR}\\s*`, 'g'))
-    .map((translatedText) => translatedText.trim())
+    .map((translatedText, index) =>
+      normalizeTranslationOutput(sourceTexts[index] || '', translatedText.trim()),
+    )
 
   if (
     translatedTexts.length !== sourceTexts.length ||
@@ -201,8 +249,27 @@ async function getCachedTranslation(
     )
     const cachedItems = await chrome.storage.local.get(cacheKey)
     const cachedValue = cachedItems[cacheKey]
+    const translatedText = readCachedTranslationValue(cachedValue)
+    if (!translatedText) {
+      return undefined
+    }
 
-    return typeof cachedValue === 'string' ? cachedValue : undefined
+    const normalizedText = normalizeTranslationOutput(sourceText, translatedText)
+    const now = Date.now()
+    if (shouldRefreshCacheAccess(cachedValue, now)) {
+      await persistCacheAccessUpdates(
+        {
+          [cacheKey]: createCacheEntry(
+            normalizedText,
+            now,
+            getCacheEntryCreatedAt(cachedValue, now),
+          ),
+        },
+        [cacheKey],
+      )
+    }
+
+    return normalizedText
   } catch (error) {
     console.warn('Open Translate cache read failed', error)
     return undefined
@@ -223,10 +290,165 @@ async function cacheTranslation(
       targetLanguage,
       translationMode,
     )
-    await chrome.storage.local.set({ [cacheKey]: translatedText })
+    await chrome.storage.local.set({
+      [cacheKey]: createCacheEntry(translatedText, Date.now()),
+    })
+    await addTranslationCacheKeys([cacheKey])
+    await pruneTranslationCache()
   } catch (error) {
     console.warn('Open Translate cache write failed', error)
   }
+}
+
+function readCachedTranslationValue(value: unknown) {
+  if (typeof value === 'string') {
+    return value
+  }
+
+  if (
+    value &&
+    typeof value === 'object' &&
+    typeof (value as TranslationCacheEntry).translatedText === 'string'
+  ) {
+    return (value as TranslationCacheEntry).translatedText
+  }
+
+  return undefined
+}
+
+function shouldRefreshCacheAccess(value: unknown, now: number) {
+  if (typeof value === 'string') {
+    return true
+  }
+
+  return (
+    value &&
+    typeof value === 'object' &&
+    (
+      typeof (value as TranslationCacheEntry).lastAccessedAt !== 'number' ||
+      now - (value as TranslationCacheEntry).lastAccessedAt > cacheAccessRefreshInterval
+    )
+  )
+}
+
+function getCacheEntryCreatedAt(value: unknown, fallback: number) {
+  return (
+    value &&
+    typeof value === 'object' &&
+    typeof (value as TranslationCacheEntry).createdAt === 'number'
+  )
+    ? (value as TranslationCacheEntry).createdAt
+    : fallback
+}
+
+function createCacheEntry(
+  translatedText: string,
+  lastAccessedAt: number,
+  createdAt = lastAccessedAt,
+): TranslationCacheEntry {
+  return {
+    translatedText,
+    createdAt,
+    lastAccessedAt,
+    size: translatedText.length,
+  }
+}
+
+async function persistCacheAccessUpdates(
+  updates: Record<string, TranslationCacheEntry>,
+  hitKeys: string[],
+) {
+  if (Object.keys(updates).length) {
+    await chrome.storage.local.set(updates)
+  }
+
+  if (hitKeys.length) {
+    await addTranslationCacheKeys(hitKeys)
+  }
+}
+
+async function addTranslationCacheKeys(keys: string[]) {
+  const index = await getTranslationCacheIndex()
+  const existingKeys = new Set(index.keys)
+  let didChange = false
+
+  for (const key of keys) {
+    if (!existingKeys.has(key)) {
+      existingKeys.add(key)
+      didChange = true
+    }
+  }
+
+  if (didChange) {
+    await setTranslationCacheIndex([...existingKeys])
+  }
+}
+
+async function pruneTranslationCache() {
+  const index = await getTranslationCacheIndex()
+  if (index.keys.length <= maxTranslationCacheEntries) {
+    return
+  }
+
+  const cachedItems = await chrome.storage.local.get(index.keys)
+  const entries = index.keys
+    .map((key) => ({
+      key,
+      value: cachedItems[key],
+      lastAccessedAt: getCacheEntryLastAccessedAt(cachedItems[key]),
+    }))
+    .filter((entry) => entry.lastAccessedAt !== undefined)
+    .sort((a, b) => a.lastAccessedAt! - b.lastAccessedAt!)
+
+  const staleKeys = index.keys.filter((key) => !readCachedTranslationValue(cachedItems[key]))
+  const overflowCount = Math.max(0, entries.length - maxTranslationCacheEntries)
+  const lruKeys = entries.slice(0, overflowCount).map((entry) => entry.key)
+  const keysToRemove = [...new Set([...staleKeys, ...lruKeys])]
+  if (!keysToRemove.length) {
+    return
+  }
+
+  await chrome.storage.local.remove(keysToRemove)
+  const removedKeys = new Set(keysToRemove)
+  await setTranslationCacheIndex(index.keys.filter((key) => !removedKeys.has(key)))
+}
+
+function getCacheEntryLastAccessedAt(value: unknown) {
+  if (typeof value === 'string') {
+    return 0
+  }
+
+  return (
+    value &&
+    typeof value === 'object' &&
+    typeof (value as TranslationCacheEntry).lastAccessedAt === 'number'
+  )
+    ? (value as TranslationCacheEntry).lastAccessedAt
+    : undefined
+}
+
+async function getTranslationCacheIndex(): Promise<TranslationCacheIndex> {
+  const stored = await chrome.storage.local.get(translationCacheIndexKey)
+  const index = stored[translationCacheIndexKey]
+  if (!index || typeof index !== 'object' || !Array.isArray((index as TranslationCacheIndex).keys)) {
+    return { keys: [] }
+  }
+
+  return {
+    keys: (index as TranslationCacheIndex).keys.filter(
+      (key): key is string =>
+        typeof key === 'string' &&
+        key.startsWith(`${translationCacheKeyPrefix}:`),
+    ),
+  }
+}
+
+async function setTranslationCacheIndex(keys: string[]) {
+  await chrome.storage.local.set({
+    [translationCacheIndexKey]: {
+      keys,
+    } satisfies TranslationCacheIndex,
+  })
 }
 
 async function createTranslationCacheKey(
@@ -283,6 +505,26 @@ async function requestChatCompletions(
   return payload
 }
 
+function normalizeTranslationOutput(sourceText: string, translatedText: string) {
+  if (!hasContextWrapper(sourceText)) {
+    return translatedText.trim()
+  }
+
+  const textMatch = translatedText.match(CONTEXT_TEXT_PATTERN)
+  if (textMatch?.[1]) {
+    return textMatch[1].trim()
+  }
+
+  return translatedText
+    .replace(CONTEXT_TAG_PATTERN, '')
+    .replace(CONTEXT_WRAPPER_PATTERN, '')
+    .trim()
+}
+
+function hasContextWrapper(sourceText: string) {
+  return /<OPEN_TRANSLATE_CONTEXT>/i.test(sourceText)
+}
+
 function getSystemPrompt(
   profile: TranslationProfile,
   targetLanguage: string,
@@ -305,7 +547,16 @@ Rules for protected placeholders:
 2. Do not translate, lowercase, split, wrap, or explain placeholders.
 3. Preserve the same number of placeholders in the output.
 4. Move placeholders only when needed for natural word order in ${targetLanguage}.
-5. Output only the translated text with the placeholders kept in place.`
+5. Output only the translated text with the placeholders kept in place.
+
+Some page text may be wrapped as:
+<OPEN_TRANSLATE_CONTEXT>
+surrounding text for meaning only
+</OPEN_TRANSLATE_CONTEXT>
+<OPEN_TRANSLATE_TEXT>
+text to translate
+</OPEN_TRANSLATE_TEXT>
+When this wrapper is present, use the context only to understand meaning and translate only the text inside OPEN_TRANSLATE_TEXT. Do not output the context or wrapper tags.`
 }
 
 function getBatchSystemPrompt(

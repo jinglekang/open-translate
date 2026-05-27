@@ -2,7 +2,15 @@ import { StrictMode, useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import { createRoot } from 'react-dom/client'
 import { applyAppTheme } from '../shared/appearance'
-import { clearTranslationCache, getTranslationCacheStats } from '../shared/cache'
+import {
+  cacheAccessRefreshIntervalMinutes,
+  clearTranslationCache,
+  deleteStaleTranslationCache,
+  getTranslationCacheStats,
+  maxTranslationCacheEntries,
+  staleTranslationCacheDays,
+} from '../shared/cache'
+import type { TranslationCacheStats } from '../shared/cache'
 import { getEndpointPreview } from '../shared/endpoint'
 import { setAppLanguage, t } from '../shared/i18n'
 import { targetLanguageOptions } from '../shared/languages'
@@ -37,11 +45,18 @@ import '../shared/style.css'
 
 type OptionsTab = 'translators' | 'translation' | 'cache' | 'rules'
 
+const emptyCacheStats: TranslationCacheStats = {
+  count: 0,
+  metadataCount: 0,
+  legacyCount: 0,
+  approximateSize: 0,
+}
+
 export function Options() {
   const [settings, setSettings] = useState<TranslationSettings>(defaultSettings)
   const [editingId, setEditingId] = useState(defaultSettings.activeProfileId)
   const [activeTab, setActiveTab] = useState<OptionsTab>('translation')
-  const [cacheCount, setCacheCount] = useState(0)
+  const [cacheStats, setCacheStats] = useState<TranslationCacheStats>(emptyCacheStats)
   const [whitelistDraft, setWhitelistDraft] = useState(
     formatCommaList(defaultSettings.userWhitelist),
   )
@@ -203,13 +218,19 @@ export function Options() {
 
   async function refreshCacheStats() {
     const stats = await getTranslationCacheStats()
-    setCacheCount(stats.count)
+    setCacheStats(stats)
   }
 
   async function clearCache() {
     const removedCount = await clearTranslationCache()
-    setCacheCount(0)
+    setCacheStats(emptyCacheStats)
     setStatus(t('translationCacheCleared', String(removedCount)))
+  }
+
+  async function deleteOldCache() {
+    const removedCount = await deleteStaleTranslationCache()
+    await refreshCacheStats()
+    setStatus(t('staleTranslationCacheDeleted', String(removedCount)))
   }
 
   function updateProfile<Key extends keyof TranslationProfile>(
@@ -774,7 +795,7 @@ export function Options() {
                     {t('translationCacheCount')}
                   </span>
                   <strong className="block text-2xl leading-tight font-semibold text-slate-900">
-                    {cacheCount}
+                    {cacheStats.count}
                   </strong>
                 </div>
                 <div className="flex gap-2">
@@ -793,11 +814,62 @@ export function Options() {
                     size="lg"
                     className="h-9 rounded-md border border-red-200 bg-red-50 px-3.5 text-sm font-semibold text-red-700 hover:bg-red-100"
                     onClick={clearCache}
-                    disabled={!cacheCount}
+                    disabled={!cacheStats.count}
                   >
                     {t('clearTranslationCache')}
                   </Button>
                 </div>
+              </div>
+
+              <div className="grid gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3.5 sm:grid-cols-2 lg:grid-cols-4">
+                <CacheStatItem label={t('translationCacheLruEntries')} value={cacheStats.metadataCount} />
+                <CacheStatItem label={t('translationCacheLegacyEntries')} value={cacheStats.legacyCount} />
+                <CacheStatItem
+                  label={t('translationCacheApproximateSize')}
+                  value={formatCacheSize(cacheStats.approximateSize)}
+                />
+                <CacheStatItem
+                  label={t('translationCacheLastAccess')}
+                  value={formatCacheDate(cacheStats.newestAccessedAt)}
+                />
+              </div>
+
+              <div className="grid gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3.5 sm:grid-cols-2 lg:grid-cols-4">
+                <CacheStatItem
+                  label={t('translationCachePolicyMaxEntries')}
+                  value={formatNumber(maxTranslationCacheEntries)}
+                />
+                <CacheStatItem
+                  label={t('translationCachePolicyRefreshInterval')}
+                  value={t(
+                    'translationCachePolicyRefreshIntervalValue',
+                    String(cacheAccessRefreshIntervalMinutes),
+                  )}
+                />
+                <CacheStatItem
+                  label={t('translationCachePolicyStaleDays')}
+                  value={t('translationCachePolicyStaleDaysValue', String(staleTranslationCacheDays))}
+                />
+                <CacheStatItem
+                  label={t('translationCachePolicyLegacyHandling')}
+                  value={t('translationCachePolicyLegacyHandlingValue')}
+                />
+              </div>
+
+              <div className="flex items-center justify-between gap-4 rounded-lg border border-slate-200 bg-slate-50 p-3.5">
+                <p className="text-sm leading-5 text-slate-600">
+                  {t('deleteStaleTranslationCacheDescription', String(staleTranslationCacheDays))}
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="lg"
+                  className="h-9 shrink-0 rounded-md border-slate-300 bg-white px-3.5 text-sm font-semibold text-slate-900 hover:bg-slate-50"
+                  onClick={deleteOldCache}
+                  disabled={!cacheStats.metadataCount}
+                >
+                  {t('deleteStaleTranslationCache')}
+                </Button>
               </div>
 
               <StatusNotice message={status} />
@@ -877,6 +949,42 @@ function parseCommaListDraft(value: string) {
 
 function formatCommaList(items: readonly string[]) {
   return items.join(', ')
+}
+
+function CacheStatItem({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div>
+      <span className="block text-[12px] font-semibold text-slate-500">{label}</span>
+      <strong className="block truncate text-base font-semibold text-slate-900">{value}</strong>
+    </div>
+  )
+}
+
+function formatCacheSize(size: number) {
+  if (size < 1024) {
+    return `${size} B`
+  }
+
+  if (size < 1024 * 1024) {
+    return `${(size / 1024).toFixed(1)} KB`
+  }
+
+  return `${(size / 1024 / 1024).toFixed(1)} MB`
+}
+
+function formatNumber(value: number) {
+  return new Intl.NumberFormat().format(value)
+}
+
+function formatCacheDate(value?: number) {
+  if (!value) {
+    return '-'
+  }
+
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(value)
 }
 
 createRoot(document.getElementById('root')!).render(
