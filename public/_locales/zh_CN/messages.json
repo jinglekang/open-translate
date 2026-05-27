@@ -449,6 +449,9 @@
   "customPromptPlaceholder": {
     "message": "留空时使用默认翻译提示词"
   },
+  "restoreDefaultPrompt": {
+    "message": "恢复默认"
+  },
   "endpointPreview": {
     "message": "请求端点"
   },

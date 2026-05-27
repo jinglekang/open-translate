@@ -6,6 +6,7 @@ import {
   translationCacheIndexKey,
   translationCacheKeyPrefix,
 } from '../shared/cache'
+import { getTranslationSystemPrompt } from '../shared/prompt'
 import { shouldSkipTranslation } from '../shared/whitelist'
 
 type ChatMessage = {
@@ -530,33 +531,7 @@ function getSystemPrompt(
   targetLanguage: string,
   translationMode: TranslationMode,
 ) {
-  const basePrompt =
-    profile.customPrompt.trim() ||
-    `You are a professional translation assistant. Translate the user's text into ${targetLanguage}. Preserve the original formatting, proper nouns, and code blocks. Output only the translation without explanations.`
-
-  if (translationMode !== 'element-context') {
-    return basePrompt
-  }
-
-  return `${basePrompt}
-
-The input may contain protected inline placeholders in the exact form __OPEN_TRANSLATE_KEEP_0__, __OPEN_TRANSLATE_KEEP_1__, etc.
-These placeholders represent inline HTML fragments such as code, links, or no-translate nodes.
-Rules for protected placeholders:
-1. Keep every placeholder exactly unchanged, including uppercase letters and underscores.
-2. Do not translate, lowercase, split, wrap, or explain placeholders.
-3. Preserve the same number of placeholders in the output.
-4. Move placeholders only when needed for natural word order in ${targetLanguage}.
-5. Output only the translated text with the placeholders kept in place.
-
-Some page text may be wrapped as:
-<OPEN_TRANSLATE_CONTEXT>
-surrounding text for meaning only
-</OPEN_TRANSLATE_CONTEXT>
-<OPEN_TRANSLATE_TEXT>
-text to translate
-</OPEN_TRANSLATE_TEXT>
-When this wrapper is present, use the context only to understand meaning and translate only the text inside OPEN_TRANSLATE_TEXT. Do not output the context or wrapper tags.`
+  return getTranslationSystemPrompt(profile.customPrompt, targetLanguage, translationMode)
 }
 
 function getBatchSystemPrompt(

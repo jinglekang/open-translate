@@ -14,8 +14,10 @@ import type { TranslationCacheStats } from '../shared/cache'
 import { getEndpointPreview } from '../shared/endpoint'
 import { setAppLanguage, t } from '../shared/i18n'
 import { targetLanguageOptions } from '../shared/languages'
+import { getDefaultBaseTranslationPromptTemplate } from '../shared/prompt'
 import {
   createProfile,
+  builtInTranslatorConcurrencyDefault,
   defaultOpenAICompatibleApiBaseUrl,
   defaultOpenAICompatibleModel,
   defaultSettings,
@@ -71,6 +73,9 @@ export function Options() {
       getActiveProfile(settings),
     [editingId, settings],
   )
+  const defaultCustomPrompt = getDefaultBaseTranslationPromptTemplate()
+  const effectiveCustomPrompt =
+    editingProfile.customPrompt || defaultCustomPrompt
   const isBuiltInTranslatorProfile = editingProfile.provider === 'built-in-translator'
 
   useEffect(() => {
@@ -261,6 +266,7 @@ export function Options() {
             model: '',
             apiKey: '',
             customPrompt: '',
+            translationConcurrency: builtInTranslatorConcurrencyDefault,
           }
         }
 
@@ -456,11 +462,23 @@ export function Options() {
                   </label>
                 )}
 
-                {isBuiltInTranslatorProfile ? (
+                {!isBuiltInTranslatorProfile && (
                   <label className="grid gap-1.5">
-                    <span className="text-[13px] font-semibold text-slate-600">
-                      {t('translationConcurrency')}
-                    </span>
+                    <span className="text-[13px] font-semibold text-slate-600">{t('modelName')}</span>
+                    <input
+                      className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-[3px] focus:ring-slate-200"
+                      value={editingProfile.model}
+                      onChange={(event) => updateProfile('model', event.target.value)}
+                      placeholder={defaultOpenAICompatibleModel}
+                      spellCheck={false}
+                      maxLength={profileFieldLimits.model}
+                    />
+                  </label>
+                )}
+
+                <div className="grid grid-cols-3 gap-3">
+                  <label className="grid min-w-0 gap-1.5">
+                    <span className="text-[13px] leading-4 font-semibold text-slate-600">{t('translationConcurrency')}</span>
                     <input
                       className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-[3px] focus:ring-slate-200"
                       value={editingProfile.translationConcurrency}
@@ -473,38 +491,9 @@ export function Options() {
                       step={1}
                     />
                   </label>
-                ) : (
-                  <div className="grid grid-cols-[minmax(0,1fr)_128px] gap-3">
-                    <label className="grid min-w-0 gap-1.5">
-                      <span className="text-[13px] font-semibold text-slate-600">{t('modelName')}</span>
-                      <input
-                        className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-[3px] focus:ring-slate-200"
-                        value={editingProfile.model}
-                        onChange={(event) => updateProfile('model', event.target.value)}
-                        placeholder={defaultOpenAICompatibleModel}
-                        spellCheck={false}
-                        maxLength={profileFieldLimits.model}
-                      />
-                    </label>
 
-                    <label className="grid gap-1.5">
-                      <span className="text-[13px] font-semibold text-slate-600">{t('translationConcurrency')}</span>
-                      <input
-                        className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-[3px] focus:ring-slate-200"
-                        value={editingProfile.translationConcurrency}
-                        onChange={(event) => updateProfile('translationConcurrency', Number(event.target.value))}
-                        type="number"
-                        min={translationConcurrencyLimits.min}
-                        max={translationConcurrencyLimits.max}
-                        step={1}
-                      />
-                    </label>
-                  </div>
-                )}
-
-                <div className="grid grid-cols-2 gap-3">
                   <label className="grid gap-1.5">
-                    <span className="text-[13px] font-semibold text-slate-600">
+                    <span className="text-[13px] leading-4 font-semibold text-slate-600">
                       {t('translationBatchSegments')}
                     </span>
                     <input
@@ -521,7 +510,7 @@ export function Options() {
                   </label>
 
                   <label className="grid gap-1.5">
-                    <span className="text-[13px] font-semibold text-slate-600">
+                    <span className="text-[13px] leading-4 font-semibold text-slate-600">
                       {t('translationBatchTextLength')}
                     </span>
                     <input
@@ -554,17 +543,32 @@ export function Options() {
                 )}
 
                 {!isBuiltInTranslatorProfile && (
-                  <label className="grid gap-1.5">
-                    <span className="text-[13px] font-semibold text-slate-600">{t('customPrompt')}</span>
+                  <div className="grid gap-1.5">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-[13px] font-semibold text-slate-600">{t('customPrompt')}</span>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-7 rounded-md border-slate-300 bg-white px-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                        onClick={() => updateProfile('customPrompt', '')}
+                        disabled={!editingProfile.customPrompt}
+                      >
+                        {t('restoreDefaultPrompt')}
+                      </Button>
+                    </div>
                     <textarea
                       className="min-h-28 w-full resize-y rounded-md border border-slate-300 bg-white px-2.5 py-2 text-sm leading-snug text-slate-900 outline-none transition focus:border-slate-400 focus:ring-[3px] focus:ring-slate-200"
-                      value={editingProfile.customPrompt}
-                      onChange={(event) => updateProfile('customPrompt', event.target.value)}
-                      placeholder={t('customPromptPlaceholder')}
+                      value={effectiveCustomPrompt}
+                      onChange={(event) => {
+                        const value = event.target.value
+                        updateProfile('customPrompt', value === defaultCustomPrompt ? '' : value)
+                      }}
+                      placeholder={defaultCustomPrompt}
                       rows={5}
                       maxLength={profileFieldLimits.customPrompt}
                     />
-                  </label>
+                  </div>
                 )}
 
                 {!isBuiltInTranslatorProfile && (

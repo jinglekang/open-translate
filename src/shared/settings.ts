@@ -25,6 +25,7 @@ export const translationConcurrencyLimits = {
   default: 4,
   max: 8,
 } as const
+export const builtInTranslatorConcurrencyDefault = 8
 export const translationBatchSegmentLimits = {
   min: 1,
   default: 4,
@@ -186,7 +187,7 @@ export const defaultProfile: TranslationProfile = {
   apiBaseUrl: '',
   model: '',
   apiKey: '',
-  translationConcurrency: translationConcurrencyLimits.default,
+  translationConcurrency: builtInTranslatorConcurrencyDefault,
   translationBatchSegments: translationBatchSegmentLimits.default,
   translationBatchTextLength: translationBatchTextLengthLimits.default,
   customPrompt: '',

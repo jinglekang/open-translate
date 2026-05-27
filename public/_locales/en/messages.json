@@ -449,6 +449,9 @@
   "customPromptPlaceholder": {
     "message": "Leave blank to use the default translation prompt"
   },
+  "restoreDefaultPrompt": {
+    "message": "Restore Default"
+  },
   "endpointPreview": {
     "message": "Request endpoint"
   },
