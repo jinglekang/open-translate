@@ -10,13 +10,14 @@ import {
 } from '../components/ui/select'
 import { Button } from '../components/ui/button'
 import { AppThemeControl } from '../components/app-theme-control'
-import { StatusNotice } from '../components/status-notice'
+import { Toaster } from '../components/ui/sonner'
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from '../components/ui/tooltip'
+import { toast } from 'sonner'
 import { applyAppTheme } from '../shared/appearance'
 import { setAppLanguage, t } from '../shared/i18n'
 import { targetLanguageOptions } from '../shared/languages'
@@ -31,7 +32,6 @@ import '../shared/style.css'
 
 export function Popup() {
   const [settings, setSettings] = useState<TranslationSettings | null>(null)
-  const [status, setStatus] = useState(t('loadingSettings'))
 
   const activeProfile = useMemo(
     () => (settings ? getActiveProfile(settings) : null),
@@ -44,7 +44,6 @@ export function Popup() {
       setAppLanguage(nextSettings.appLanguage)
       applyAppTheme(nextSettings.appTheme)
       setSettings(nextSettings)
-      setStatus(t('chooseCurrentProfile'))
     })
   }, [])
 
@@ -56,7 +55,7 @@ export function Popup() {
     const nextSettings = { ...settings, activeProfileId: profileId }
     setSettings(nextSettings)
     await chrome.storage.sync.set({ activeProfileId: profileId })
-    setStatus(t('profileSwitched'))
+    toast.success(t('profileSwitched'))
   }
 
   async function handleDisplayModeChange(displayMode: TranslationDisplayMode) {
@@ -67,7 +66,7 @@ export function Popup() {
     const nextSettings = { ...settings, displayMode }
     setSettings(nextSettings)
     await chrome.storage.sync.set({ displayMode })
-    setStatus(displayMode === 'translation' ? t('translationOnlyEnabled') : t('bilingualEnabled'))
+    toast.success(displayMode === 'translation' ? t('translationOnlyEnabled') : t('bilingualEnabled'))
   }
 
   async function handleTranslationScopeChange(translationScope: TranslationScope) {
@@ -78,7 +77,7 @@ export function Popup() {
     const nextSettings = { ...settings, translationScope }
     setSettings(nextSettings)
     await chrome.storage.sync.set({ translationScope })
-    setStatus(
+    toast.success(
       translationScope === 'viewport'
         ? t('viewportTranslationEnabled')
         : t('visiblePageTranslationEnabled'),
@@ -93,7 +92,7 @@ export function Popup() {
     const nextSettings = { ...settings, translationMode }
     setSettings(nextSettings)
     await chrome.storage.sync.set({ translationMode })
-    setStatus(t('translationSettingsSaved'))
+    toast.success(t('translationSettingsSaved'))
   }
 
   async function handleTargetLanguageChange(targetLanguage: string) {
@@ -104,6 +103,7 @@ export function Popup() {
     const nextSettings = { ...settings, targetLanguage }
     setSettings(nextSettings)
     await chrome.storage.sync.set({ targetLanguage })
+    toast.success(t('translationSettingsSaved'))
   }
 
   async function openOptionsPage() {
@@ -131,8 +131,8 @@ export function Popup() {
                     current ? { ...current, appTheme } : current,
                   )
                 }
-                onThemeSaved={() => setStatus(t('appearanceSaved'))}
-                onThemeSaveFailed={() => setStatus(t('saveFailed'))}
+                onThemeSaved={() => toast.success(t('appearanceSaved'))}
+                onThemeSaveFailed={() => toast.error(t('saveFailed'))}
                 buttonClassName="size-8 rounded-md bg-slate-100 hover:bg-slate-200"
                 iconClassName="size-4"
               />
@@ -153,7 +153,7 @@ export function Popup() {
       </header>
 
       {settings && (
-        <section className="grid gap-2.5 p-4 pb-0">
+        <section className="grid gap-2.5 p-4 pb-5">
           <label className="grid gap-1.5">
             <span className="text-[13px] font-semibold text-slate-600">{t('currentProfile')}</span>
             <Select
@@ -352,9 +352,7 @@ export function Popup() {
         </section>
       )}
 
-      <div className="p-4 pt-3">
-        <StatusNotice message={status} />
-      </div>
+      <Toaster position="top-center" />
     </main>
   )
 }

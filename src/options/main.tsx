@@ -35,7 +35,8 @@ import { builtInNoTranslateRules } from '../shared/whitelist'
 import { AppLanguageControl } from '../components/app-language-control'
 import { AppThemeControl } from '../components/app-theme-control'
 import { Button } from '../components/ui/button'
-import { StatusNotice } from '../components/status-notice'
+import { Toaster } from '../components/ui/sonner'
+import { toast } from 'sonner'
 import {
   Select,
   SelectContent,
@@ -65,8 +66,6 @@ export function Options() {
   const [noTranslateSelectorsDraft, setNoTranslateSelectorsDraft] = useState(
     formatCommaList(defaultSettings.noTranslateSelectors),
   )
-  const [status, setStatus] = useState(t('loadingSettings'))
-
   const editingProfile = useMemo(
     () =>
       settings.profiles.find((profile) => profile.id === editingId) ||
@@ -87,7 +86,6 @@ export function Options() {
       setEditingId(nextSettings.activeProfileId)
       setWhitelistDraft(formatCommaList(nextSettings.userWhitelist))
       setNoTranslateSelectorsDraft(formatCommaList(nextSettings.noTranslateSelectors))
-      setStatus(t('settingsSynced'))
     })
     void refreshCacheStats()
   }, [])
@@ -103,7 +101,7 @@ export function Options() {
       await chrome.storage.sync.set(sanitizedSettings)
     } catch (error) {
       const message = error instanceof Error ? error.message : t('settingsInvalid')
-      setStatus(message)
+      toast.error(message)
       return
     }
 
@@ -117,7 +115,7 @@ export function Options() {
         expected: sanitizedSettings,
         stored,
       })
-      setStatus(t('saveFailed'))
+      toast.error(t('saveFailed'))
       return
     }
 
@@ -131,7 +129,7 @@ export function Options() {
         ? nextEditingId
         : stored.activeProfileId,
     )
-    setStatus(message)
+    toast.success(message)
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -171,7 +169,7 @@ export function Options() {
 
   async function removeProfile() {
     if (settings.profiles.length <= 1) {
-      setStatus(t('keepOneProfile'))
+      toast.warning(t('keepOneProfile'))
       return
     }
 
@@ -229,13 +227,13 @@ export function Options() {
   async function clearCache() {
     const removedCount = await clearTranslationCache()
     setCacheStats(emptyCacheStats)
-    setStatus(t('translationCacheCleared', String(removedCount)))
+    toast.success(t('translationCacheCleared', String(removedCount)))
   }
 
   async function deleteOldCache() {
     const removedCount = await deleteStaleTranslationCache()
     await refreshCacheStats()
-    setStatus(t('staleTranslationCacheDeleted', String(removedCount)))
+    toast.success(t('staleTranslationCacheDeleted', String(removedCount)))
   }
 
   function updateProfile<Key extends keyof TranslationProfile>(
@@ -297,16 +295,16 @@ export function Options() {
             onLanguageApplied={(appLanguage) =>
               setSettings((current) => ({ ...current, appLanguage }))
             }
-            onLanguageSaved={() => setStatus(t('languageSaved'))}
-            onLanguageSaveFailed={() => setStatus(t('saveFailed'))}
+            onLanguageSaved={() => toast.success(t('languageSaved'))}
+            onLanguageSaveFailed={() => toast.error(t('saveFailed'))}
             buttonClassName="size-9 rounded-full"
           />
 
           <AppThemeControl
             appTheme={settings.appTheme}
             onThemeApplied={(appTheme) => setSettings((current) => ({ ...current, appTheme }))}
-            onThemeSaved={() => setStatus(t('appearanceSaved'))}
-            onThemeSaveFailed={() => setStatus(t('saveFailed'))}
+            onThemeSaved={() => toast.success(t('appearanceSaved'))}
+            onThemeSaveFailed={() => toast.error(t('saveFailed'))}
             buttonClassName="size-9 rounded-full"
           />
         </div>
@@ -588,7 +586,6 @@ export function Options() {
                   {t('saveProfile')}
                 </Button>
 
-                <StatusNotice message={status} />
               </form>
             </div>
           )}
@@ -782,7 +779,6 @@ export function Options() {
                 {t('saveTranslationSettings')}
               </Button>
 
-              <StatusNotice message={status} />
             </section>
           )}
 
@@ -876,7 +872,6 @@ export function Options() {
                 </Button>
               </div>
 
-              <StatusNotice message={status} />
             </section>
           )}
 
@@ -935,11 +930,11 @@ export function Options() {
                 {t('saveRules')}
               </Button>
 
-              <StatusNotice message={status} />
             </section>
           )}
         </div>
       </div>
+      <Toaster position="top-center" />
     </main>
   )
 }
