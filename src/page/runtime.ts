@@ -406,6 +406,15 @@ function installPageTranslator(
     'SELECT',
     'OPTION',
   ])
+  const nonContentSelector = [
+    '[aria-hidden="true"]',
+    '[hidden]',
+    '[inert]',
+    '[role="tooltip"]',
+    '[data-component="Tooltip"]',
+    '.sr-only',
+    '.visually-hidden',
+  ].join(', ')
   const state = {
     pendingNodes: new Set<Text>(),
     inFlightNodes: new Set<Text>(),
@@ -609,6 +618,10 @@ function installPageTranslator(
       'p, li, h1, h2, h3, h4, h5, h6, blockquote, figcaption, caption, td, th, dt, dd, summary',
     )
     if (contextElement && document.body.contains(contextElement)) {
+      if (contextElement.tagName === 'LI' && !isTextInListItemParagraph(parent, contextElement)) {
+        return getNearestInlineTextContainer(parent)
+      }
+
       return contextElement
     }
 
@@ -695,6 +708,14 @@ function installPageTranslator(
     }
 
     if (!(node instanceof Element)) {
+      return ''
+    }
+
+    if (
+      isNonContentElement(node) ||
+      node.matches('[data-open-translate-ui], [data-open-translate-bilingual]') ||
+      node.closest('[data-open-translate-ui], [data-open-translate-bilingual]')
+    ) {
       return ''
     }
 
@@ -1141,6 +1162,10 @@ function installPageTranslator(
       return false
     }
 
+    if (parent.closest(nonContentSelector)) {
+      return false
+    }
+
     if (
       existingTranslation &&
       (
@@ -1190,6 +1215,8 @@ function installPageTranslator(
     if (
       !element.isConnected ||
       ignoredTags.has(element.tagName) ||
+      isNonContentElement(element) ||
+      !!element.querySelector('[data-open-translate-bilingual]') ||
       element.closest('[data-open-translate-ui], [data-open-translate-bilingual]') ||
       element.closest('[data-open-translate-element="true"]') ||
       isInNoTranslateElement(element)
@@ -1215,6 +1242,70 @@ function installPageTranslator(
       element.matches('[data-open-translate-ui], [data-open-translate-bilingual]') ||
       matchesNoTranslateSelector(element)
     )
+  }
+
+  function isNonContentElement(element: Element) {
+    return element.matches(nonContentSelector)
+  }
+
+  function isTextInListItemParagraph(parent: Element, listItem: Element) {
+    let element: Element | null = parent
+    while (element && element !== listItem) {
+      if (!isPhrasingElement(element)) {
+        return false
+      }
+
+      element = element.parentElement
+    }
+
+    return element === listItem
+  }
+
+  function getNearestInlineTextContainer(element: Element) {
+    let current: Element | null = element
+    while (
+      current?.parentElement &&
+      current.parentElement !== document.body &&
+      isPhrasingElement(current.parentElement)
+    ) {
+      current = current.parentElement
+    }
+
+    return current || (element === document.body ? undefined : element)
+  }
+
+  function isPhrasingElement(element: Element) {
+    return [
+      'A',
+      'ABBR',
+      'B',
+      'BDI',
+      'BDO',
+      'BR',
+      'CITE',
+      'CODE',
+      'DATA',
+      'DFN',
+      'EM',
+      'I',
+      'KBD',
+      'MARK',
+      'Q',
+      'RP',
+      'RT',
+      'RUBY',
+      'S',
+      'SAMP',
+      'SMALL',
+      'SPAN',
+      'STRONG',
+      'SUB',
+      'SUP',
+      'TIME',
+      'U',
+      'VAR',
+      'WBR',
+    ].includes(element.tagName)
   }
 
   function isRectInViewport(rect: DOMRect) {
