@@ -46,7 +46,7 @@ type TranslationProgress = {
   total: number;
 };
 
-const MAX_TEXT_NODES = 180;
+const MAX_TEXT_NODES_PER_ROUND = 180;
 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
@@ -335,7 +335,7 @@ async function startPageTranslator(
   });
   return chrome.tabs.sendMessage<{ collected?: boolean }>(tabId, {
     type: "open-translate:start-page-translator",
-    maxNodes: MAX_TEXT_NODES,
+    maxNodesPerRound: MAX_TEXT_NODES_PER_ROUND,
     translationScope,
     translationProvider,
     targetLanguageCode,

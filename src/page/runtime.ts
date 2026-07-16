@@ -47,7 +47,7 @@ type BuiltInTranslationState = {
 
 type PageRuntimeMessage = {
   type: 'open-translate:start-page-translator'
-  maxNodes: number
+  maxNodesPerRound: number
   translationScope: 'visible-page' | 'viewport'
   translationProvider: 'openai-compatible' | 'built-in-translator'
   targetLanguageCode: string
@@ -120,7 +120,7 @@ if (!runtimeWindow.__openTranslatePageRuntimeInstalled) {
     }
 
     sendResponse(installPageTranslator(
-      message.maxNodes,
+      message.maxNodesPerRound,
       message.translationScope,
       message.translationProvider,
       message.targetLanguageCode,
@@ -170,7 +170,7 @@ function isStartPageTranslatorMessage(message: unknown): message is PageRuntimeM
     !!message &&
     typeof message === 'object' &&
     (message as PageRuntimeMessage).type === 'open-translate:start-page-translator' &&
-    typeof (message as PageRuntimeMessage).maxNodes === 'number' &&
+    typeof (message as PageRuntimeMessage).maxNodesPerRound === 'number' &&
     (
       (message as PageRuntimeMessage).translationScope === 'visible-page' ||
       (message as PageRuntimeMessage).translationScope === 'viewport'
@@ -358,7 +358,7 @@ function createLogTextSample(text: string) {
 }
 
 function installPageTranslator(
-  maxNodes: number,
+  maxNodesPerRound: number,
   translationScope: 'visible-page' | 'viewport',
   translationProvider: 'openai-compatible' | 'built-in-translator',
   targetLanguageCode: string,
@@ -375,7 +375,8 @@ function installPageTranslator(
 ) {
   type PageTranslatorState = {
     observer: MutationObserver
-    removeScrollListener?: () => void
+    viewportObserver?: IntersectionObserver
+    removeViewportListeners?: () => void
   }
   type PageTranslationResponse = {
     translations?: string[]
@@ -391,7 +392,8 @@ function installPageTranslator(
     __openTranslatePageTranslations?: Set<string>
   }
   windowWithTranslator.__openTranslatePageTranslator?.observer.disconnect()
-  windowWithTranslator.__openTranslatePageTranslator?.removeScrollListener?.()
+  windowWithTranslator.__openTranslatePageTranslator?.viewportObserver?.disconnect()
+  windowWithTranslator.__openTranslatePageTranslator?.removeViewportListeners?.()
   const pageSessionId = beginPageTranslationSession(windowWithTranslator)
 
   const ignoredTags = new Set([
@@ -423,9 +425,29 @@ function installPageTranslator(
     builtInTranslators: new Map<string, Promise<BuiltInTranslator>>(),
     builtInLanguageDetector: undefined as Promise<BuiltInLanguageDetector | undefined> | undefined,
     isApplyingTranslation: false,
+    isFlushing: false,
+    observedElements: new Set<Element>(),
     debounceTimer: 0,
   }
   runtimeWindow.__openTranslatePartialTranslationHandler = applyPartialTranslations
+
+  const viewportObserver = translationScope === 'viewport'
+    ? new IntersectionObserver((entries) => {
+        let collected = false
+        for (const entry of entries) {
+          if (!entry.isIntersecting) {
+            continue
+          }
+
+          collectTextNodes(entry.target)
+          collected = true
+        }
+
+        if (collected) {
+          scheduleFlush(0)
+        }
+      })
+    : undefined
 
   const observer = new MutationObserver((mutations) => {
     if (state.isApplyingTranslation) {
@@ -434,10 +456,12 @@ function installPageTranslator(
 
     for (const mutation of mutations) {
       if (mutation.type === 'characterData' && mutation.target.nodeType === Node.TEXT_NODE) {
+        observeTextNode(mutation.target as Text)
         enqueueTextNode(mutation.target as Text)
       }
 
       for (const node of mutation.addedNodes) {
+        observeTextNodes(node)
         collectTextNodes(node)
       }
     }
@@ -451,36 +475,37 @@ function installPageTranslator(
     subtree: true,
   })
 
-  const handleScroll = () => {
+  const handleViewportChange = () => {
     scheduleViewportFlush()
   }
   if (translationScope === 'viewport') {
-    window.addEventListener('scroll', handleScroll, { passive: true })
+    document.addEventListener('scroll', handleViewportChange, { capture: true, passive: true })
+    window.addEventListener('resize', handleViewportChange, { passive: true })
+    observeTextNodes(document.body)
   }
 
   windowWithTranslator.__openTranslatePageTranslator = {
     observer,
-    removeScrollListener:
+    viewportObserver,
+    removeViewportListeners:
       translationScope === 'viewport'
-        ? () => window.removeEventListener('scroll', handleScroll)
+        ? () => {
+            document.removeEventListener('scroll', handleViewportChange, { capture: true })
+            window.removeEventListener('resize', handleViewportChange)
+          }
         : undefined,
   }
   collectTextNodes(document.body)
-  const initialUnits = takePendingUnits()
-  if (!initialUnits.length) {
+  if (!state.pendingNodes.size) {
     return { collected: false }
   }
 
-  void requestTranslations(initialUnits)
+  void flushPendingNodes()
     .then(notifyInitialTranslationComplete)
     .catch(notifyPageTranslationError)
   return { collected: true }
 
   function collectTextNodes(node: Node) {
-    if (state.pendingNodes.size >= maxNodes) {
-      return
-    }
-
     if (node.nodeType === Node.TEXT_NODE) {
       enqueueTextNode(node as Text)
       return
@@ -502,7 +527,7 @@ function installPageTranslator(
       },
     })
 
-    while (state.pendingNodes.size < maxNodes) {
+    while (true) {
       const textNode = walker.nextNode()
       if (!textNode) {
         break
@@ -510,6 +535,51 @@ function installPageTranslator(
 
       enqueueTextNode(textNode as Text)
     }
+  }
+
+  function observeTextNodes(node: Node) {
+    if (!viewportObserver) {
+      return
+    }
+
+    if (node.nodeType === Node.TEXT_NODE) {
+      observeTextNode(node as Text)
+      return
+    }
+
+    if (!(node instanceof Element) || ignoredTags.has(node.tagName)) {
+      return
+    }
+
+    if (node.closest('[data-open-translate-ui], [data-open-translate-bilingual]')) {
+      return
+    }
+
+    const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT)
+    while (true) {
+      const textNode = walker.nextNode()
+      if (!textNode) {
+        break
+      }
+
+      observeTextNode(textNode as Text)
+    }
+  }
+
+  function observeTextNode(node: Text) {
+    if (!viewportObserver || !isTranslatableTextNode(node, false)) {
+      return
+    }
+
+    const element = translationMode === 'element-context'
+      ? getTranslationContextElement(node)
+      : node.parentElement
+    if (!element || state.observedElements.has(element)) {
+      return
+    }
+
+    state.observedElements.add(element)
+    viewportObserver.observe(element)
   }
 
   function enqueueTextNode(node: Text) {
@@ -522,40 +592,60 @@ function installPageTranslator(
     }
   }
 
-  function scheduleFlush() {
+  function scheduleFlush(delay = 650) {
     window.clearTimeout(state.debounceTimer)
-    state.debounceTimer = window.setTimeout(flushPendingNodes, 650)
+    state.debounceTimer = window.setTimeout(() => {
+      void flushPendingNodes().catch(notifyPageTranslationError)
+    }, delay)
   }
 
   function scheduleViewportFlush() {
     window.clearTimeout(state.debounceTimer)
     state.debounceTimer = window.setTimeout(() => {
       collectTextNodes(document.body)
-      flushPendingNodes()
+      void flushPendingNodes().catch(notifyPageTranslationError)
     }, 220)
   }
 
-  function flushPendingNodes() {
-    const units = takePendingUnits()
-    if (!units.length) {
+  async function flushPendingNodes() {
+    if (state.isFlushing) {
       return
     }
 
-    void requestTranslations(units).catch(notifyPageTranslationError)
+    state.isFlushing = true
+    try {
+      while (true) {
+        const units = takePendingUnits()
+        if (!units.length) {
+          return
+        }
+
+        await requestTranslations(units)
+      }
+    } finally {
+      state.isFlushing = false
+    }
   }
 
   function takePendingUnits() {
-    const nodes = [...state.pendingNodes]
-      .filter((node) => (
+    const nodes: Text[] = []
+    for (const node of state.pendingNodes) {
+      state.pendingNodes.delete(node)
+      if (
         !state.inFlightNodes.has(node) &&
         !isInsideInFlightElement(node) &&
         isTranslatableTextNode(node)
-      ))
-      .slice(0, maxNodes)
-    state.pendingNodes.clear()
+      ) {
+        nodes.push(node)
+      }
+
+      if (nodes.length >= maxNodesPerRound) {
+        break
+      }
+    }
 
     if (translationMode === 'element-context') {
-      return createElementContextUnits(nodes).slice(0, maxNodes)
+      return createElementContextUnits(nodes).slice(0, maxNodesPerRound)
     }
 
     const units = nodes.map((node): TextTranslationUnit => ({
@@ -1153,7 +1243,7 @@ function installPageTranslator(
     }
   }
 
-  function isTranslatableTextNode(node: Text) {
+  function isTranslatableTextNode(node: Text, checkViewport = true) {
     const parent = node.parentElement
     const text = node.nodeValue || ''
     const existingTranslation = windowWithTranslator.__openTranslatePageOriginals?.get(node)
@@ -1204,7 +1294,7 @@ function installPageTranslator(
     return (
       rect.width > 0 &&
       rect.height > 0 &&
-      (translationScope !== 'viewport' || isRectInViewport(rect)) &&
+      (translationScope !== 'viewport' || !checkViewport || isRectInViewport(rect)) &&
       style.visibility !== 'hidden' &&
       style.display !== 'none' &&
       Number(style.opacity) !== 0
