@@ -9,7 +9,7 @@ export default defineConfig({
   plugins: [react(), tailwindcss(), moveExtensionPages()],
   resolve: {
     alias: {
-      '@': resolve(__dirname, 'src'),
+      '@': resolve(import.meta.dirname, 'src'),
     },
   },
   build: {
@@ -17,10 +17,10 @@ export default defineConfig({
     sourcemap: true,
     rollupOptions: {
       input: {
-        popup: resolve(__dirname, 'src/popup/index.html'),
-        options: resolve(__dirname, 'src/options/index.html'),
-        background: resolve(__dirname, 'src/background/index.ts'),
-        pageRuntime: resolve(__dirname, 'src/page/runtime.ts'),
+        popup: resolve(import.meta.dirname, 'src/popup/index.html'),
+        options: resolve(import.meta.dirname, 'src/options/index.html'),
+        background: resolve(import.meta.dirname, 'src/background/index.ts'),
+        pageRuntime: resolve(import.meta.dirname, 'src/page/runtime.ts'),
       },
       output: {
         entryFileNames: (chunkInfo) =>
@@ -41,8 +41,8 @@ function moveExtensionPages(): Plugin {
     name: 'move-extension-pages',
     closeBundle() {
       for (const page of pages) {
-        const source = resolve(__dirname, `dist/src/${page}/index.html`)
-        const targetDir = resolve(__dirname, `dist/${page}`)
+        const source = resolve(import.meta.dirname, `dist/src/${page}/index.html`)
+        const targetDir = resolve(import.meta.dirname, `dist/${page}`)
         const target = resolve(targetDir, 'index.html')
 
         if (!existsSync(source)) {
@@ -53,7 +53,7 @@ function moveExtensionPages(): Plugin {
         renameSync(source, target)
       }
 
-      rmSync(resolve(__dirname, 'dist/src'), { recursive: true, force: true })
+      rmSync(resolve(import.meta.dirname, 'dist/src'), { recursive: true, force: true })
     },
   }
 }
