@@ -1,8 +1,9 @@
 import { t } from '../shared/i18n'
+import { translationCacheEntryLimits } from '../shared/settings'
 import type { TranslationMode, TranslationProfile } from '../shared/settings'
 import {
   cacheAccessRefreshIntervalMinutes,
-  maxTranslationCacheEntries,
+  pruneTranslationCache,
   translationCacheIndexKey,
   translationCacheKeyPrefix,
 } from '../shared/cache'
@@ -51,6 +52,7 @@ export async function translateText(
   userWhitelist: string[],
   minTranslationTextLength: number,
   translationMode: TranslationMode = 'text-node',
+  maxCacheEntries: number = translationCacheEntryLimits.default,
 ) {
   if (shouldSkipTranslation(sourceText, userWhitelist, minTranslationTextLength)) {
     return sourceText
@@ -79,7 +81,14 @@ export async function translateText(
     throw new Error(t('emptyTranslationResponse'))
   }
 
-  await cacheTranslation(sourceText, translatedText, profile, targetLanguage, translationMode)
+  await cacheTranslation(
+    sourceText,
+    translatedText,
+    profile,
+    targetLanguage,
+    translationMode,
+    maxCacheEntries,
+  )
   return translatedText
 }
 
@@ -90,6 +99,7 @@ export async function translateTextBatch(
   userWhitelist: string[],
   minTranslationTextLength: number,
   translationMode: TranslationMode = 'text-node',
+  maxCacheEntries: number = translationCacheEntryLimits.default,
 ) {
   if (sourceTexts.length === 1) {
     return [await translateText(
@@ -99,6 +109,7 @@ export async function translateTextBatch(
       userWhitelist,
       minTranslationTextLength,
       translationMode,
+      maxCacheEntries,
     )]
   }
 
@@ -109,6 +120,7 @@ export async function translateTextBatch(
     userWhitelist,
     minTranslationTextLength,
     translationMode,
+    maxCacheEntries,
   )
 }
 
@@ -130,22 +142,21 @@ export async function getCachedTranslations(
     const hitKeys: string[] = []
 
     const translations = cacheKeys.map((cacheKey, index) => {
-      const cachedValue = cachedItems[cacheKey]
-      const translatedText = readCachedTranslationValue(cachedValue)
-      if (!translatedText) {
+      const cachedEntry = readCachedTranslationEntry(cachedItems[cacheKey])
+      if (!cachedEntry) {
         return undefined
       }
 
       hitKeys.push(cacheKey)
-      if (shouldRefreshCacheAccess(cachedValue, now)) {
+      if (shouldRefreshCacheAccess(cachedEntry, now)) {
         updates[cacheKey] = createCacheEntry(
-          normalizeTranslationOutput(sourceTexts[index], translatedText),
+          normalizeTranslationOutput(sourceTexts[index], cachedEntry.translatedText),
           now,
-          getCacheEntryCreatedAt(cachedValue, now),
+          cachedEntry.createdAt,
         )
       }
 
-      return normalizeTranslationOutput(sourceTexts[index], translatedText)
+      return normalizeTranslationOutput(sourceTexts[index], cachedEntry.translatedText)
     })
 
     await persistCacheAccessUpdates(updates, hitKeys)
@@ -163,6 +174,7 @@ async function translateUncachedBatchWithFallback(
   userWhitelist: string[],
   minTranslationTextLength: number,
   translationMode: TranslationMode,
+  maxCacheEntries: number,
 ) {
   try {
     const translatedTexts = await requestBatchTranslations(
@@ -179,6 +191,7 @@ async function translateUncachedBatchWithFallback(
           profile,
           targetLanguage,
           translationMode,
+          maxCacheEntries,
         ),
       ),
     )
@@ -195,6 +208,7 @@ async function translateUncachedBatchWithFallback(
           userWhitelist,
           minTranslationTextLength,
           translationMode,
+          maxCacheEntries,
         ),
       ),
     )
@@ -249,21 +263,20 @@ async function getCachedTranslation(
       translationMode,
     )
     const cachedItems = await chrome.storage.local.get(cacheKey)
-    const cachedValue = cachedItems[cacheKey]
-    const translatedText = readCachedTranslationValue(cachedValue)
-    if (!translatedText) {
+    const cachedEntry = readCachedTranslationEntry(cachedItems[cacheKey])
+    if (!cachedEntry) {
       return undefined
     }
 
-    const normalizedText = normalizeTranslationOutput(sourceText, translatedText)
+    const normalizedText = normalizeTranslationOutput(sourceText, cachedEntry.translatedText)
     const now = Date.now()
-    if (shouldRefreshCacheAccess(cachedValue, now)) {
+    if (shouldRefreshCacheAccess(cachedEntry, now)) {
       await persistCacheAccessUpdates(
         {
           [cacheKey]: createCacheEntry(
             normalizedText,
             now,
-            getCacheEntryCreatedAt(cachedValue, now),
+            cachedEntry.createdAt,
           ),
         },
         [cacheKey],
@@ -283,6 +296,7 @@ async function cacheTranslation(
   profile: TranslationProfile,
   targetLanguage: string,
   translationMode: TranslationMode,
+  maxCacheEntries: number,
 ) {
   try {
     const cacheKey = await createTranslationCacheKey(
@@ -295,51 +309,27 @@ async function cacheTranslation(
       [cacheKey]: createCacheEntry(translatedText, Date.now()),
     })
     await addTranslationCacheKeys([cacheKey])
-    await pruneTranslationCache()
+    await pruneTranslationCache(maxCacheEntries)
   } catch (error) {
     console.warn('Open Translate cache write failed', error)
   }
 }
 
-function readCachedTranslationValue(value: unknown) {
-  if (typeof value === 'string') {
-    return value
-  }
-
-  if (
-    value &&
-    typeof value === 'object' &&
-    typeof (value as TranslationCacheEntry).translatedText === 'string'
-  ) {
-    return (value as TranslationCacheEntry).translatedText
-  }
-
-  return undefined
-}
-
-function shouldRefreshCacheAccess(value: unknown, now: number) {
-  if (typeof value === 'string') {
-    return true
-  }
-
+function readCachedTranslationEntry(value: unknown): TranslationCacheEntry | undefined {
   return (
     value &&
     typeof value === 'object' &&
-    (
-      typeof (value as TranslationCacheEntry).lastAccessedAt !== 'number' ||
-      now - (value as TranslationCacheEntry).lastAccessedAt > cacheAccessRefreshInterval
-    )
+    typeof (value as TranslationCacheEntry).translatedText === 'string' &&
+    typeof (value as TranslationCacheEntry).createdAt === 'number' &&
+    typeof (value as TranslationCacheEntry).lastAccessedAt === 'number' &&
+    typeof (value as TranslationCacheEntry).size === 'number'
   )
+    ? (value as TranslationCacheEntry)
+    : undefined
 }
 
-function getCacheEntryCreatedAt(value: unknown, fallback: number) {
-  return (
-    value &&
-    typeof value === 'object' &&
-    typeof (value as TranslationCacheEntry).createdAt === 'number'
-  )
-    ? (value as TranslationCacheEntry).createdAt
-    : fallback
+function shouldRefreshCacheAccess(value: TranslationCacheEntry, now: number) {
+  return now - value.lastAccessedAt > cacheAccessRefreshInterval
 }
 
 function createCacheEntry(
@@ -383,49 +373,6 @@ async function addTranslationCacheKeys(keys: string[]) {
   if (didChange) {
     await setTranslationCacheIndex([...existingKeys])
   }
-}
-
-async function pruneTranslationCache() {
-  const index = await getTranslationCacheIndex()
-  if (index.keys.length <= maxTranslationCacheEntries) {
-    return
-  }
-
-  const cachedItems = await chrome.storage.local.get(index.keys)
-  const entries = index.keys
-    .map((key) => ({
-      key,
-      value: cachedItems[key],
-      lastAccessedAt: getCacheEntryLastAccessedAt(cachedItems[key]),
-    }))
-    .filter((entry) => entry.lastAccessedAt !== undefined)
-    .sort((a, b) => a.lastAccessedAt! - b.lastAccessedAt!)
-
-  const staleKeys = index.keys.filter((key) => !readCachedTranslationValue(cachedItems[key]))
-  const overflowCount = Math.max(0, entries.length - maxTranslationCacheEntries)
-  const lruKeys = entries.slice(0, overflowCount).map((entry) => entry.key)
-  const keysToRemove = [...new Set([...staleKeys, ...lruKeys])]
-  if (!keysToRemove.length) {
-    return
-  }
-
-  await chrome.storage.local.remove(keysToRemove)
-  const removedKeys = new Set(keysToRemove)
-  await setTranslationCacheIndex(index.keys.filter((key) => !removedKeys.has(key)))
-}
-
-function getCacheEntryLastAccessedAt(value: unknown) {
-  if (typeof value === 'string') {
-    return 0
-  }
-
-  return (
-    value &&
-    typeof value === 'object' &&
-    typeof (value as TranslationCacheEntry).lastAccessedAt === 'number'
-  )
-    ? (value as TranslationCacheEntry).lastAccessedAt
-    : undefined
 }
 
 async function getTranslationCacheIndex(): Promise<TranslationCacheIndex> {

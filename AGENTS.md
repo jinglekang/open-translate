@@ -60,7 +60,7 @@ Vite outputs fixed extension files:
 
 These are roadmap candidates, not current product requirements. Treat them as possible future directions unless a user explicitly asks to implement one. The order below balances product importance and implementation difficulty:
 
-1. More configurable cache policies beyond the current 10,000-entry LRU cap and manual 30-day stale-entry cleanup, including storage-size limits and user-configurable lifetime/count thresholds. High importance, low-to-medium difficulty.
+1. More configurable cache policies beyond the current configurable LRU entry cap and manual 30-day stale-entry cleanup, including storage-size limits and a user-configurable lifetime. High importance, low-to-medium difficulty.
 2. Broader source-language controls beyond the current Built-in Translator API detection for page and selection translation, including explicit fallback choices and future input translation. High importance, medium difficulty.
 3. More bilingual display styles, including layout, color, font size, and spacing options. Medium-to-high importance, low-to-medium difficulty.
 4. A floating page button for quick translation entry points, status, and restore controls. Medium-to-high importance, medium difficulty.
@@ -139,6 +139,7 @@ Requirements for whole paragraph mode:
 
 - Translation cache uses `chrome.storage.local`.
 - Do not add a cache version field. The project has not shipped yet, so compatibility migrations are not needed unless explicitly requested.
+- `maxTranslationCacheEntries` is configurable in Cache settings. Default is 10,000; valid range is 1-100,000. Saving a lower limit should prune excess entries immediately in least-recently-used order.
 - Cache key should include settings that affect output, including endpoint, model, target language, custom prompt, `translationMode`, and source text.
 - Cache key should not include unrelated UI state such as display mode.
 - Options cache page should show cache count and provide clear-cache.

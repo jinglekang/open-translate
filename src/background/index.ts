@@ -125,6 +125,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
         settings.userWhitelist,
         settings.minTranslationTextLength,
         settings.displayMode,
+        settings.maxTranslationCacheEntries,
       );
       return;
     }
@@ -254,6 +255,7 @@ async function translateSelection(
   userWhitelist: string[],
   minTranslationTextLength: number,
   displayMode: TranslationDisplayMode,
+  maxCacheEntries: number,
 ) {
   await showInlineNotice(tabId, t("translatingSelection"), "loading");
   const translatedText =
@@ -267,6 +269,8 @@ async function translateSelection(
           targetLanguage,
           userWhitelist,
           minTranslationTextLength,
+          'text-node',
+          maxCacheEntries,
         );
 
   const [{ result: didShow }] = await chrome.scripting.executeScript({
@@ -504,6 +508,7 @@ async function translatePageTexts(
     profile.translationConcurrency,
     profile.translationBatchSegments,
     profile.translationBatchTextLength,
+    settings.maxTranslationCacheEntries,
     tabId && translationSessionId
       ? createPageTranslationRequestProgress(
         tabId,
@@ -581,6 +586,7 @@ async function translateItems<T>(
   concurrency: number,
   maxBatchSegments: number,
   maxBatchTextLength: number,
+  maxCacheEntries: number,
   onProgress?: (progress: TranslationProgress) => Promise<void>,
   onTranslations?: (
     translations: Array<{ item: T; translatedText: string }>,
@@ -654,6 +660,7 @@ async function translateItems<T>(
           userWhitelist,
           minTranslationTextLength,
           translationMode,
+          maxCacheEntries,
         );
 
         const translatedItems: Array<{ item: T; translatedText: string }> = [];

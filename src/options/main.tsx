@@ -3,11 +3,10 @@ import type { FormEvent } from 'react'
 import { createRoot } from 'react-dom/client'
 import { applyAppTheme } from '../shared/appearance'
 import {
-  cacheAccessRefreshIntervalMinutes,
   clearTranslationCache,
   deleteStaleTranslationCache,
   getTranslationCacheStats,
-  maxTranslationCacheEntries,
+  pruneTranslationCache,
   staleTranslationCacheDays,
 } from '../shared/cache'
 import type { TranslationCacheStats } from '../shared/cache'
@@ -26,6 +25,7 @@ import {
   profileFieldLimits,
   sanitizeSettings,
   minTranslationTextLengthLimits,
+  translationCacheEntryLimits,
   translationBatchSegmentLimits,
   translationBatchTextLengthLimits,
   translationConcurrencyLimits,
@@ -50,10 +50,14 @@ type OptionsTab = 'translators' | 'translation' | 'cache' | 'rules'
 
 const emptyCacheStats: TranslationCacheStats = {
   count: 0,
-  metadataCount: 0,
-  legacyCount: 0,
   approximateSize: 0,
 }
+const translationCacheEntryPresets = [
+  { value: 10_000, label: 'translationCacheEntriesPreset10000' },
+  { value: 20_000, label: 'translationCacheEntriesPreset20000' },
+  { value: 50_000, label: 'translationCacheEntriesPreset50000' },
+  { value: 100_000, label: 'translationCacheEntriesPreset100000' },
+] as const
 
 export function Options() {
   const [settings, setSettings] = useState<TranslationSettings>(defaultSettings)
@@ -109,7 +113,8 @@ export function Options() {
 
     if (
       stored.profiles.length !== sanitizedSettings.profiles.length ||
-      stored.activeProfileId !== sanitizedSettings.activeProfileId
+      stored.activeProfileId !== sanitizedSettings.activeProfileId ||
+      stored.maxTranslationCacheEntries !== sanitizedSettings.maxTranslationCacheEntries
     ) {
       console.error('Open Translate settings save verification failed', {
         expected: sanitizedSettings,
@@ -130,6 +135,7 @@ export function Options() {
         : stored.activeProfileId,
     )
     toast.success(message)
+    return stored
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -207,6 +213,20 @@ export function Options() {
 
   async function saveTranslationSettings() {
     await saveSettings(settings, t('translationSettingsSaved'))
+  }
+
+  async function saveCacheSettings() {
+    const stored = await saveSettings(settings, t('cacheSettingsSaved'))
+    if (!stored) {
+      return
+    }
+
+    try {
+      await pruneTranslationCache(stored.maxTranslationCacheEntries)
+      await refreshCacheStats()
+    } catch (error) {
+      console.warn('Open Translate cache prune failed', error)
+    }
   }
 
   function updateSetting<Key extends keyof TranslationSettings>(
@@ -789,87 +809,134 @@ export function Options() {
                 <p className="text-sm leading-5 text-slate-600">{t('cacheDescription')}</p>
               </div>
 
-              <div className="flex items-center justify-between gap-4 rounded-lg border border-slate-200 bg-slate-50 p-3.5">
-                <div>
-                  <span className="block text-[13px] font-semibold text-slate-600">
-                    {t('translationCacheCount')}
-                  </span>
-                  <strong className="block text-2xl leading-tight font-semibold text-slate-900">
-                    {cacheStats.count}
-                  </strong>
+              <div className="overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
+                <div className="flex flex-col gap-3 border-b border-slate-200 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                  <h3 className="text-sm font-semibold text-slate-800">{t('cacheOverview')}</h3>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 rounded-md border-slate-300 bg-white px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                      onClick={refreshCacheStats}
+                    >
+                      {t('refresh')}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="sm"
+                      className="h-8 rounded-md border border-red-200 bg-red-50 px-3 text-xs font-semibold text-red-700 hover:bg-red-100"
+                      onClick={clearCache}
+                      disabled={!cacheStats.count}
+                    >
+                      {t('clearTranslationCache')}
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="lg"
-                    className="h-9 rounded-md border-slate-300 bg-white px-3.5 text-sm font-semibold text-slate-900 hover:bg-slate-50"
-                    onClick={refreshCacheStats}
-                  >
-                    {t('refresh')}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    size="lg"
-                    className="h-9 rounded-md border border-red-200 bg-red-50 px-3.5 text-sm font-semibold text-red-700 hover:bg-red-100"
-                    onClick={clearCache}
-                    disabled={!cacheStats.count}
-                  >
-                    {t('clearTranslationCache')}
-                  </Button>
+                <div className="grid sm:grid-cols-3">
+                  <div className="px-4 py-3.5">
+                    <span className="block text-xs font-semibold text-slate-500">
+                      {t('translationCacheCount')}
+                    </span>
+                    <strong className="block text-2xl leading-tight font-semibold text-slate-900">
+                      {formatNumber(cacheStats.count)}
+                    </strong>
+                  </div>
+                  <div className="border-t border-slate-200 px-4 py-3.5 sm:border-t-0 sm:border-l">
+                    <CacheStatItem
+                      label={t('translationCacheApproximateSize')}
+                      value={formatCacheSize(cacheStats.approximateSize)}
+                    />
+                  </div>
+                  <div className="border-t border-slate-200 px-4 py-3.5 sm:border-t-0 sm:border-l">
+                    <CacheStatItem
+                      label={t('translationCacheLastAccess')}
+                      value={formatCacheDate(cacheStats.newestAccessedAt)}
+                    />
+                  </div>
                 </div>
               </div>
 
-              <div className="grid gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3.5 sm:grid-cols-2 lg:grid-cols-4">
-                <CacheStatItem label={t('translationCacheLruEntries')} value={cacheStats.metadataCount} />
-                <CacheStatItem label={t('translationCacheLegacyEntries')} value={cacheStats.legacyCount} />
-                <CacheStatItem
-                  label={t('translationCacheApproximateSize')}
-                  value={formatCacheSize(cacheStats.approximateSize)}
-                />
-                <CacheStatItem
-                  label={t('translationCacheLastAccess')}
-                  value={formatCacheDate(cacheStats.newestAccessedAt)}
-                />
-              </div>
-
-              <div className="grid gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3.5 sm:grid-cols-2 lg:grid-cols-4">
-                <CacheStatItem
-                  label={t('translationCachePolicyMaxEntries')}
-                  value={formatNumber(maxTranslationCacheEntries)}
-                />
-                <CacheStatItem
-                  label={t('translationCachePolicyRefreshInterval')}
-                  value={t(
-                    'translationCachePolicyRefreshIntervalValue',
-                    String(cacheAccessRefreshIntervalMinutes),
-                  )}
-                />
-                <CacheStatItem
-                  label={t('translationCachePolicyStaleDays')}
-                  value={t('translationCachePolicyStaleDaysValue', String(staleTranslationCacheDays))}
-                />
-                <CacheStatItem
-                  label={t('translationCachePolicyLegacyHandling')}
-                  value={t('translationCachePolicyLegacyHandlingValue')}
-                />
-              </div>
-
-              <div className="flex items-center justify-between gap-4 rounded-lg border border-slate-200 bg-slate-50 p-3.5">
-                <p className="text-sm leading-5 text-slate-600">
-                  {t('deleteStaleTranslationCacheDescription', String(staleTranslationCacheDays))}
-                </p>
+              <div className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="grid gap-1">
+                  <h3 className="text-sm font-semibold text-slate-800">
+                    {t('staleTranslationCacheCleanup')}
+                  </h3>
+                  <p className="text-xs leading-5 text-slate-500">
+                    {t('deleteStaleTranslationCacheDescription', String(staleTranslationCacheDays))}
+                  </p>
+                </div>
                 <Button
                   type="button"
                   variant="outline"
                   size="lg"
                   className="h-9 shrink-0 rounded-md border-slate-300 bg-white px-3.5 text-sm font-semibold text-slate-900 hover:bg-slate-50"
                   onClick={deleteOldCache}
-                  disabled={!cacheStats.metadataCount}
+                  disabled={!cacheStats.count}
                 >
                   {t('deleteStaleTranslationCache')}
                 </Button>
+              </div>
+
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                <label className="grid gap-1" htmlFor="max-translation-cache-entries">
+                  <span className="text-sm font-semibold text-slate-800">
+                    {t('maxTranslationCacheEntries')}
+                  </span>
+                  <span className="text-xs leading-5 text-slate-500">
+                    {t('maxTranslationCacheEntriesDescription')}
+                  </span>
+                </label>
+                <div className="mt-3 grid gap-2">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                    <input
+                      id="max-translation-cache-entries"
+                      className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:ring-[3px] focus:ring-slate-200 sm:max-w-60"
+                      value={settings.maxTranslationCacheEntries}
+                      onChange={(event) =>
+                        updateSetting('maxTranslationCacheEntries', Number(event.target.value))
+                      }
+                      type="number"
+                      min={translationCacheEntryLimits.min}
+                      max={translationCacheEntryLimits.max}
+                      step={1}
+                    />
+                    <div className="flex flex-wrap gap-1.5">
+                      {translationCacheEntryPresets.map((preset) => {
+                        const isSelected = settings.maxTranslationCacheEntries === preset.value
+
+                        return (
+                          <Button
+                            key={preset.value}
+                            type="button"
+                            variant={isSelected ? 'secondary' : 'outline'}
+                            size="lg"
+                            className={
+                              isSelected
+                                ? 'h-9 min-w-14 rounded-md border border-slate-400 bg-slate-200 px-3 text-sm font-semibold text-slate-900 hover:bg-slate-200'
+                                : 'h-9 min-w-14 rounded-md border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-100'
+                            }
+                            aria-pressed={isSelected}
+                            onClick={() =>
+                              updateSetting('maxTranslationCacheEntries', preset.value)
+                            }
+                          >
+                            {t(preset.label)}
+                          </Button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    size="lg"
+                    className="h-9 w-fit rounded-md bg-slate-800 px-3.5 text-sm font-semibold text-white hover:bg-slate-700"
+                    onClick={saveCacheSettings}
+                  >
+                    {t('saveCacheSettings')}
+                  </Button>
+                </div>
               </div>
 
             </section>

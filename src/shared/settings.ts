@@ -20,6 +20,11 @@ export const minTranslationTextLengthLimits = {
   default: 2,
   max: 100,
 } as const
+export const translationCacheEntryLimits = {
+  min: 1,
+  default: 10_000,
+  max: 100_000,
+} as const
 export const translationConcurrencyLimits = {
   min: 1,
   default: 4,
@@ -154,6 +159,12 @@ export const translationSettingsSchema = z
       .min(minTranslationTextLengthLimits.min, t('minTranslationTextLengthInvalid'))
       .max(minTranslationTextLengthLimits.max, t('minTranslationTextLengthInvalid'))
       .catch(minTranslationTextLengthLimits.default),
+    maxTranslationCacheEntries: z.coerce
+      .number()
+      .int(t('maxTranslationCacheEntriesInvalid'))
+      .min(translationCacheEntryLimits.min, t('maxTranslationCacheEntriesInvalid'))
+      .max(translationCacheEntryLimits.max, t('maxTranslationCacheEntriesInvalid'))
+      .catch(translationCacheEntryLimits.default),
   })
   .transform((settings) => {
     const activeProfileId = settings.profiles.some(
@@ -174,6 +185,7 @@ export const translationSettingsSchema = z
       userWhitelist: [...new Set(settings.userWhitelist)],
       noTranslateSelectors: [...new Set(settings.noTranslateSelectors)],
       minTranslationTextLength: settings.minTranslationTextLength,
+      maxTranslationCacheEntries: settings.maxTranslationCacheEntries,
     }
   })
 
@@ -205,6 +217,7 @@ export const defaultSettings: TranslationSettings = {
   userWhitelist: [...defaultUserWhitelist],
   noTranslateSelectors: [...defaultNoTranslateSelectors],
   minTranslationTextLength: minTranslationTextLengthLimits.default,
+  maxTranslationCacheEntries: translationCacheEntryLimits.default,
 }
 
 const legacySettingsSchema = z.object({
@@ -272,6 +285,7 @@ export function normalizeSettings(stored: unknown): TranslationSettings {
     userWhitelist: [...defaultSettings.userWhitelist],
     noTranslateSelectors: [...defaultSettings.noTranslateSelectors],
     minTranslationTextLength: defaultSettings.minTranslationTextLength,
+    maxTranslationCacheEntries: defaultSettings.maxTranslationCacheEntries,
   })
 }
 

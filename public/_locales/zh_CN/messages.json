@@ -180,14 +180,38 @@
   "cacheDescription": {
     "message": "缓存可复用相同配置下的已翻译文本，减少重复请求。"
   },
+  "cacheOverview": {
+    "message": "缓存概览"
+  },
+  "maxTranslationCacheEntries": {
+    "message": "最大缓存条目数"
+  },
+  "maxTranslationCacheEntriesDescription": {
+    "message": "可设置为 1 到 100,000；超过上限时按最近最少使用顺序清理，调低后保存会立即清理超出的条目。"
+  },
+  "maxTranslationCacheEntriesInvalid": {
+    "message": "最大缓存条目数必须是 1 到 100,000 的整数"
+  },
+  "translationCacheEntriesPreset10000": {
+    "message": "1 万"
+  },
+  "translationCacheEntriesPreset20000": {
+    "message": "2 万"
+  },
+  "translationCacheEntriesPreset50000": {
+    "message": "5 万"
+  },
+  "translationCacheEntriesPreset100000": {
+    "message": "10 万"
+  },
+  "saveCacheSettings": {
+    "message": "保存缓存设置"
+  },
+  "cacheSettingsSaved": {
+    "message": "缓存设置已保存"
+  },
   "translationCacheCount": {
     "message": "缓存条目数"
-  },
-  "translationCacheLruEntries": {
-    "message": "LRU 条目"
-  },
-  "translationCacheLegacyEntries": {
-    "message": "旧格式条目"
   },
   "translationCacheApproximateSize": {
     "message": "估算大小"
@@ -195,36 +219,8 @@
   "translationCacheLastAccess": {
     "message": "最近访问"
   },
-  "translationCachePolicyMaxEntries": {
-    "message": "LRU 容量"
-  },
-  "translationCachePolicyRefreshInterval": {
-    "message": "访问刷新"
-  },
-  "translationCachePolicyRefreshIntervalValue": {
-    "message": "$MINUTES$ 分钟",
-    "placeholders": {
-      "minutes": {
-        "content": "$1"
-      }
-    }
-  },
-  "translationCachePolicyStaleDays": {
-    "message": "旧缓存阈值"
-  },
-  "translationCachePolicyStaleDaysValue": {
-    "message": "$DAYS$ 天",
-    "placeholders": {
-      "days": {
-        "content": "$1"
-      }
-    }
-  },
-  "translationCachePolicyLegacyHandling": {
-    "message": "旧格式处理"
-  },
-  "translationCachePolicyLegacyHandlingValue": {
-    "message": "命中后迁移"
+  "staleTranslationCacheCleanup": {
+    "message": "旧缓存清理"
   },
   "translationCacheCleared": {
     "message": "已清空 $COUNT$ 条翻译缓存",
@@ -249,7 +245,7 @@
     "message": "删除旧缓存"
   },
   "deleteStaleTranslationCacheDescription": {
-    "message": "删除超过 $DAYS$ 天未访问的 LRU 缓存。没有访问时间的旧格式缓存会保留。",
+    "message": "删除超过 $DAYS$ 天未访问的 LRU 缓存。",
     "placeholders": {
       "days": {
         "content": "$1"

@@ -180,14 +180,38 @@
   "cacheDescription": {
     "message": "Cached translations reduce repeated requests for text translated with the same settings."
   },
+  "cacheOverview": {
+    "message": "Cache overview"
+  },
+  "maxTranslationCacheEntries": {
+    "message": "Maximum cache entries"
+  },
+  "maxTranslationCacheEntriesDescription": {
+    "message": "Set between 1 and 100,000. Entries over the limit are removed in least-recently-used order; lowering the limit prunes excess entries immediately when saved."
+  },
+  "maxTranslationCacheEntriesInvalid": {
+    "message": "Maximum cache entries must be an integer between 1 and 100,000"
+  },
+  "translationCacheEntriesPreset10000": {
+    "message": "10,000"
+  },
+  "translationCacheEntriesPreset20000": {
+    "message": "20,000"
+  },
+  "translationCacheEntriesPreset50000": {
+    "message": "50,000"
+  },
+  "translationCacheEntriesPreset100000": {
+    "message": "100,000"
+  },
+  "saveCacheSettings": {
+    "message": "Save cache settings"
+  },
+  "cacheSettingsSaved": {
+    "message": "Cache settings saved"
+  },
   "translationCacheCount": {
     "message": "Cached entries"
-  },
-  "translationCacheLruEntries": {
-    "message": "LRU entries"
-  },
-  "translationCacheLegacyEntries": {
-    "message": "Legacy entries"
   },
   "translationCacheApproximateSize": {
     "message": "Approx. size"
@@ -195,36 +219,8 @@
   "translationCacheLastAccess": {
     "message": "Latest access"
   },
-  "translationCachePolicyMaxEntries": {
-    "message": "LRU capacity"
-  },
-  "translationCachePolicyRefreshInterval": {
-    "message": "Access refresh"
-  },
-  "translationCachePolicyRefreshIntervalValue": {
-    "message": "$MINUTES$ min",
-    "placeholders": {
-      "minutes": {
-        "content": "$1"
-      }
-    }
-  },
-  "translationCachePolicyStaleDays": {
-    "message": "Old-cache threshold"
-  },
-  "translationCachePolicyStaleDaysValue": {
-    "message": "$DAYS$ days",
-    "placeholders": {
-      "days": {
-        "content": "$1"
-      }
-    }
-  },
-  "translationCachePolicyLegacyHandling": {
-    "message": "Legacy handling"
-  },
-  "translationCachePolicyLegacyHandlingValue": {
-    "message": "Migrate on hit"
+  "staleTranslationCacheCleanup": {
+    "message": "Old cache cleanup"
   },
   "translationCacheCleared": {
     "message": "Cleared $COUNT$ translation cache entries",
@@ -249,7 +245,7 @@
     "message": "Delete Old Cache"
   },
   "deleteStaleTranslationCacheDescription": {
-    "message": "Delete LRU cache entries that have not been accessed for more than $DAYS$ days. Legacy entries without access time are kept.",
+    "message": "Delete LRU cache entries that have not been accessed for more than $DAYS$ days.",
     "placeholders": {
       "days": {
         "content": "$1"
