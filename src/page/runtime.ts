@@ -48,6 +48,7 @@ type BuiltInTranslationState = {
 type PageRuntimeMessage = {
   type: 'open-translate:start-page-translator'
   maxNodesPerRound: number
+  translationSessionId: string
   translationScope: 'visible-page' | 'viewport'
   translationProvider: 'openai-compatible' | 'built-in-translator'
   targetLanguageCode: string
@@ -121,6 +122,7 @@ if (!runtimeWindow.__openTranslatePageRuntimeInstalled) {
 
     sendResponse(installPageTranslator(
       message.maxNodesPerRound,
+      message.translationSessionId,
       message.translationScope,
       message.translationProvider,
       message.targetLanguageCode,
@@ -171,6 +173,7 @@ function isStartPageTranslatorMessage(message: unknown): message is PageRuntimeM
     typeof message === 'object' &&
     (message as PageRuntimeMessage).type === 'open-translate:start-page-translator' &&
     typeof (message as PageRuntimeMessage).maxNodesPerRound === 'number' &&
+    typeof (message as PageRuntimeMessage).translationSessionId === 'string' &&
     (
       (message as PageRuntimeMessage).translationScope === 'visible-page' ||
       (message as PageRuntimeMessage).translationScope === 'viewport'
@@ -359,6 +362,7 @@ function createLogTextSample(text: string) {
 
 function installPageTranslator(
   maxNodesPerRound: number,
+  translationSessionId: string,
   translationScope: 'visible-page' | 'viewport',
   translationProvider: 'openai-compatible' | 'built-in-translator',
   targetLanguageCode: string,
@@ -426,6 +430,8 @@ function installPageTranslator(
     builtInLanguageDetector: undefined as Promise<BuiltInLanguageDetector | undefined> | undefined,
     isApplyingTranslation: false,
     isFlushing: false,
+    translationProgressCompleted: 0,
+    translationProgressTotal: 0,
     observedElements: new Set<Element>(),
     debounceTimer: 0,
   }
@@ -832,12 +838,22 @@ function installPageTranslator(
       return requestBuiltInTranslations(units)
     }
 
+    state.translationProgressTotal += units.length
+    const progressCompleted = state.translationProgressCompleted
+    const progressTotal = state.translationProgressTotal
     const requestId = createTranslationRequestId()
     state.translationRequests.set(requestId, { units })
 
     return new Promise<void>((resolve) => {
       chrome.runtime.sendMessage(
-        { type: 'open-translate:translate-texts', requestId, texts: sourceTexts },
+        {
+          type: 'open-translate:translate-texts',
+          requestId,
+          translationSessionId,
+          progressCompleted,
+          progressTotal,
+          texts: sourceTexts,
+        },
         (response) => {
           const pageTranslationResponse = response as PageTranslationResponse | undefined
           try {
@@ -849,6 +865,7 @@ function installPageTranslator(
           } finally {
             state.translationRequests.delete(requestId)
             releaseInFlightUnits(units)
+            state.translationProgressCompleted += units.length
             resolve()
           }
         },
@@ -878,10 +895,14 @@ function installPageTranslator(
         isAllowedTextLength(entry.sourceText) &&
         !userWhitelist.includes(entry.sourceText.trim())
       ))
-    let completed = sourceTexts.length - entries.length
+    state.translationProgressTotal += sourceTexts.length
+    state.translationProgressCompleted += sourceTexts.length - entries.length
 
     try {
-      await notifyPageTranslationProgress(completed, sourceTexts.length)
+      await notifyPageTranslationProgress(
+        state.translationProgressCompleted,
+        state.translationProgressTotal,
+      )
       await runConcurrent(
         createBuiltInTranslationBatches(
           entries,
@@ -909,8 +930,11 @@ function installPageTranslator(
           }
 
           applyPageTranslationEntries(translatedEntries, displayMode)
-          completed += batch.length
-          await notifyPageTranslationProgress(completed, sourceTexts.length)
+          state.translationProgressCompleted += batch.length
+          await notifyPageTranslationProgress(
+            state.translationProgressCompleted,
+            state.translationProgressTotal,
+          )
         },
       )
     } finally {
@@ -1456,12 +1480,16 @@ function installPageTranslator(
   }
 
   function notifyInitialTranslationComplete() {
-    chrome.runtime.sendMessage({ type: 'open-translate:initial-page-translation-complete' })
+    chrome.runtime.sendMessage({
+      type: 'open-translate:initial-page-translation-complete',
+      translationSessionId,
+    })
   }
 
   function notifyPageTranslationProgress(completed: number, total: number) {
     return chrome.runtime.sendMessage({
       type: 'open-translate:page-translation-progress',
+      translationSessionId,
       completed,
       total,
     })
@@ -1470,6 +1498,7 @@ function installPageTranslator(
   function notifyPageTranslationError(error: unknown) {
     chrome.runtime.sendMessage({
       type: 'open-translate:page-translation-error',
+      translationSessionId,
       message: error instanceof Error ? error.message : String(error),
     })
   }

@@ -22,22 +22,28 @@ type PageTextTranslation = {
 
 type PageTranslateMessage = {
   type: "open-translate:translate-texts";
-  requestId?: string;
+  requestId: string;
+  translationSessionId: string;
+  progressCompleted: number;
+  progressTotal: number;
   texts: string[];
 };
 
 type InitialPageTranslationCompleteMessage = {
   type: "open-translate:initial-page-translation-complete";
+  translationSessionId: string;
 };
 
 type PageTranslationProgressMessage = {
   type: "open-translate:page-translation-progress";
+  translationSessionId: string;
   completed: number;
   total: number;
 };
 
 type PageTranslationErrorMessage = {
   type: "open-translate:page-translation-error";
+  translationSessionId: string;
   message: string;
 };
 
@@ -46,7 +52,13 @@ type TranslationProgress = {
   total: number;
 };
 
+type PageTranslationProgressSession = {
+  id: string;
+  noticeQueue: Promise<void>;
+};
+
 const MAX_TEXT_NODES_PER_ROUND = 180;
+const pageTranslationProgressSessions = new Map<number, PageTranslationProgressSession>();
 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
@@ -129,7 +141,10 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (isPageTranslationErrorMessage(message)) {
-    if (sender.tab?.id) {
+    if (
+      sender.tab?.id &&
+      isCurrentPageTranslationSession(sender.tab.id, message.translationSessionId)
+    ) {
       void showInlineNotice(sender.tab.id, message.message || t("translationFailed"), "error");
     }
     return false;
@@ -137,13 +152,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (isPageTranslationProgressMessage(message)) {
     if (sender.tab?.id) {
-      void showPageTranslationProgress(sender.tab.id, message);
+      void showPageTranslationProgress(
+        sender.tab.id,
+        message.translationSessionId,
+        message,
+      );
     }
     return false;
   }
 
   if (isInitialPageTranslationCompleteMessage(message)) {
-    if (sender.tab?.id) {
+    if (
+      sender.tab?.id &&
+      isCurrentPageTranslationSession(sender.tab.id, message.translationSessionId)
+    ) {
       void showPageTranslationComplete(sender.tab.id);
     }
     return false;
@@ -154,7 +176,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   const tabId = sender.tab?.id;
-  void translatePageTexts(message.texts, tabId, message.requestId)
+  void translatePageTexts(
+    message.texts,
+    tabId,
+    message.requestId,
+    message.translationSessionId,
+    message.progressCompleted,
+    message.progressTotal,
+  )
     .then((response) => sendResponse(response))
     .catch((error) => {
       sendResponse({
@@ -172,7 +201,8 @@ function isInitialPageTranslationCompleteMessage(
     !!message &&
     typeof message === "object" &&
     (message as InitialPageTranslationCompleteMessage).type ===
-    "open-translate:initial-page-translation-complete"
+    "open-translate:initial-page-translation-complete" &&
+    typeof (message as InitialPageTranslationCompleteMessage).translationSessionId === "string"
   );
 }
 
@@ -184,6 +214,7 @@ function isPageTranslationErrorMessage(
     typeof message === "object" &&
     (message as PageTranslationErrorMessage).type ===
     "open-translate:page-translation-error" &&
+    typeof (message as PageTranslationErrorMessage).translationSessionId === "string" &&
     typeof (message as PageTranslationErrorMessage).message === "string"
   );
 }
@@ -196,6 +227,7 @@ function isPageTranslationProgressMessage(
     typeof message === "object" &&
     (message as PageTranslationProgressMessage).type ===
     "open-translate:page-translation-progress" &&
+    typeof (message as PageTranslationProgressMessage).translationSessionId === "string" &&
     typeof (message as PageTranslationProgressMessage).completed === "number" &&
     typeof (message as PageTranslationProgressMessage).total === "number"
   );
@@ -206,6 +238,10 @@ function isPageTranslateMessage(message: unknown): message is PageTranslateMessa
     !!message &&
     typeof message === "object" &&
     (message as PageTranslateMessage).type === "open-translate:translate-texts" &&
+    typeof (message as PageTranslateMessage).requestId === "string" &&
+    typeof (message as PageTranslateMessage).translationSessionId === "string" &&
+    typeof (message as PageTranslateMessage).progressCompleted === "number" &&
+    typeof (message as PageTranslateMessage).progressTotal === "number" &&
     Array.isArray((message as PageTranslateMessage).texts)
   );
 }
@@ -287,22 +323,31 @@ async function translatePage(
 
   const settings = await getCurrentSettings();
   const profile = validateProfileForUse(getActiveProfile(settings));
-  const runtimeResult = await startPageTranslator(
-    tabId,
-    translationScope,
-    profile.provider,
-    normalizeBuiltInTargetLanguageCode(settings.targetLanguage),
-    settings.displayMode,
-    settings.translationMode,
-    settings.userWhitelist,
-    settings.noTranslateSelectors,
-    settings.minTranslationTextLength,
-    profile.translationConcurrency,
-    profile.translationBatchSegments,
-    profile.translationBatchTextLength,
-  );
-  if (!runtimeResult?.collected) {
-    throw new Error(t("pageTextNotFound"));
+  const translationSessionId = createPageTranslationSessionId(tabId);
+  beginPageTranslationProgressSession(tabId, translationSessionId);
+
+  try {
+    const runtimeResult = await startPageTranslator(
+      tabId,
+      translationSessionId,
+      translationScope,
+      profile.provider,
+      normalizeBuiltInTargetLanguageCode(settings.targetLanguage),
+      settings.displayMode,
+      settings.translationMode,
+      settings.userWhitelist,
+      settings.noTranslateSelectors,
+      settings.minTranslationTextLength,
+      profile.translationConcurrency,
+      profile.translationBatchSegments,
+      profile.translationBatchTextLength,
+    );
+    if (!runtimeResult?.collected) {
+      throw new Error(t("pageTextNotFound"));
+    }
+  } catch (error) {
+    clearPageTranslationProgressSession(tabId, translationSessionId);
+    throw error;
   }
 }
 
@@ -312,11 +357,16 @@ async function restoreTranslatedPage(tabId: number) {
     func: restorePageOriginalText,
   });
 
+  if (didRestore) {
+    pageTranslationProgressSessions.delete(tabId);
+  }
+
   return didRestore;
 }
 
 async function startPageTranslator(
   tabId: number,
+  translationSessionId: string,
   translationScope: TranslationScope,
   translationProvider: TranslationProvider,
   targetLanguageCode: string,
@@ -336,6 +386,7 @@ async function startPageTranslator(
   return chrome.tabs.sendMessage<{ collected?: boolean }>(tabId, {
     type: "open-translate:start-page-translator",
     maxNodesPerRound: MAX_TEXT_NODES_PER_ROUND,
+    translationSessionId,
     translationScope,
     translationProvider,
     targetLanguageCode,
@@ -352,12 +403,15 @@ async function startPageTranslator(
   });
 }
 
-async function showPageTranslationProgress(tabId: number, progress: TranslationProgress) {
-  await showOptionalInlineNotice(
-    tabId,
-    t("translatingPageBatch", [String(progress.completed), String(progress.total)]),
-    progress.completed < progress.total ? "loading" : "success",
-  );
+function showPageTranslationProgress(
+  tabId: number,
+  translationSessionId: string,
+  progress: TranslationProgress,
+) {
+  const session = getOrCreatePageTranslationProgressSession(tabId, translationSessionId);
+  return session
+    ? queuePageTranslationProgressNotice(tabId, session, progress)
+    : Promise.resolve();
 }
 
 async function showPageTranslationComplete(tabId: number) {
@@ -414,7 +468,14 @@ function getDefaultTargetLanguage() {
   return defaultTargetLanguage;
 }
 
-async function translatePageTexts(texts: string[], tabId?: number, requestId?: string) {
+async function translatePageTexts(
+  texts: string[],
+  tabId?: number,
+  requestId?: string,
+  translationSessionId?: string,
+  progressCompleted = 0,
+  progressTotal = 0,
+) {
   const settings = await getCurrentSettings();
   const profile = validateProfileForUse(getActiveProfile(settings));
   if (profile.provider === "built-in-translator") {
@@ -443,7 +504,14 @@ async function translatePageTexts(texts: string[], tabId?: number, requestId?: s
     profile.translationConcurrency,
     profile.translationBatchSegments,
     profile.translationBatchTextLength,
-    tabId ? createPageTranslationProgress(tabId).update : undefined,
+    tabId && translationSessionId
+      ? createPageTranslationRequestProgress(
+        tabId,
+        translationSessionId,
+        progressCompleted,
+        progressTotal,
+      ).update
+      : undefined,
     async (translatedItems) => {
       if (tabId && requestId && translatedItems.length) {
         try {
@@ -636,20 +704,84 @@ function createTranslationBatches<T>(
   return batches;
 }
 
-function createPageTranslationProgress(tabId: number) {
-  let noticeQueue = Promise.resolve();
+function createPageTranslationRequestProgress(
+  tabId: number,
+  translationSessionId: string,
+  progressCompleted: number,
+  progressTotal: number,
+) {
+  const session = getOrCreatePageTranslationProgressSession(tabId, translationSessionId);
 
   return {
     update(progress: TranslationProgress) {
-      noticeQueue = noticeQueue.then(() => showOptionalInlineNotice(
-        tabId,
-        t("translatingPageBatch", [String(progress.completed), String(progress.total)]),
-        progress.completed < progress.total ? "loading" : "success",
-      ));
+      if (!session || !isCurrentPageTranslationSession(tabId, translationSessionId)) {
+        return Promise.resolve();
+      }
 
-      return noticeQueue;
+      return queuePageTranslationProgressNotice(tabId, session, {
+        completed: Math.min(progressTotal, progressCompleted + progress.completed),
+        total: progressTotal,
+      });
     },
   };
+}
+
+function beginPageTranslationProgressSession(tabId: number, translationSessionId: string) {
+  pageTranslationProgressSessions.set(tabId, {
+    id: translationSessionId,
+    noticeQueue: Promise.resolve(),
+  });
+}
+
+function getOrCreatePageTranslationProgressSession(
+  tabId: number,
+  translationSessionId: string,
+) {
+  const existingSession = pageTranslationProgressSessions.get(tabId);
+  if (existingSession?.id === translationSessionId) {
+    return existingSession;
+  }
+
+  if (existingSession) {
+    return undefined;
+  }
+
+  beginPageTranslationProgressSession(tabId, translationSessionId);
+  return pageTranslationProgressSessions.get(tabId)!;
+}
+
+function clearPageTranslationProgressSession(tabId: number, translationSessionId: string) {
+  if (isCurrentPageTranslationSession(tabId, translationSessionId)) {
+    pageTranslationProgressSessions.delete(tabId);
+  }
+}
+
+function isCurrentPageTranslationSession(tabId: number, translationSessionId: string) {
+  return pageTranslationProgressSessions.get(tabId)?.id === translationSessionId;
+}
+
+function queuePageTranslationProgressNotice(
+  tabId: number,
+  session: PageTranslationProgressSession,
+  progress: TranslationProgress,
+) {
+  session.noticeQueue = session.noticeQueue.then(() => {
+    if (!isCurrentPageTranslationSession(tabId, session.id)) {
+      return;
+    }
+
+    return showOptionalInlineNotice(
+      tabId,
+      t("translatingPageBatch", [String(progress.completed), String(progress.total)]),
+      progress.completed < progress.total ? "loading" : "success",
+    );
+  });
+
+  return session.noticeQueue;
+}
+
+function createPageTranslationSessionId(tabId: number) {
+  return `page-${tabId}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
 async function showInlineNotice(
