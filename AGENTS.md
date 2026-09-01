@@ -39,7 +39,7 @@ Vite outputs fixed extension files:
 
 ## Product Requirements
 
-- Popup and Options should automatically follow the browser/system color scheme with `prefers-color-scheme`; do not add a manual theme switch unless explicitly requested.
+- Popup and Options support System, Light, and Dark themes. System is the default and follows `prefers-color-scheme`; the selected preference is stored as `appTheme` in `chrome.storage.sync`.
 - Default target language is Simplified Chinese.
 - Default translator profile should use Built-in Translator API so the extension can translate immediately after install without API configuration.
 - Target language choices in Popup should come from `src/shared/languages.ts`; Built-in Translator API target language codes should be derived from those same canonical options.
@@ -50,8 +50,8 @@ Vite outputs fixed extension files:
 - Popup title is "Quick Settings" / "快速设置", not the product name.
 - Options title is "Extension Settings" / "扩展设置", not "API Profiles" / "接口配置".
 - Options left nav order is:
-  1. Translators / 翻译接口
-  2. Translation / 翻译设置
+  1. Translation / 翻译设置
+  2. Translators / 翻译接口
   3. Rules / 规则设置
   4. Cache / 缓存设置
 - Avoid UI copy that says the whole Options page is only API configuration. The page now includes translation, rules, and cache settings.
@@ -60,15 +60,15 @@ Vite outputs fixed extension files:
 
 These are roadmap candidates, not current product requirements. Treat them as possible future directions unless a user explicitly asks to implement one. The order below balances product importance and implementation difficulty:
 
-1. Cache lifetime, entry count, and storage size management with clearer cleanup policies. High importance, low-to-medium difficulty.
-2. Automatic source-language detection for page, selection, and input translation. High importance, medium difficulty.
+1. More configurable cache policies beyond the current 10,000-entry LRU cap and manual 30-day stale-entry cleanup, including storage-size limits and user-configurable lifetime/count thresholds. High importance, low-to-medium difficulty.
+2. Broader source-language controls beyond the current Built-in Translator API detection for page and selection translation, including explicit fallback choices and future input translation. High importance, medium difficulty.
 3. More bilingual display styles, including layout, color, font size, and spacing options. Medium-to-high importance, low-to-medium difficulty.
 4. A floating page button for quick translation entry points, status, and restore controls. Medium-to-high importance, medium difficulty.
 5. Per-site rules for translation scope, whitelist terms, no-translate selectors, and default preferences. High importance, medium-to-high difficulty.
-6. More translation engines, including additional LLM providers, machine translation services, and browser-native capabilities. Medium-to-high importance, medium-to-high difficulty.
+6. More translation engines beyond the current OpenAI-compatible and Built-in Translator API providers, including additional LLM providers, machine translation services, and browser-native capabilities. Medium-to-high importance, medium-to-high difficulty.
 7. Input-field translation for textareas, editors, forms, and other editable content. Medium importance, high difficulty.
 8. Subtitle translation for video sites, including translated subtitles and bilingual subtitle display. Medium importance, high difficulty.
-9. Additional configuration sync methods beyond local browser storage. Medium importance, medium-to-high difficulty.
+9. Additional configuration portability and sync methods beyond the current `chrome.storage.sync`, such as import/export or external sync. Medium importance, medium-to-high difficulty.
 10. Online subscription support for shared/common site rules. Medium importance, medium-to-high difficulty.
 11. Chrome Web Store release preparation, including assets, screenshots, privacy copy, packaging, and review readiness. High importance, medium difficulty; best handled after the core feature set stabilizes.
 
@@ -78,7 +78,7 @@ These are roadmap candidates, not current product requirements. Treat them as po
 - Page translation and dynamic page translation may batch multiple segments.
 - Page translation pipeline should filter cache hits before sending uncached text to the model.
 - Concurrency is per translator profile and means concurrent page translation batches.
-- Default concurrency is 4; valid range is 1-8.
+- OpenAI-compatible profiles default to concurrency 4; Built-in Translator API profiles default to 8. The valid range is 1-8.
 - Default max segments per request is 4; max is 8.
 - Default max text length per request is 1200; max is 4000.
 - Batch translation uses a separator protocol and must validate the returned segment count.
