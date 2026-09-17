@@ -438,6 +438,7 @@ function installPageTranslator(
     builtInLanguageDetector: undefined as Promise<BuiltInLanguageDetector | undefined> | undefined,
     isApplyingTranslation: false,
     isFlushing: false,
+    hasFailed: false,
     translationProgressCompleted: 0,
     translationProgressTotal: 0,
     observedElements: new Set<Element>(),
@@ -622,7 +623,7 @@ function installPageTranslator(
   }
 
   async function flushPendingNodes() {
-    if (state.isFlushing) {
+    if (state.isFlushing || state.hasFailed) {
       return
     }
 
@@ -636,6 +637,15 @@ function installPageTranslator(
 
         await requestTranslations(units)
       }
+    } catch (error) {
+      state.hasFailed = true
+      state.pendingNodes.clear()
+      window.clearTimeout(state.debounceTimer)
+      observer.disconnect()
+      viewportObserver?.disconnect()
+      document.removeEventListener('scroll', handleViewportChange, { capture: true })
+      window.removeEventListener('resize', handleViewportChange)
+      throw error
     } finally {
       state.isFlushing = false
     }
@@ -851,7 +861,7 @@ function installPageTranslator(
     return `__OPEN_TRANSLATE_KEEP_${index}__`
   }
 
-  function requestTranslations(units: PageTranslationUnit[]) {
+  async function requestTranslations(units: PageTranslationUnit[]) {
     const sourceTexts = units.map(createTranslationRequestText)
     if (translationProvider === 'built-in-translator') {
       return requestBuiltInTranslations(units)
@@ -863,33 +873,41 @@ function installPageTranslator(
     const requestId = createTranslationRequestId()
     state.translationRequests.set(requestId, { units })
 
-    return new Promise<void>((resolve) => {
-      chrome.runtime.sendMessage(
-        {
-          type: 'open-translate:translate-texts',
-          requestId,
-          translationSessionId,
-          progressCompleted,
-          progressTotal,
-          texts: sourceTexts,
-        },
-        (response) => {
-          const pageTranslationResponse = response as PageTranslationResponse | undefined
-          try {
-            if (!isUsablePageTranslationResponse(pageTranslationResponse)) {
+    try {
+      const response = await new Promise<PageTranslationResponse | undefined>((resolve, reject) => {
+        chrome.runtime.sendMessage(
+          {
+            type: 'open-translate:translate-texts',
+            requestId,
+            translationSessionId,
+            progressCompleted,
+            progressTotal,
+            texts: sourceTexts,
+          },
+          (value) => {
+            const response = value as PageTranslationResponse | undefined
+            const runtimeError = chrome.runtime.lastError
+            if (runtimeError || response?.error) {
+              reject(new Error(runtimeError?.message || response?.error))
               return
             }
+            resolve(response)
+          },
+        )
+      })
+      if (windowWithTranslator.__openTranslatePageSessionId !== pageSessionId) {
+        return
+      }
+      if (!response || !Array.isArray(response.translations) || response.translations.length !== units.length) {
+        throw new Error()
+      }
 
-            applyPageTranslations(units, pageTranslationResponse)
-          } finally {
-            state.translationRequests.delete(requestId)
-            releaseInFlightUnits(units)
-            state.translationProgressCompleted += units.length
-            resolve()
-          }
-        },
-      )
-    })
+      applyPageTranslations(units, response)
+      state.translationProgressCompleted += units.length
+    } finally {
+      state.translationRequests.delete(requestId)
+      releaseInFlightUnits(units)
+    }
   }
 
   function createTranslationRequestText(unit: PageTranslationUnit) {
@@ -1024,17 +1042,6 @@ function installPageTranslator(
         translatedText: translation.text,
       })),
       message.displayMode,
-    )
-  }
-
-  function isUsablePageTranslationResponse(
-    response?: PageTranslationResponse,
-  ): response is PageTranslationResponse {
-    return !(
-      chrome.runtime.lastError ||
-      response?.error ||
-      !response?.translations ||
-      windowWithTranslator.__openTranslatePageSessionId !== pageSessionId
     )
   }
 
@@ -1521,6 +1528,9 @@ function installPageTranslator(
   }
 
   function notifyInitialTranslationComplete() {
+    if (state.hasFailed || windowWithTranslator.__openTranslatePageSessionId !== pageSessionId) {
+      return
+    }
     chrome.runtime.sendMessage({
       type: 'open-translate:initial-page-translation-complete',
       translationSessionId,
@@ -1537,6 +1547,9 @@ function installPageTranslator(
   }
 
   function notifyPageTranslationError(error: unknown) {
+    if (windowWithTranslator.__openTranslatePageSessionId !== pageSessionId) {
+      return
+    }
     chrome.runtime.sendMessage({
       type: 'open-translate:page-translation-error',
       translationSessionId,

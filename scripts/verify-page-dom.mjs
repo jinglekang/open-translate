@@ -56,8 +56,12 @@ try {
       socket.send(JSON.stringify({ id, method, params, sessionId }))
     })
   }
-  for (const [translationMode, displayMode] of [
+  for (const [translationMode, displayMode, failure] of [
     ['element-context', 'translation'], ['element-context', 'bilingual'], ['text-node', 'translation'],
+    ['element-context', 'translation', '401 Unauthorized'],
+    ['element-context', 'translation', '403 Forbidden'],
+    ['element-context', 'translation', 'connection'],
+    ['element-context', 'translation', 'empty'],
   ]) {
     const { targetId } = await send('Target.createTarget', { url: 'about:blank' })
     const { sessionId } = await send('Target.attachToTarget', { targetId, flatten: true })
@@ -69,8 +73,19 @@ try {
     await send('Network.enable', {}, sessionId)
     await send('Network.setBlockedURLs', { urls: ['http://*', 'https://*'] }, sessionId)
     await evaluate(`(${setup.toString()})(${JSON.stringify(suppliedHtml)}, ${JSON.stringify(displayMode)})`)
+    if (failure) await evaluate(`window.failure = ${JSON.stringify(failure)}`)
     await evaluate(runtime)
     await evaluate(`window.startTranslation(${JSON.stringify(translationMode)}, ${JSON.stringify(displayMode)})`)
+    if (failure) {
+      const result = await evaluate(`(${verifyFailure.toString()})()`)
+      const expectedError = failure === 'connection' ? 'Connection lost' : failure === 'empty' ? '' : failure
+      assert.equal(result.error, expectedError, 'Page must forward the original error')
+      assert.equal(result.completed, false, 'Failed translation must not report success')
+      assert.equal(result.requestsBefore, result.requestsAfter, 'Failed session must stop automatic requests')
+      console.log(`PASS page error / ${failure}`)
+      await send('Target.closeTarget', { targetId })
+      continue
+    }
     const result = await evaluate(`(${verify.toString()})()`)
     assert.ok(result.noHiddenRequests, 'Hidden menu/dialog/CSS text was sent for translation')
     assert.ok(result.structurePreserved, 'An original link, control, or container was replaced')
@@ -122,7 +137,19 @@ function setup(suppliedHtml, displayMode) {
       window.messages.push(message)
       if (message.type === 'open-translate:translate-texts') {
         window.requests.push(...message.texts)
-        setTimeout(() => callback({ translations: message.texts.map(mockTranslate), displayMode }), 0)
+        setTimeout(() => {
+          if (window.failure === 'connection') {
+            window.chrome.runtime.lastError = { message: 'Connection lost' }
+            callback(undefined)
+            delete window.chrome.runtime.lastError
+          } else if (window.failure === 'empty') {
+            callback(undefined)
+          } else if (window.failure) {
+            callback({ error: window.failure })
+          } else {
+            callback({ translations: message.texts.map(mockTranslate), displayMode })
+          }
+        }, 0)
       }
     },
   } }
@@ -155,5 +182,26 @@ async function verify() {
     visibleTranslated: document.querySelector('#complex h3').textContent.includes('已发布'),
     codePreserved: document.querySelector('#plain code')?.textContent === 'npm install',
     paragraphTranslatedAsElement: document.querySelector('#plain').dataset.openTranslateElement === 'true',
+  }
+}
+
+async function verifyFailure() {
+  for (let i = 0; i < 200; i++) {
+    if (window.messages.some((message) => message.type === 'open-translate:page-translation-error')) break
+    await new Promise((resolve) => setTimeout(resolve, 20))
+  }
+  const error = window.messages.find((message) => message.type === 'open-translate:page-translation-error')
+  if (!error) throw new Error('Page swallowed the translation error')
+  const requestsBefore = window.requests.length
+  const paragraph = document.createElement('p')
+  paragraph.textContent = 'New content after failure'
+  document.body.append(paragraph)
+  document.dispatchEvent(new Event('scroll'))
+  await new Promise((resolve) => setTimeout(resolve, 800))
+  return {
+    error: error.message,
+    completed: window.messages.some((message) => message.type === 'open-translate:initial-page-translation-complete'),
+    requestsBefore,
+    requestsAfter: window.requests.length,
   }
 }

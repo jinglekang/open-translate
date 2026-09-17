@@ -557,6 +557,9 @@ export function Options() {
                       spellCheck={false}
                       maxLength={profileFieldLimits.apiKey}
                     />
+                    <span className="text-xs leading-5 text-slate-500">
+                      {t('apiKeyDescription')}
+                    </span>
                   </label>
                 )}
 

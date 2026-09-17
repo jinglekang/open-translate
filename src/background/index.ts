@@ -55,6 +55,7 @@ type TranslationProgress = {
 type PageTranslationProgressSession = {
   id: string;
   noticeQueue: Promise<void>;
+  failed?: boolean;
 };
 
 const MAX_TEXT_NODES_PER_ROUND = 180;
@@ -146,7 +147,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sender.tab?.id &&
       isCurrentPageTranslationSession(sender.tab.id, message.translationSessionId)
     ) {
-      void showInlineNotice(sender.tab.id, message.message || t("translationFailed"), "error");
+      void showPageTranslationError(sender.tab.id, message.translationSessionId, message.message);
     }
     return false;
   }
@@ -165,7 +166,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (isInitialPageTranslationCompleteMessage(message)) {
     if (
       sender.tab?.id &&
-      isCurrentPageTranslationSession(sender.tab.id, message.translationSessionId)
+      isCurrentPageTranslationSession(sender.tab.id, message.translationSessionId) &&
+      !pageTranslationProgressSessions.get(sender.tab.id)?.failed
     ) {
       void showPageTranslationComplete(sender.tab.id);
     }
@@ -773,7 +775,7 @@ function queuePageTranslationProgressNotice(
   progress: TranslationProgress,
 ) {
   session.noticeQueue = session.noticeQueue.then(() => {
-    if (!isCurrentPageTranslationSession(tabId, session.id)) {
+    if (session.failed || !isCurrentPageTranslationSession(tabId, session.id)) {
       return;
     }
 
@@ -784,6 +786,22 @@ function queuePageTranslationProgressNotice(
     );
   });
 
+  return session.noticeQueue;
+}
+
+function showPageTranslationError(tabId: number, translationSessionId: string, message: string) {
+  const session = pageTranslationProgressSessions.get(tabId);
+  if (!session || session.id !== translationSessionId || session.failed) {
+    return Promise.resolve();
+  }
+
+  session.failed = true;
+  // Drain any in-flight notice before showing the error, and suppress late progress.
+  session.noticeQueue = session.noticeQueue.catch(() => {}).then(() => {
+    if (isCurrentPageTranslationSession(tabId, translationSessionId)) {
+      return showOptionalInlineNotice(tabId, message || t("translationFailed"), "error");
+    }
+  });
   return session.noticeQueue;
 }
 

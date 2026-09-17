@@ -428,11 +428,12 @@ async function requestChatCompletions(
   messages: ChatMessage[],
 ): Promise<ChatCompletionsPayload> {
   const endpoint = getChatCompletionsEndpoint(profile.apiBaseUrl)
+  const apiKey = profile.apiKey.trim()
   const response = await fetch(endpoint, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${profile.apiKey}`,
+      ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
     },
     body: JSON.stringify({
       model: profile.model,

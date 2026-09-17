@@ -86,6 +86,7 @@ These are roadmap candidates, not current product requirements. Treat them as po
 - If batch translation fails, fall back to single-segment translation.
 - Cache failures must not block translation. Log them and continue.
 - Progress notices should be tied to real translation progress, not only right-click menu flow.
+- Page request failures must propagate to the page error notice, stop the failed runtime session, and never emit a completion notice or allow late progress to overwrite the error.
 - Cache hits should be applied promptly in batches, not one text node at a time and not only after all cache checks finish.
 
 ## Page Runtime Ownership
@@ -153,6 +154,8 @@ Supported providers:
 
 - OpenAI-compatible API through `/chat/completions`.
 - Built-in Translator API.
+
+OpenAI-compatible profiles require an endpoint and model. API Key is optional: omit the `Authorization` header when empty; otherwise send `Bearer <key>`.
 
 Built-in Translator API requirements:
 

@@ -418,7 +418,10 @@
     }
   },
   "apiKey": {
-    "message": "API Key"
+    "message": "API Key（可选）"
+  },
+  "apiKeyDescription": {
+    "message": "接口需要鉴权时填写；免鉴权的私有部署可留空。"
   },
   "apiKeyTooLong": {
     "message": "API Key 不能超过 $LIMIT$ 个字符",
@@ -557,9 +560,6 @@
   },
   "missingModel": {
     "message": "请先在选项页填写模型名称"
-  },
-  "missingApiKey": {
-    "message": "请先在选项页填写 API Key"
   },
   "close": {
     "message": "关闭"

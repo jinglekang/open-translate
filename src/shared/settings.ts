@@ -320,7 +320,6 @@ export function validateProfileForUse(profile: TranslationProfile) {
         .min(1, t('missingModel'))
         .max(profileFieldLimits.model, t('modelNameTooLong', String(profileFieldLimits.model))),
       apiKey: trimmedString
-        .min(1, t('missingApiKey'))
         .max(profileFieldLimits.apiKey, t('apiKeyTooLong', String(profileFieldLimits.apiKey))),
     })
     .safeParse(profile)

@@ -418,7 +418,10 @@
     }
   },
   "apiKey": {
-    "message": "API Key"
+    "message": "API Key (optional)"
+  },
+  "apiKeyDescription": {
+    "message": "Required only for APIs that use authentication. Leave blank for private deployments without authentication."
   },
   "apiKeyTooLong": {
     "message": "API Key must be $LIMIT$ characters or fewer",
@@ -557,9 +560,6 @@
   },
   "missingModel": {
     "message": "Please enter a model name in Options first"
-  },
-  "missingApiKey": {
-    "message": "Please enter an API Key in Options first"
   },
   "close": {
     "message": "Close"
