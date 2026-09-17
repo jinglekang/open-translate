@@ -57,6 +57,18 @@ pnpm build
 - `src/shared/settings.ts` 维护配置 schema、zod 校验、旧配置迁移和默认值
 - `public/_locales` 维护 Chrome 扩展国际化文案
 
+## 打包 ZIP
+
+```bash
+pnpm package
+```
+
+自动执行 `pnpm build`，成功后将 `dist` 的全部文件（含 sourcemap）打包到 `releases/open-translate-<版本号>.zip`。ZIP 根目录直接包含 `manifest.json`，不会额外嵌套 `dist` 目录；同版本重新打包会覆盖旧 ZIP，不同版本的 ZIP 会保留。
+
+打包会检查 `package.json` 与构建后的扩展清单版本是否一致，以及必要入口文件是否存在；检查失败时不会生成或覆盖 ZIP。`releases` 已加入 Git 忽略。打包脚本使用 Node.js，不依赖系统压缩命令。
+
+本地安装 ZIP 时，先解压，再按下述步骤加载解压后的目录。
+
 ## 安装到 Chrome
 
 1. 执行 `pnpm build`

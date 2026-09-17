@@ -9,10 +9,12 @@ This file records project-specific requirements and decisions so future sessions
 ```bash
 pnpm dev
 pnpm build
+pnpm package
 pnpm lint
 ```
 
 - `pnpm build` runs `tsc -b` and then Vite, so type errors fail the build.
+- `pnpm package` builds first, then runs `scripts/package-extension.mjs` to ZIP all of `dist` (including sourcemaps) into ignored `releases/open-translate-<version>.zip`, with `manifest.json` at the archive root. Keep package and manifest versions aligned. Repackaging replaces only the same-version ZIP.
 - There is currently no test framework and no formatter.
 - After code changes, run `pnpm build`, `pnpm lint`, and `git diff --check`.
 - For page DOM changes, run `node scripts/verify-page-dom.mjs` after building. It uses an isolated headless Chromium with mocked translation responses; set `BROWSER_PATH` if Chrome/Edge is not installed in the default Windows location. An optional local HTML file can be passed as the first argument.
