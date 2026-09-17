@@ -420,6 +420,14 @@ function installPageTranslator(
     '[data-component="Tooltip"]',
     '.sr-only',
     '.visually-hidden',
+    'dialog:not([open])',
+    '[popover]:not(:popover-open)',
+  ].join(', ')
+  const interactiveContentSelector = [
+    'a', 'button', 'label', 'summary', 'select', 'option', 'input', 'textarea',
+    'dialog', '[popover]', '[role="button"]', '[role="link"]', '[role="menu"]',
+    '[role="menuitem"]', '[role="tab"]', '[role="treeitem"]', '[role="option"]',
+    '[role="navigation"]', '[role="toolbar"]', 'nav',
   ].join(', ')
   const state = {
     pendingNodes: new Set<Text>(),
@@ -669,9 +677,15 @@ function installPageTranslator(
   function createElementContextUnits(nodes: Text[]) {
     const units: PageTranslationUnit[] = []
     const seenElements = new Set<Element>()
+    const safeContexts = new Map<Element, boolean>()
 
     for (const node of nodes) {
-      if (isInsideInteractiveContent(node)) {
+      const element = getTranslationContextElement(node)
+      if (element && !safeContexts.has(element)) {
+        safeContexts.set(element, isSafeElementTranslationContext(element))
+      }
+
+      if (isInsideInteractiveContent(node) || !element || !safeContexts.get(element)) {
         state.inFlightNodes.add(node)
         units.push({
           kind: 'text',
@@ -681,9 +695,7 @@ function installPageTranslator(
         continue
       }
 
-      const element = getTranslationContextElement(node)
       if (
-        !element ||
         seenElements.has(element) ||
         state.inFlightElements.has(element) ||
         !isTranslatableElementContext(element)
@@ -725,27 +737,34 @@ function installPageTranslator(
   }
 
   function isInsideInteractiveContent(node: Text) {
-    const parent = node.parentElement
-    return !!parent?.closest(
-      [
-        'a',
-        'button',
-        'label',
-        'summary',
-        'select',
-        'option',
-        '[role="button"]',
-        '[role="link"]',
-        '[role="menu"]',
-        '[role="menuitem"]',
-        '[role="tab"]',
-        '[role="treeitem"]',
-        '[role="option"]',
-        '[role="navigation"]',
-        '[role="toolbar"]',
-        'nav',
-      ].join(', '),
-    )
+    return !!node.parentElement?.closest(interactiveContentSelector)
+  }
+
+  function isSafeElementTranslationContext(element: Element): boolean {
+    // Replacing a UI container would flatten its hidden and interactive children.
+    // Fall back to text units so those nodes and their event listeners survive.
+    if (
+      element.matches(interactiveContentSelector) ||
+      element.tagName.includes('-') ||
+      element.querySelector(interactiveContentSelector) ||
+      isHiddenPageElement(element) ||
+      /flex|grid/.test(getComputedStyle(element).display)
+    ) {
+      return false
+    }
+
+    return Array.from(element.children).every((child) => {
+      if (isHiddenPageElement(child) || ignoredTags.has(child.tagName)) {
+        return false
+      }
+      if (matchesNoTranslateSelector(child)) {
+        return true
+      }
+
+      return isPhrasingElement(child) &&
+        ['inline', 'inline-block', 'contents'].includes(getComputedStyle(child).display) &&
+        isSafeElementTranslationContext(child)
+    })
   }
 
   function createElementTranslationUnit(element: Element): ElementTranslationUnit | undefined {
@@ -1074,7 +1093,8 @@ function installPageTranslator(
       return !!(
         unit.element.isConnected &&
         unit.element.innerHTML === unit.originalHtml &&
-        isTranslatableElementContext(unit.element)
+        isTranslatableElementContext(unit.element) &&
+        isSafeElementTranslationContext(unit.element)
       )
     }
 
@@ -1276,7 +1296,7 @@ function installPageTranslator(
       return false
     }
 
-    if (parent.closest(nonContentSelector)) {
+    if (isHiddenPageElement(parent)) {
       return false
     }
 
@@ -1360,6 +1380,27 @@ function installPageTranslator(
 
   function isNonContentElement(element: Element) {
     return element.matches(nonContentSelector)
+  }
+
+  function isHiddenPageElement(element: Element) {
+    if (element.closest(nonContentSelector)) {
+      return true
+    }
+
+    for (let current: Element | null = element; current; current = current.parentElement) {
+      const style = getComputedStyle(current)
+      if (
+        style.display === 'none' ||
+        style.visibility === 'hidden' ||
+        style.visibility === 'collapse' ||
+        style.contentVisibility === 'hidden' ||
+        Number(style.opacity) === 0
+      ) {
+        return true
+      }
+    }
+
+    return false
   }
 
   function isTextInListItemParagraph(parent: Element, listItem: Element) {

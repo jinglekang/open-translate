@@ -15,6 +15,7 @@ pnpm lint
 - `pnpm build` runs `tsc -b` and then Vite, so type errors fail the build.
 - There is currently no test framework and no formatter.
 - After code changes, run `pnpm build`, `pnpm lint`, and `git diff --check`.
+- For page DOM changes, run `node scripts/verify-page-dom.mjs` after building. It uses an isolated headless Chromium with mocked translation responses; set `BROWSER_PATH` if Chrome/Edge is not installed in the default Windows location. An optional local HTML file can be passed as the first argument.
 
 ## Extension Entries
 
@@ -119,6 +120,8 @@ Requirements for whole paragraph mode:
 - Placeholder replacement in runtime should tolerate lowercased tokens from the model.
 - Protected fragments such as `code`, `pre`, and user no-translate selectors must be restored as DOM nodes.
 - If the model drops placeholders, fail safely so protected fragments are not lost.
+- Containers with links, interactive controls, hidden children, custom elements, or complex block layouts must fall back to text-node updates so their DOM identity and event listeners survive. Check safety again before applying an element translation.
+- Exclude closed dialogs/popovers and CSS-hidden subtrees from translation requests.
 
 `translationMode` must participate in cache key generation because prompts and input shape differ between modes.
 
