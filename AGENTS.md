@@ -1,193 +1,60 @@
-# open-translate — Project Notes for Agents
+# Open Translate — 开发约定
 
-Open Translate is an open-source Chrome MV3 translation extension. It is built with Vite, React, Tailwind v4, shadcn/ui style components, TypeScript, Zod, and ESLint.
+Chrome MV3 翻译扩展，使用 Vite、React、TypeScript、Tailwind v4、Zod。已发布到 Chrome Web Store；产品介绍、安装和功能规划见 README，规划不代表当前开发任务。
 
-This file records project-specific requirements and decisions so future sessions can continue without rediscovering them.
+## 命令与验证
 
-## Commands
+- 开发：`pnpm dev`；构建：`pnpm build`（包含 TypeScript 检查）。
+- 修改代码后运行：`pnpm build`、`pnpm lint`、`git diff --check`。
+- 修改页面 DOM 后，构建并运行 `node scripts/verify-page-dom.mjs`。测试使用隔离 Chromium 和模拟翻译；可设置 `BROWSER_PATH`，可传入本地 HTML 文件。
+- 打包：`pnpm package`，先构建，再将完整 dist（含 sourcemap）压缩到 `releases/open-translate-<版本>.zip`。manifest 位于 ZIP 根目录，同版本覆盖；package 与 manifest 版本必须一致。
+- 当前没有测试框架或格式化工具；不额外打包自定义字体。保留压缩和 sourcemap。
 
-```bash
-pnpm dev
-pnpm build
-pnpm package
-pnpm lint
-```
+## 架构与入口
 
-- `pnpm build` runs `tsc -b` and then Vite, so type errors fail the build.
-- `pnpm package` builds first, then runs `scripts/package-extension.mjs` to ZIP all of `dist` (including sourcemaps) into ignored `releases/open-translate-<version>.zip`, with `manifest.json` at the archive root. Keep package and manifest versions aligned. Repackaging replaces only the same-version ZIP.
-- There is currently no test framework and no formatter.
-- After code changes, run `pnpm build`, `pnpm lint`, and `git diff --check`.
-- For page DOM changes, run `node scripts/verify-page-dom.mjs` after building. It uses an isolated headless Chromium with mocked translation responses; set `BROWSER_PATH` if Chrome/Edge is not installed in the default Windows location. An optional local HTML file can be passed as the first argument.
-
-## Extension Entries
-
-- `src/background/index.ts`: MV3 service worker. Owns context menus, settings lookup, page runtime injection, selected-text translation, API translation, cache-aware batch pipeline, and page progress notices.
-- `src/page/runtime.ts`: injected page runtime. Owns initial collection, mutation collection, scroll collection, node state, applying translations, restoring original text, and Built-in Translator API page translation.
-- `src/popup/main.tsx`: quick settings popup. Keep it compact. It should expose current translator, target language, display mode, translation scope, translation mode, and an Options entry.
-- `src/options/main.tsx`: full settings page. It uses left navigation and right content, with menu order: translators, translation, rules, cache.
-- `src/shared/settings.ts`: Zod schemas, defaults, validation, and settings normalization.
-- `src/background/translation.ts`: OpenAI-compatible request logic, batching, prompt construction, cache keys, and cache reads/writes.
-- `public/_locales/{zh_CN,en}/messages.json`: all user-visible strings.
-
-Vite outputs fixed extension files:
-
-| Source | Output |
+| 文件 | 职责 |
 |---|---|
-| `src/background/index.ts` | `dist/service-worker.js` |
-| `src/page/runtime.ts` | `dist/page-runtime.js` |
-| `src/popup/index.html` | `dist/popup/index.html` |
-| `src/options/index.html` | `dist/options/index.html` |
+| `src/background/index.ts` | 菜单、设置读取、运行时注入、请求调度和进度提示 |
+| `src/background/translation.ts` | OpenAI 兼容请求、提示词、批处理和缓存 |
+| `src/page/runtime.ts` | DOM 收集、动态/滚动翻译、节点状态、译文应用、原文恢复和内置翻译 |
+| `src/popup/main.tsx` / `src/options/main.tsx` | 快速设置 / 完整设置 |
+| `src/shared/settings.ts` | 设置 schema、默认值、校验和规范化 |
+| `public/_locales/{zh_CN,en}/messages.json` | 用户界面文案，两种语言同步维护 |
 
-`dist/page-runtime.js` must remain self-contained because it is injected with `chrome.scripting.executeScript({ files: ["page-runtime.js"] })`.
+- DOM 状态由页面运行时统一管理，background 不重复实现收集逻辑。
+- 固定产物：`service-worker.js`、`page-runtime.js`、`popup/index.html`、`options/index.html`。
+- `page-runtime.js` 通过文件注入，必须自包含；内置 Translator API 在页面环境运行，不能放在 service worker。
+- 保留跨站页面翻译所需的 host 权限，不能直接用 `activeTab` 替代。兼容 Chrome/Edge，内置翻译取决于浏览器能力。
 
-## Product Requirements
+## 设置与命名
 
-- Popup and Options support System, Light, and Dark themes. System is the default and follows `prefers-color-scheme`; the selected preference is stored as `appTheme` in `chrome.storage.sync`.
-- Default target language is Simplified Chinese.
-- Default translator profile should use Built-in Translator API so the extension can translate immediately after install without API configuration.
-- Target language choices in Popup should come from `src/shared/languages.ts`; Built-in Translator API target language codes should be derived from those same canonical options.
-- Default display mode is bilingual.
-- Default translation scope is viewport.
-- Default translation mode is whole paragraph.
-- Popup labels use left-label/right-control rows.
-- Popup title is "Quick Settings" / "快速设置", not the product name.
-- Options title is "Extension Settings" / "扩展设置", not "API Profiles" / "接口配置".
-- Options left nav order is:
-  1. Translation / 翻译设置
-  2. Translators / 翻译接口
-  3. Rules / 规则设置
-  4. Cache / 缓存设置
-- Avoid UI copy that says the whole Options page is only API configuration. The page now includes translation, rules, and cache settings.
+- 默认：内置翻译、简体中文、双语、当前视窗、段落整体；主题默认跟随系统，支持浅色/深色，`appTheme` 存于 sync。
+- 语言选项统一来自 `src/shared/languages.ts`，内置翻译的语言代码也从此派生。
+- Popup 标题为“快速设置 / Quick Settings”，保持左标签右控件，提供当前接口、目标语言、显示偏好、范围、方式和设置入口。
+- Options 标题为“扩展设置 / Extension Settings”，左侧菜单依次为翻译设置、翻译接口、规则、缓存；不要把整页称作接口配置。
+- 使用 `translationScope / TranslationScope`、`translationMode / TranslationMode`、`translators`、`translatePageTexts` 和 `Page*`；不要恢复旧的 `pageTranslationScope`、`pageTextProcessingMode`、`Dynamic*` 命名。`TranslationProfile / profile` 可保留。
+- `element-context` 对应“段落整体 / Whole paragraph”，`text-node` 对应“逐文本节点 / Text nodes”。
 
-## Potential Future Features
+## 翻译约束
 
-These are roadmap candidates, not current product requirements. Treat them as possible future directions unless a user explicitly asks to implement one. The order below balances product importance and implementation difficulty:
+- OpenAI 兼容接口使用 `/chat/completions`，地址和模型必填；API Key 可选，空值不发送 Authorization，非空发送 Bearer。
+- 内置翻译隐藏地址、模型、Key 和提示词字段；并发和批处理参数仍按接口配置保存。
+- 选中文本仅发单次请求，不批处理。页面可批处理：先应用缓存命中，再请求未命中项；命中结果及时分批应用。
+- 并发指每个接口的页面批次并发数：API 默认 4，内置默认 8，范围 1–8。每批默认 4 段、最多 8 段；默认 1200 字符、最多 4000。
+- 批处理使用分隔协议，必须校验返回段数，失败回退逐段请求。缓存失败只记录日志，不阻断翻译。
+- 进度反映实际翻译状态；页面请求失败要显示错误并停止本轮自动翻译，不能误报完成，也不能被后续进度覆盖。
 
-1. More configurable cache policies beyond the current configurable LRU entry cap and manual 30-day stale-entry cleanup, including storage-size limits and a user-configurable lifetime. High importance, low-to-medium difficulty.
-2. Broader source-language controls beyond the current Built-in Translator API detection for page and selection translation, including explicit fallback choices and future input translation. High importance, medium difficulty.
-3. More bilingual display styles, including layout, color, font size, and spacing options. Medium-to-high importance, low-to-medium difficulty.
-4. A floating page button for quick translation entry points, status, and restore controls. Medium-to-high importance, medium difficulty.
-5. Per-site rules for translation scope, whitelist terms, no-translate selectors, and default preferences. High importance, medium-to-high difficulty.
-6. More translation engines beyond the current OpenAI-compatible and Built-in Translator API providers, including additional LLM providers, machine translation services, and browser-native capabilities. Medium-to-high importance, medium-to-high difficulty.
-7. Input-field translation for textareas, editors, forms, and other editable content. Medium importance, high difficulty.
-8. Subtitle translation for video sites, including translated subtitles and bilingual subtitle display. Medium importance, high difficulty.
-9. Additional configuration portability and sync methods beyond the current `chrome.storage.sync`, such as import/export or external sync. Medium importance, medium-to-high difficulty.
-10. Online subscription support for shared/common site rules. Medium importance, medium-to-high difficulty.
-11. Chrome Web Store release preparation, including assets, screenshots, privacy copy, packaging, and review readiness. High importance, medium difficulty; best handled after the core feature set stabilizes.
+## DOM 安全与双语布局
 
-## Translation Behavior
+- 段落模式用 `__OPEN_TRANSLATE_KEEP_0__` 等占位符保护片段。提示词要求原样保留；回填容忍小写，恢复为 DOM 节点，占位符丢失时不能丢掉原片段。
+- 包含链接、交互控件、隐藏内容、自定义元素或复杂块布局时，回退文本节点更新，保留节点身份和事件；应用译文前再次检查安全性。
+- 不请求翻译隐藏子树、未打开的 dialog/popover；始终跳过扩展 UI、表单控件及 SVG/canvas/iframe/script/style/noscript 等技术节点。
+- 双语布局两种翻译模式共用：完整标题/段落优先换行，普通长文本参考可用宽度；导航、控件、混合句子片段和受限布局保持同行。不为排版修改父容器布局或重建交互节点。
+- 白名单和不翻译选择器是逗号分隔的用户规则，删除默认项后必须生效。`pre`、`code`、`[contenteditable="true"]` 仅通过用户选择器保护，不能硬编码强制跳过。
+- `src/shared/whitelist.ts` 中的基础文本过滤不是用户白名单；最小翻译长度 `minTranslationTextLength` 默认 2。
 
-- Selected-text translation is single-request translation. Do not batch selected text.
-- Page translation and dynamic page translation may batch multiple segments.
-- Page translation pipeline should filter cache hits before sending uncached text to the model.
-- Concurrency is per translator profile and means concurrent page translation batches.
-- OpenAI-compatible profiles default to concurrency 4; Built-in Translator API profiles default to 8. The valid range is 1-8.
-- Default max segments per request is 4; max is 8.
-- Default max text length per request is 1200; max is 4000.
-- Batch translation uses a separator protocol and must validate the returned segment count.
-- If batch translation fails, fall back to single-segment translation.
-- Cache failures must not block translation. Log them and continue.
-- Progress notices should be tied to real translation progress, not only right-click menu flow.
-- Page request failures must propagate to the page error notice, stop the failed runtime session, and never emit a completion notice or allow late progress to overwrite the error.
-- Cache hits should be applied promptly in batches, not one text node at a time and not only after all cache checks finish.
+## 缓存
 
-## Page Runtime Ownership
-
-The page runtime is the owner of page translation state:
-
-- initial collection
-- dynamic mutation collection
-- scroll collection
-- visible/viewport filtering
-- translated-node bookkeeping
-- duplicate prevention
-- applying partial and final translations
-- restoring original page text
-
-The background service worker should start the runtime and process translation requests, but should not duplicate DOM collection logic.
-
-Use `Page*` naming for page runtime behavior. Do not introduce new `Dynamic*` names for page translation features.
-
-## Translation Modes
-
-The internal setting is `translationMode`.
-
-- `element-context`: UI label "Whole paragraph" / "段落整体". This is the default.
-- `text-node`: UI label "Text nodes" / "逐文本节点".
-
-Whole paragraph mode translates an element-sized inline fragment and protects inline nodes with placeholders such as `__OPEN_TRANSLATE_KEEP_0__`.
-
-Requirements for whole paragraph mode:
-
-- Keep protected placeholders in the prompt and tell the model not to translate, lowercase, split, wrap, or explain them.
-- Placeholder replacement in runtime should tolerate lowercased tokens from the model.
-- Protected fragments such as `code`, `pre`, and user no-translate selectors must be restored as DOM nodes.
-- If the model drops placeholders, fail safely so protected fragments are not lost.
-- Containers with links, interactive controls, hidden children, custom elements, or complex block layouts must fall back to text-node updates so their DOM identity and event listeners survive. Check safety again before applying an element translation.
-- Exclude closed dialogs/popovers and CSS-hidden subtrees from translation requests.
-
-Bilingual rendering uses conservative automatic placement: complete headings/paragraphs use a separate line, and long generic text uses available width as a hint. Navigation, controls, mixed sentence fragments, and constrained layouts stay inline. Never change parent layout or replace original interactive nodes just to position translations. Both translation modes must follow the same placement rules.
-
-`translationMode` must participate in cache key generation because prompts and input shape differ between modes.
-
-## Rules And Filtering
-
-- `minTranslationTextLength` lives in translation settings. Default is 2.
-- User whitelist is comma-separated text in Options.
-- Default user whitelist terms are user-editable defaults, not forced rules. If the user removes them, they should stop being skipped by whitelist matching.
-- No-translate selectors are comma-separated text in Options.
-- Default no-translate selectors include `pre`, `code`, and `[contenteditable="true"]`.
-- These three defaults are user rules, not forced runtime rules. If the user removes them, the runtime should stop treating those nodes as no-translate nodes.
-- Built-in filtering rules are in `src/shared/whitelist.ts` and are not user-editable. They are basic text filters, not whitelist entries.
-- The runtime should always skip extension UI and non-content technical nodes such as form controls, SVG/canvas/iframe/script/style/noscript.
-- The runtime should skip `pre`, `code`, contenteditable, and similar content only through `noTranslateSelectors`, so the user can opt out by editing rules.
-- Inline code should usually be preserved, not translated. Whole paragraph mode is preferred for quality around inline code because it preserves context with placeholders.
-
-## Cache
-
-- Translation cache uses `chrome.storage.local`.
-- Do not add a cache version field. The project has not shipped yet, so compatibility migrations are not needed unless explicitly requested.
-- `maxTranslationCacheEntries` is configurable in Cache settings. Default is 10,000; valid range is 1-100,000. Saving a lower limit should prune excess entries immediately in least-recently-used order.
-- Cache key should include settings that affect output, including endpoint, model, target language, custom prompt, `translationMode`, and source text.
-- Cache key should not include unrelated UI state such as display mode.
-- Options cache page should show cache count and provide clear-cache.
-
-## Providers
-
-Supported providers:
-
-- OpenAI-compatible API through `/chat/completions`.
-- Built-in Translator API.
-
-OpenAI-compatible profiles require an endpoint and model. API Key is optional: omit the `Authorization` header when empty; otherwise send `Bearer <key>`.
-
-Built-in Translator API requirements:
-
-- It must run in the page context, not the MV3 service worker.
-- Hide endpoint, model, API key, and custom prompt fields for Built-in Translator API profiles.
-- Keep concurrency and batch settings per profile because different providers/models have different limits.
-
-## Naming
-
-Use the current names:
-
-- `translationScope`, not `pageTranslationScope`.
-- `TranslationScope`, not `PageTranslationScope`.
-- `translationMode`, not `pageTextProcessingMode`.
-- `TranslationMode`, not `PageTextProcessingMode`.
-- `translators` tab, not `profiles` tab.
-- `translatePageTexts`, not `translateDynamicTexts`.
-
-`TranslationProfile` and `profile` are still acceptable for the internal model representing a saved translator configuration.
-
-## Chrome Extension Notes
-
-- The extension currently needs broad host access for page translation across arbitrary websites.
-- `activeTab` alone is usually not enough for automatic dynamic/scroll/runtime page behavior unless the product scope is changed.
-- The extension should support Chromium browsers such as Chrome and Edge as long as used APIs are available. Built-in Translator API availability depends on the current browser.
-
-## Build And Release Notes
-
-- `minify` can stay enabled because sourcemaps preserve debugging for this open-source project.
-- Do not bundle custom web fonts unless explicitly requested.
-- Keep i18n strings in both `zh_CN` and `en`.
+- 使用 `chrome.storage.local`；不加缓存版本字段，未经明确要求不加兼容迁移。
+- `maxTranslationCacheEntries` 默认 10,000，范围 1–100,000；调低并保存时立即按 LRU 清理超额条目。缓存页保留数量统计和清空操作。
+- 缓存 key 包含地址、模型、目标语言、自定义提示词、`translationMode` 和原文；不包含双语/仅译文等不影响翻译结果的 UI 状态。

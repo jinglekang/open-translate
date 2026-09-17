@@ -2,6 +2,8 @@
 
 Open Translate 是一个开源 Chromium 翻译插件，支持浏览器内置 Translator API，也支持配置 OpenAI 兼容的大模型接口。默认使用浏览器内置翻译，在浏览器支持对应能力和语言包时，安装后无需配置即可翻译网页选中文本或页面内容。
 
+项目已发布到 [Chrome Web Store](https://chromewebstore.google.com/detail/open-translate/bcieagnhjamgbcbhmmpadcfpdjokhjgj)，也支持从源码构建或使用 ZIP 包解压安装。
+
 > 本项目由 AI 辅助开发。
 
 ## 功能
@@ -37,7 +39,6 @@ Open Translate 是一个开源 Chromium 翻译插件，支持浏览器内置 Tra
 8. 字幕翻译：支持视频站点字幕识别、翻译和双语字幕显示。重要程度中，实现难度高。
 9. 配置迁移与同步：在现有 `chrome.storage.sync` 基础上，增加导入导出或外部同步方式。重要程度中，实现难度中到高。
 10. 在线规则订阅：订阅通用规则列表，减少常见网站的手动配置成本。重要程度中，实现难度中到高。
-11. 上架发布：完善图标、截图、隐私说明和打包流程，准备发布到 Chrome Web Store。重要程度高，实现难度中，适合在核心功能稳定后推进。
 
 ## 开发
 
@@ -70,6 +71,8 @@ pnpm package
 本地安装 ZIP 时，先解压，再按下述步骤加载解压后的目录。
 
 ## 安装到 Chrome
+
+可通过 [Chrome Web Store 安装 Open Translate](https://chromewebstore.google.com/detail/open-translate/bcieagnhjamgbcbhmmpadcfpdjokhjgj)。以下步骤适用于本地构建后安装；使用 ZIP 包时，先解压，再加载解压后的目录。
 
 1. 执行 `pnpm build`
 2. 打开 Chrome 扩展管理页：`chrome://extensions`
