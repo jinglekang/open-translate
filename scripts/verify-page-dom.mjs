@@ -57,7 +57,8 @@ try {
     })
   }
   for (const [translationMode, displayMode, failure] of [
-    ['element-context', 'translation'], ['element-context', 'bilingual'], ['text-node', 'translation'],
+    ['element-context', 'translation'], ['element-context', 'bilingual'],
+    ['text-node', 'translation'], ['text-node', 'bilingual'],
     ['element-context', 'translation', '401 Unauthorized'],
     ['element-context', 'translation', '403 Forbidden'],
     ['element-context', 'translation', 'connection'],
@@ -97,6 +98,14 @@ try {
     if (translationMode === 'element-context') {
       assert.ok(result.paragraphTranslatedAsElement, 'Plain paragraph lost whole-paragraph translation')
     }
+    if (displayMode === 'bilingual') {
+      const layouts = await evaluate(`(${verifyLayouts.toString()})()`)
+      for (const layout of layouts) {
+        assert.ok(layout.count > 0, `Missing translation: ${layout.id}`)
+        assert.ok(layout.matches, `Unexpected bilingual layout: ${layout.id}`)
+        assert.ok(layout.below, `Translation should start below the original: ${layout.id}`)
+      }
+    }
     console.log(`PASS ${translationMode} / ${displayMode}${suppliedHtml ? ' + supplied DOM' : ''}`)
     await send('Target.closeTarget', { targetId })
   }
@@ -121,8 +130,28 @@ function setup(suppliedHtml, displayMode) {
     <p>Visible label<span class="css-hidden">Hidden CSS text</span></p>
     <p>Visible caption<span class="sr-only">Hidden screen-reader text</span></p>
     <div class="transparent"><p>Hidden ancestor text</p></div>
-  </section><p id="plain">Use <code>npm install</code> to install.</p>`
-  const roots = [...document.querySelectorAll('#supplied *, #complex *')]
+  </section><p id="plain">Use <code>npm install</code> to install.</p>
+  <section id="layouts" style="width: 600px">
+    <header><h1 id="layout-title" data-layout="block">Changelog</h1></header>
+    <h2 id="layout-link" data-layout="block"><a href="/article">Automate authorization for classic tokens and SSH keys</a></h2>
+    <p id="layout-paragraph" data-layout="block">A complete paragraph should place its translation on a separate line.</p>
+    <div id="layout-long" data-layout="block" style="width: 280px">A long card description without a semantic paragraph tag should also use a separate line.</div>
+    <div id="layout-wide" data-layout="inline" style="width: 1600px">A description with enough room for both language versions.</div>
+    <div style="display: flex"><h2 id="layout-flex-child" data-layout="block">Heading inside a flex row</h2></div>
+    <div style="height: 100px; overflow: auto"><p id="layout-scroll-child" data-layout="block">Paragraph inside a scrollable page shell</p></div>
+    <div style="overflow-x: hidden"><p id="layout-shell-child" data-layout="block">Paragraph inside a shell that only clips horizontal overflow</p></div>
+    <nav><a id="layout-nav" data-layout="inline" href="/docs">Documentation</a></nav>
+    <span id="layout-tag" data-layout="inline">New releases</span>
+    <button id="layout-button" data-layout="inline">Try the application</button>
+    <p id="layout-mixed" data-layout="inline">Read <a href="/guide">the guide</a> for more details.</p>
+    <h2 id="layout-nowrap" data-layout="inline" style="white-space: nowrap">Single line heading</h2>
+    <h2 id="layout-flex" data-layout="inline" style="display: flex">Flex heading</h2>
+    <h2 id="layout-grid" data-layout="inline" style="display: grid">Grid heading</h2>
+    <h2 id="layout-fixed" data-layout="inline" style="height: 40px">Fixed height heading</h2>
+    <div style="height: 80px"><p id="layout-fixed-parent" data-layout="inline">Paragraph in a fixed height card</p></div>
+    <h2 id="layout-clipped" data-layout="inline" style="overflow: hidden">Clipped heading</h2>
+  </section>`
+  const roots = [...document.querySelectorAll('#supplied *, #complex *, #layouts a, #layouts button')]
   window.originalElements = roots
   window.clicks = 0
   window.link = document.querySelector('#complex a')
@@ -183,6 +212,23 @@ async function verify() {
     codePreserved: document.querySelector('#plain code')?.textContent === 'npm install',
     paragraphTranslatedAsElement: document.querySelector('#plain').dataset.openTranslateElement === 'true',
   }
+}
+
+function verifyLayouts() {
+  return [...document.querySelectorAll('[data-layout]')].map((element) => {
+    const wrappers = [...element.querySelectorAll('[data-open-translate-bilingual]')]
+    const block = element.dataset.layout === 'block'
+    const original = document.createRange()
+    original.selectNodeContents(element)
+    if (wrappers[0]) original.setEndBefore(wrappers[0])
+    return {
+      id: element.id,
+      count: wrappers.length,
+      // Flex/grid blockify children even when our conservative style stays inline.
+      matches: wrappers.every((wrapper) => wrapper.style.display === element.dataset.layout),
+      below: !block || wrappers[0]?.getBoundingClientRect().top >= original.getBoundingClientRect().bottom,
+    }
+  })
 }
 
 async function verifyFailure() {

@@ -124,6 +124,8 @@ Requirements for whole paragraph mode:
 - Containers with links, interactive controls, hidden children, custom elements, or complex block layouts must fall back to text-node updates so their DOM identity and event listeners survive. Check safety again before applying an element translation.
 - Exclude closed dialogs/popovers and CSS-hidden subtrees from translation requests.
 
+Bilingual rendering uses conservative automatic placement: complete headings/paragraphs use a separate line, and long generic text uses available width as a hint. Navigation, controls, mixed sentence fragments, and constrained layouts stay inline. Never change parent layout or replace original interactive nodes just to position translations. Both translation modes must follow the same placement rules.
+
 `translationMode` must participate in cache key generation because prompts and input shape differ between modes.
 
 ## Rules And Filtering

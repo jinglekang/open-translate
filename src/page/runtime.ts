@@ -1167,7 +1167,9 @@ function installPageTranslator(
     }
 
     unit.node.nodeValue = unit.sourceText
-    unit.node.parentNode?.insertBefore(createPageBilingualText(translatedText), unit.node.nextSibling)
+    const wrapper = createPageBilingualWrapper(unit, translatedText)
+    wrapper.textContent = translatedText
+    unit.node.parentNode?.insertBefore(wrapper, unit.node.nextSibling)
   }
 
   function applyElementTranslation(
@@ -1199,7 +1201,9 @@ function installPageTranslator(
       return
     }
 
-    unit.element.append(createPageBilingualFragment(translatedText, unit.fragments))
+    const wrapper = createPageBilingualWrapper(unit, translatedText)
+    wrapper.append(...createTranslatedNodes(translatedText, unit.fragments))
+    unit.element.append(wrapper)
   }
 
   function replaceElementContentWithTranslation(
@@ -1210,21 +1214,87 @@ function installPageTranslator(
     element.replaceChildren(...createTranslatedNodes(translatedText, fragments))
   }
 
-  function createPageBilingualFragment(
-    translatedText: string,
-    fragments: ProtectedFragment[],
-  ) {
+  function createPageBilingualWrapper(unit: PageTranslationUnit, translatedText: string) {
+    const block = shouldBreakPageBilingualLine(unit, translatedText)
     const wrapper = document.createElement('font')
     wrapper.dataset.openTranslateBilingual = 'true'
+    wrapper.dataset.openTranslateLayout = block ? 'block' : 'inline'
     wrapper.style.cssText = `
-      display: inline;
-      margin-left: 0.35em;
+      display: ${block ? 'block' : 'inline'};
+      ${block ? 'margin-block-start: 0.25em;' : 'margin-inline-start: 0.35em;'}
       font: inherit;
       color: inherit;
     `
-    wrapper.append(...createTranslatedNodes(translatedText, fragments))
 
     return wrapper
+  }
+
+  function shouldBreakPageBilingualLine(unit: PageTranslationUnit, translatedText: string) {
+    const host = unit.kind === 'element' ? unit.element : unit.node.parentElement
+    if (!host || host.closest(
+      'nav, button, label, summary, time, td, th, [role="navigation"], ' +
+      '[role="toolbar"], [role="menu"], [role="button"], [role="tab"], [role="option"]',
+    )) {
+      return false
+    }
+
+    // Only break a complete text block, never individual pieces of a mixed sentence.
+    const normalize = (text: string) => text.replace(/\s+/g, ' ').trim()
+    const source = unit.kind === 'element' ? unit.element.textContent || '' : unit.sourceText
+    const sourceText = normalize(source)
+    let container: Element | null = host
+    while (container && container !== document.body && container !== document.documentElement) {
+      if (normalize(container.textContent || '') !== sourceText) return false
+      const style = getComputedStyle(container)
+      if (style.display !== 'inline' && style.display !== 'contents') break
+      container = container.parentElement
+    }
+    if (!container || container === document.body || container === document.documentElement) {
+      return false
+    }
+
+    // Do not change parent layout or turn a translation into an extra flex/grid item.
+    // Check ancestors too: a normal paragraph may live inside a fixed-height card.
+    for (let current: Element | null = host; current && current !== document.body; current = current.parentElement) {
+      const style = getComputedStyle(current)
+      const insideTextBlock = current === host || container.contains(current)
+      if (
+        insideTextBlock && (
+          style.whiteSpace === 'nowrap' || style.whiteSpace === 'pre' ||
+          style.overflowX !== 'visible' || style.overflowY !== 'visible' ||
+          style.maxHeight !== 'none' ||
+          (style.webkitLineClamp !== '' && style.webkitLineClamp !== 'none') ||
+          style.writingMode !== 'horizontal-tb' ||
+          !['inline', 'contents', 'block', 'flow-root', 'list-item'].includes(style.display)
+        )
+      ) return false
+
+      // Typed OM preserves "auto", unlike getComputedStyle().height (used pixels).
+      const typedStyle = (current as Element & {
+        computedStyleMap?: () => { get: (name: string) => { toString: () => string } | undefined }
+      }).computedStyleMap?.()
+      const height = typedStyle?.get('height')?.toString()
+      const constrainedHeight = (height && height !== 'auto') || style.maxHeight !== 'none'
+      // Scrollable page shells can accommodate extra lines; fixed cards cannot.
+      const scrollable = style.overflowY === 'auto' || style.overflowY === 'scroll'
+      if (constrainedHeight && (insideTextBlock || !scrollable)) return false
+    }
+
+    if (container.matches('h1, h2, h3, h4, h5, h6, p, blockquote, [role="heading"]')) {
+      return true
+    }
+
+    // Untagged article/card text: leave short labels inline, break long text when
+    // the two versions would crowd the available line. Measure locally, no API call.
+    if (sourceText.length < 40) return false
+    const style = getComputedStyle(container)
+    const availableWidth = container.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight)
+    const context = document.createElement('canvas').getContext('2d')
+    if (!context || availableWidth <= 0) return false
+    context.font = `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`
+    const combinedText = `${sourceText} ${translatedText}`
+    const letterSpacing = parseFloat(style.letterSpacing) || 0
+    return context.measureText(combinedText).width + combinedText.length * letterSpacing > availableWidth * 0.85
   }
 
   function createTranslatedNodes(translatedText: string, fragments: ProtectedFragment[]) {
@@ -1261,20 +1331,6 @@ function installPageTranslator(
     }
 
     return nodes.length ? nodes : [document.createTextNode(translatedText)]
-  }
-
-  function createPageBilingualText(translatedText: string) {
-    const wrapper = document.createElement('font')
-    wrapper.dataset.openTranslateBilingual = 'true'
-    wrapper.textContent = translatedText
-    wrapper.style.cssText = `
-      display: inline;
-      margin-left: 0.35em;
-      font: inherit;
-      color: inherit;
-    `
-
-    return wrapper
   }
 
   function removeExistingBilingualElementTranslation(element: Element) {
